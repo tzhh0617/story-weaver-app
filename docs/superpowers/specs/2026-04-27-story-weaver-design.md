@@ -274,13 +274,14 @@ CREATE TABLE character_states (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
   book_id       TEXT NOT NULL,
   character_id  TEXT NOT NULL,
+  volume_index  INTEGER NOT NULL,
   chapter_index INTEGER NOT NULL,
   location      TEXT,
   status        TEXT,
   knowledge     TEXT,
   emotion       TEXT,
   power_level   TEXT,
-  UNIQUE (book_id, character_id, chapter_index)
+  UNIQUE (book_id, character_id, volume_index, chapter_index)
 );
 
 -- 伏笔 & 暗线
