@@ -2,7 +2,7 @@
   "compilerOptions": {
     "target": "ES2022",
     "useDefineForClassFields": true,
-    "lib": ["DOM", "DOM.Iterable", "ES2022"],
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "allowJs": false,
     "skipLibCheck": true,
     "esModuleInterop": true,
@@ -15,14 +15,7 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    "types": ["node", "vitest/globals"]
+    "types": ["vitest/globals"]
   },
-  "include": [
-    "electron/**/*.ts",
-    "renderer/**/*.ts",
-    "renderer/**/*.tsx",
-    "tests/**/*.ts",
-    "tests/**/*.tsx",
-    "vite.config.ts"
-  ]
+  "include": ["renderer", "src", "tests", "vite.config.ts", "vitest.config.ts", "tailwind.config.ts"]
 }

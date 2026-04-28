@@ -1,0 +1,9 @@
+appId: com.storyweaver.desktop
+productName: Story Weaver
+files:
+  - dist/**
+  - dist-electron/**
+mac:
+  category: public.app-category.productivity
+directories:
+  output: release

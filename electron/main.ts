@@ -1,31 +1,40 @@
 import { app, BrowserWindow } from 'electron';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { registerBookHandlers } from './ipc/books.js';
+import { registerModelHandlers } from './ipc/models.js';
+import { registerSchedulerHandlers } from './ipc/scheduler.js';
+import { registerSettingsHandlers } from './ipc/settings.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-function createWindow() {
-  const window = new BrowserWindow({
-    width: 1280,
-    height: 800,
+async function createWindow() {
+  const mainWindow = new BrowserWindow({
+    width: 1440,
+    height: 960,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: path.join(app.getAppPath(), 'dist-electron/electron/preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
     },
   });
 
   if (process.env.VITE_DEV_SERVER_URL) {
-    void window.loadURL(process.env.VITE_DEV_SERVER_URL);
-  } else {
-    void window.loadFile(path.join(__dirname, '../renderer/index.html'));
+    await mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL);
+    return;
   }
+
+  await mainWindow.loadFile(path.join(app.getAppPath(), 'dist/index.html'));
 }
 
-app.whenReady().then(() => {
-  createWindow();
+app.whenReady().then(async () => {
+  registerBookHandlers();
+  registerModelHandlers();
+  registerSchedulerHandlers();
+  registerSettingsHandlers();
 
-  app.on('activate', () => {
+  await createWindow();
+
+  app.on('activate', async () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
+      await createWindow();
     }
   });
 });
