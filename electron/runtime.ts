@@ -10,13 +10,19 @@ import {
   createAiSummaryGenerator,
 } from '../src/core/ai-post-chapter.js';
 import { createBookService } from '../src/core/book-service.js';
-import { createDevelopmentOutlineService } from '../src/core/development-outline.js';
 import { createNovelEngine } from '../src/core/engine.js';
 import { createModelTestService } from '../src/core/model-test.js';
 import { createScheduler } from '../src/core/scheduler.js';
 import { createChapterWriter } from '../src/core/chapter-writer.js';
 import { type ModelConfigInput } from '../src/models/config.js';
 import { createRuntimeRegistry } from '../src/models/registry.js';
+import {
+  createRuntimeMode,
+  DEFAULT_MOCK_MODEL_ID,
+} from '../src/models/runtime-mode.js';
+import {
+  createMockStoryServices,
+} from '../src/mock/story-services.js';
 import { buildAppPaths } from '../src/shared/paths.js';
 import { createBookRepository } from '../src/storage/books.js';
 import { createChapterRepository } from '../src/storage/chapters.js';
@@ -106,136 +112,32 @@ function getEnvironmentModelConfigs(): ModelConfigInput[] {
   return configs;
 }
 
-function getAvailableModelConfigs(
-  persistedConfigs: ModelConfigInput[]
-): ModelConfigInput[] {
-  return [
-    ...persistedConfigs,
-    ...getEnvironmentModelConfigs().filter(
-      (envConfig) =>
-        !persistedConfigs.some((config) => config.id === envConfig.id)
-    ),
-  ];
+function getRuntimeModelMode(persistedConfigs: ModelConfigInput[]) {
+  return createRuntimeMode({
+    persistedConfigs,
+    environmentConfigs: getEnvironmentModelConfigs(),
+    fallbackModelId: DEFAULT_MOCK_MODEL_ID,
+  });
 }
 
-function createDevelopmentChapterWriter() {
-  return {
-    async writeChapter(input: { modelId: string; prompt: string }) {
-      const [, chapterLine = 'Untitled Chapter'] =
-        input.prompt.match(/Chapter title: (.+)/) ?? [];
-      const [, outlineLine = 'No outline'] =
-        input.prompt.match(/Chapter outline: (.+)/) ?? [];
+function getRuntimeLanguageModel(input: {
+  persistedConfigs: ModelConfigInput[];
+  modelId: string;
+}) {
+  const runtimeMode = getRuntimeModelMode(input.persistedConfigs);
 
-      return {
-        content: [
-          `${chapterLine}`,
-          '',
-          `This development-mode chapter expands the outline: ${outlineLine}.`,
-          'It exists so the desktop flow can generate visible prose before the full long-running writing engine is wired in.',
-        ].join('\n'),
-        usage: {
-          inputTokens: 0,
-          outputTokens: 0,
-        },
-      };
-    },
-  };
-}
+  if (runtimeMode.kind === 'mock') {
+    throw new Error(`Model not found: ${input.modelId}`);
+  }
 
-function createDevelopmentSummaryGenerator() {
-  return {
-    async summarizeChapter(input: { modelId: string; content: string }) {
-      const normalized = input.content.replace(/\s+/g, ' ').trim();
-      return normalized.length > 120
-        ? `${normalized.slice(0, 120)}...`
-        : normalized;
-    },
-  };
-}
+  if (!runtimeMode.availableConfigs.some((config) => config.id === input.modelId)) {
+    throw new Error(`Model not found: ${input.modelId}`);
+  }
 
-function createDevelopmentCharacterStateExtractor() {
-  return {
-    async extractStates(input: {
-      modelId: string;
-      chapterIndex: number;
-      content: string;
-    }) {
-      if (input.content.toLowerCase().includes('debt')) {
-        return [
-          {
-            characterId: 'protagonist',
-            characterName: 'Lin Mo',
-            location:
-              input.chapterIndex > 1 ? 'Debt Court' : 'Rain Market',
-            status:
-              input.chapterIndex > 1
-                ? 'Confronts the magistrate'
-                : 'Investigating the debt ledger',
-            knowledge:
-              input.chapterIndex > 1
-                ? 'Understands the larger scheme'
-                : 'Knows the ledger is forged',
-            emotion: input.chapterIndex > 1 ? 'Furious' : 'Suspicious',
-            powerLevel: 'Awakened',
-          },
-        ];
-      }
-
-      return [];
-    },
-  };
-}
-
-function createDevelopmentSceneRecordExtractor() {
-  return {
-    async extractScene(input: {
-      modelId: string;
-      chapterIndex: number;
-      content: string;
-    }) {
-      if (input.content.toLowerCase().includes('debt')) {
-        return {
-          location:
-            input.chapterIndex > 1 ? 'Debt Court' : 'Rain Market',
-          timeInStory: input.chapterIndex > 1 ? 'Noon' : 'Night',
-          charactersPresent: ['Lin Mo'],
-          events:
-            input.chapterIndex > 1
-              ? 'Lin Mo confronts the magistrate'
-              : 'Lin Mo discovers the forged ledger',
-        };
-      }
-
-      return null;
-    },
-  };
-}
-
-function createDevelopmentPlotThreadExtractor() {
-  return {
-    async extractThreads(input: {
-      modelId: string;
-      chapterIndex: number;
-      content: string;
-    }) {
-      const openedThreads = [];
-
-      if (input.content.toLowerCase().includes('debt')) {
-        openedThreads.push({
-          id: `thread-${input.chapterIndex}-debt`,
-          description: 'A hidden debt resurfaces later',
-          plantedAt: input.chapterIndex,
-          expectedPayoff: input.chapterIndex + 5,
-          importance: 'critical',
-        });
-      }
-
-      return {
-        openedThreads,
-        resolvedThreadIds: [],
-      };
-    },
-  };
+  const registry = createRuntimeRegistry(runtimeMode.availableConfigs);
+  return (registry as { languageModel: (id: string) => unknown }).languageModel(
+    input.modelId
+  );
 }
 
 export function getRuntimeServices() {
@@ -259,14 +161,7 @@ export function getRuntimeServices() {
   const progress = createProgressRepository(db);
   const modelConfigs = createModelConfigRepository(db);
   const settings = createSettingsRepository(db);
-  const developmentOutlineService = createDevelopmentOutlineService();
-  const developmentChapterWriter = createDevelopmentChapterWriter();
-  const developmentSummaryGenerator = createDevelopmentSummaryGenerator();
-  const developmentCharacterStateExtractor =
-    createDevelopmentCharacterStateExtractor();
-  const developmentPlotThreadExtractor = createDevelopmentPlotThreadExtractor();
-  const developmentSceneRecordExtractor =
-    createDevelopmentSceneRecordExtractor();
+  const mockServices = createMockStoryServices();
   const schedulerListeners = new Set<
     (status: {
       runningBookIds: string[];
@@ -282,87 +177,71 @@ export function getRuntimeServices() {
       targetWords: number;
       modelId: string;
     }) {
-      const persistedConfigs = modelConfigs.list();
-      const availableConfigs = getAvailableModelConfigs(persistedConfigs);
-
-      if (availableConfigs.length === 0) {
-        return developmentOutlineService.generateFromIdea(input);
+      const runtimeMode = getRuntimeModelMode(modelConfigs.list());
+      if (runtimeMode.kind === 'mock') {
+        return mockServices.outlineService.generateFromIdea(input);
       }
 
-      try {
-        const registry = createRuntimeRegistry(availableConfigs);
-        return await createAiOutlineService({
-          registry: registry as {
-            languageModel: (modelId: string) => unknown;
-          },
-          generateText: generateText as (input: {
-            model: unknown;
-            prompt: string;
-          }) => Promise<{ text: string }>,
-        }).generateFromIdea(input);
-      } catch (_error) {
-        return developmentOutlineService.generateFromIdea(input);
-      }
+      const registry = createRuntimeRegistry(runtimeMode.availableConfigs);
+      return createAiOutlineService({
+        registry: registry as {
+          languageModel: (modelId: string) => unknown;
+        },
+        generateText: generateText as (input: {
+          model: unknown;
+          prompt: string;
+        }) => Promise<{ text: string }>,
+      }).generateFromIdea(input);
     },
   };
   const chapterWriter = {
     async writeChapter(input: { modelId: string; prompt: string }) {
       const persistedConfigs = modelConfigs.list();
-      const availableConfigs = getAvailableModelConfigs(persistedConfigs);
-
-      if (!availableConfigs.some((config) => config.id === input.modelId)) {
-        return developmentChapterWriter.writeChapter(input);
+      const runtimeMode = getRuntimeModelMode(persistedConfigs);
+      if (runtimeMode.kind === 'mock') {
+        return mockServices.chapterWriter.writeChapter(input);
       }
 
-      try {
-        const registry = createRuntimeRegistry(availableConfigs);
-        const model = (registry as { languageModel: (id: string) => unknown }).languageModel(
-          input.modelId
-        );
+      const model = getRuntimeLanguageModel({
+        persistedConfigs,
+        modelId: input.modelId,
+      });
 
-        return await createChapterWriter({
-          generateText: (payload: { prompt: string }) =>
-            (generateText({
-              model: model as never,
-              prompt: payload.prompt,
-            }) as Promise<{
-              text: string;
-              usage?: {
-                inputTokens?: number;
-                outputTokens?: number;
-              };
-            }>),
-        }).writeChapter({
-          prompt: input.prompt,
-        });
-      } catch (_error) {
-        return developmentChapterWriter.writeChapter(input);
-      }
+      return createChapterWriter({
+        generateText: (payload: { prompt: string }) =>
+          (generateText({
+            model: model as never,
+            prompt: payload.prompt,
+          }) as Promise<{
+            text: string;
+            usage?: {
+              inputTokens?: number;
+              outputTokens?: number;
+            };
+          }>),
+      }).writeChapter({
+        prompt: input.prompt,
+      });
     },
   };
   const summaryGenerator = {
     async summarizeChapter(input: { modelId: string; content: string }) {
       const persistedConfigs = modelConfigs.list();
-      const availableConfigs = getAvailableModelConfigs(persistedConfigs);
-
-      if (!availableConfigs.some((config) => config.id === input.modelId)) {
-        return developmentSummaryGenerator.summarizeChapter(input);
+      const runtimeMode = getRuntimeModelMode(persistedConfigs);
+      if (runtimeMode.kind === 'mock') {
+        return mockServices.summaryGenerator.summarizeChapter(input);
       }
 
-      try {
-        const registry = createRuntimeRegistry(availableConfigs);
-        return await createAiSummaryGenerator({
-          registry: registry as {
-            languageModel: (id: string) => unknown;
-          },
-          generateText: generateText as (input: {
-            model: unknown;
-            prompt: string;
-          }) => Promise<{ text: string }>,
-        }).summarizeChapter(input);
-      } catch (_error) {
-        return developmentSummaryGenerator.summarizeChapter(input);
-      }
+      const registry = createRuntimeRegistry(runtimeMode.availableConfigs);
+      return createAiSummaryGenerator({
+        registry: registry as {
+          languageModel: (id: string) => unknown;
+        },
+        generateText: generateText as (input: {
+          model: unknown;
+          prompt: string;
+        }) => Promise<{ text: string }>,
+      }).summarizeChapter(input);
     },
   };
   const plotThreadExtractor = {
@@ -372,26 +251,21 @@ export function getRuntimeServices() {
       content: string;
     }) {
       const persistedConfigs = modelConfigs.list();
-      const availableConfigs = getAvailableModelConfigs(persistedConfigs);
-
-      if (!availableConfigs.some((config) => config.id === input.modelId)) {
-        return developmentPlotThreadExtractor.extractThreads(input);
+      const runtimeMode = getRuntimeModelMode(persistedConfigs);
+      if (runtimeMode.kind === 'mock') {
+        return mockServices.plotThreadExtractor.extractThreads(input);
       }
 
-      try {
-        const registry = createRuntimeRegistry(availableConfigs);
-        return await createAiPlotThreadExtractor({
-          registry: registry as {
-            languageModel: (id: string) => unknown;
-          },
-          generateText: generateText as (input: {
-            model: unknown;
-            prompt: string;
-          }) => Promise<{ text: string }>,
-        }).extractThreads(input);
-      } catch (_error) {
-        return developmentPlotThreadExtractor.extractThreads(input);
-      }
+      const registry = createRuntimeRegistry(runtimeMode.availableConfigs);
+      return createAiPlotThreadExtractor({
+        registry: registry as {
+          languageModel: (id: string) => unknown;
+        },
+        generateText: generateText as (input: {
+          model: unknown;
+          prompt: string;
+        }) => Promise<{ text: string }>,
+      }).extractThreads(input);
     },
   };
   const characterStateExtractor = {
@@ -401,26 +275,21 @@ export function getRuntimeServices() {
       content: string;
     }) {
       const persistedConfigs = modelConfigs.list();
-      const availableConfigs = getAvailableModelConfigs(persistedConfigs);
-
-      if (!availableConfigs.some((config) => config.id === input.modelId)) {
-        return developmentCharacterStateExtractor.extractStates(input);
+      const runtimeMode = getRuntimeModelMode(persistedConfigs);
+      if (runtimeMode.kind === 'mock') {
+        return mockServices.characterStateExtractor.extractStates(input);
       }
 
-      try {
-        const registry = createRuntimeRegistry(availableConfigs);
-        return await createAiCharacterStateExtractor({
-          registry: registry as {
-            languageModel: (id: string) => unknown;
-          },
-          generateText: generateText as (input: {
-            model: unknown;
-            prompt: string;
-          }) => Promise<{ text: string }>,
-        }).extractStates(input);
-      } catch (_error) {
-        return developmentCharacterStateExtractor.extractStates(input);
-      }
+      const registry = createRuntimeRegistry(runtimeMode.availableConfigs);
+      return createAiCharacterStateExtractor({
+        registry: registry as {
+          languageModel: (id: string) => unknown;
+        },
+        generateText: generateText as (input: {
+          model: unknown;
+          prompt: string;
+        }) => Promise<{ text: string }>,
+      }).extractStates(input);
     },
   };
   const sceneRecordExtractor = {
@@ -430,26 +299,21 @@ export function getRuntimeServices() {
       content: string;
     }) {
       const persistedConfigs = modelConfigs.list();
-      const availableConfigs = getAvailableModelConfigs(persistedConfigs);
-
-      if (!availableConfigs.some((config) => config.id === input.modelId)) {
-        return developmentSceneRecordExtractor.extractScene(input);
+      const runtimeMode = getRuntimeModelMode(persistedConfigs);
+      if (runtimeMode.kind === 'mock') {
+        return mockServices.sceneRecordExtractor.extractScene(input);
       }
 
-      try {
-        const registry = createRuntimeRegistry(availableConfigs);
-        return await createAiSceneRecordExtractor({
-          registry: registry as {
-            languageModel: (id: string) => unknown;
-          },
-          generateText: generateText as (input: {
-            model: unknown;
-            prompt: string;
-          }) => Promise<{ text: string }>,
-        }).extractScene(input);
-      } catch (_error) {
-        return developmentSceneRecordExtractor.extractScene(input);
-      }
+      const registry = createRuntimeRegistry(runtimeMode.availableConfigs);
+      return createAiSceneRecordExtractor({
+        registry: registry as {
+          languageModel: (id: string) => unknown;
+        },
+        generateText: generateText as (input: {
+          model: unknown;
+          prompt: string;
+        }) => Promise<{ text: string }>,
+      }).extractScene(input);
     },
   };
   const runningBookIds = new Set<string>();
@@ -519,8 +383,8 @@ export function getRuntimeServices() {
     plotThreadExtractor,
     sceneRecordExtractor,
     resolveModelId: () => {
-      const availableConfigs = getAvailableModelConfigs(modelConfigs.list());
-      return availableConfigs[0]?.id ?? 'development:fallback';
+      const runtimeMode = getRuntimeModelMode(modelConfigs.list());
+      return runtimeMode.resolveModelId();
     },
   });
 
@@ -610,10 +474,12 @@ export function getRuntimeServices() {
       };
     },
     testModel: async (modelId: string) => {
-      const persistedConfigs = modelConfigs.list();
-      const availableConfigs = getAvailableModelConfigs(persistedConfigs);
+      const runtimeMode = getRuntimeModelMode(modelConfigs.list());
 
-      if (!availableConfigs.some((config) => config.id === modelId)) {
+      if (
+        runtimeMode.kind === 'mock' ||
+        !runtimeMode.availableConfigs.some((config) => config.id === modelId)
+      ) {
         return {
           ok: false,
           latency: 0,
@@ -621,7 +487,7 @@ export function getRuntimeServices() {
         };
       }
 
-      const registry = createRuntimeRegistry(availableConfigs);
+      const registry = createRuntimeRegistry(runtimeMode.availableConfigs);
       return createModelTestService({
         registry: registry as {
           languageModel: (id: string) => unknown;

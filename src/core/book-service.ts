@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { BookStatus } from '../shared/contracts.js';
+import { DEFAULT_MOCK_MODEL_ID } from '../models/runtime-mode.js';
 import type { OutlineBundle } from './types.js';
 
 function deriveTitleFromIdea(idea: string) {
@@ -264,7 +265,7 @@ export function createBookService(deps: {
   };
   resolveModelId?: () => string;
 }) {
-  const resolveModelId = deps.resolveModelId ?? (() => 'development:fallback');
+  const resolveModelId = deps.resolveModelId ?? (() => DEFAULT_MOCK_MODEL_ID);
 
   return {
     createBook(input: {
