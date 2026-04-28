@@ -10,6 +10,37 @@ import ChapterList from '../components/ChapterList';
 
 type DetailTab = 'outline' | 'characters' | 'chapters' | 'threads';
 
+function DetailSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Card className="bg-muted/40">
+      <CardHeader className="pb-3">
+        <h3 className="text-lg font-semibold tracking-tight">{title}</h3>
+      </CardHeader>
+      <CardContent>{children}</CardContent>
+    </Card>
+  );
+}
+
+function DetailEmpty({
+  message,
+}: {
+  message: string;
+}) {
+  return (
+    <Card className="border-dashed bg-muted/20 shadow-none">
+      <CardContent className="p-4">
+        <p>{message}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function BookDetail({
   book,
   context,
@@ -104,10 +135,10 @@ export default function BookDetail({
   const canWrite = hasRemainingChapters && currentPhase !== 'paused' && currentPhase !== 'completed';
 
   return (
-    <Card className="border-border/70 bg-card/95 p-7">
+    <Card className="rounded-2xl p-7 shadow-none">
       <CardHeader className="flex flex-col gap-4 p-0 xl:flex-row xl:items-start xl:justify-between">
         <div>
-          <CardTitle>{book.title}</CardTitle>
+          <h2 className="text-2xl font-semibold tracking-tight">{book.title}</h2>
           <p>{`${getStatusLabel(progress?.phase ?? book.status)} · ${book.wordCount} 字`}</p>
         </div>
         <div className="flex flex-wrap gap-3">
@@ -149,150 +180,94 @@ export default function BookDetail({
       </CardHeader>
       <CardContent className="grid gap-6 p-0">
         <Separator />
-        <Tabs>
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as DetailTab)}>
           <TabsList className="flex flex-wrap gap-3">
-            <TabsTrigger
-              aria-selected={activeTab === 'outline'}
-              data-state={activeTab === 'outline' ? 'active' : 'inactive'}
-              onClick={() => setActiveTab('outline')}
-            >
+            <TabsTrigger value="outline" onClick={() => setActiveTab('outline')}>
               大纲
             </TabsTrigger>
             <TabsTrigger
-              aria-selected={activeTab === 'characters'}
-              data-state={activeTab === 'characters' ? 'active' : 'inactive'}
+              value="characters"
               onClick={() => setActiveTab('characters')}
             >
               人物
             </TabsTrigger>
-            <TabsTrigger
-              aria-selected={activeTab === 'chapters'}
-              data-state={activeTab === 'chapters' ? 'active' : 'inactive'}
-              onClick={() => setActiveTab('chapters')}
-            >
+            <TabsTrigger value="chapters" onClick={() => setActiveTab('chapters')}>
               章节
             </TabsTrigger>
-            <TabsTrigger
-              aria-selected={activeTab === 'threads'}
-              data-state={activeTab === 'threads' ? 'active' : 'inactive'}
-              onClick={() => setActiveTab('threads')}
-            >
+            <TabsTrigger value="threads" onClick={() => setActiveTab('threads')}>
               伏笔
             </TabsTrigger>
           </TabsList>
-          <TabsContent hidden={activeTab !== 'outline'}>
+          <TabsContent value="outline" className="grid gap-6">
             {context?.worldSetting ? (
-              <Card className="border-border/70 bg-muted/40">
-                <CardContent className="p-4">
-                  <h3>世界观</h3>
-                  <p>{context.worldSetting}</p>
-                </CardContent>
-              </Card>
+              <DetailSection title="世界观">
+                <p>{context.worldSetting}</p>
+              </DetailSection>
             ) : null}
             {context?.outline ? (
-              <Card className="border-border/70 bg-muted/40">
-                <CardContent className="p-4">
-                  <h3>总纲</h3>
-                  <p>{context.outline}</p>
-                </CardContent>
-              </Card>
+              <DetailSection title="总纲">
+                <p>{context.outline}</p>
+              </DetailSection>
             ) : null}
             {latestScene ? (
-              <Card className="border-border/70 bg-muted/40">
-                <CardContent className="p-4">
-                  <h3>最近场景</h3>
-                  <p>{`${latestScene.location} · ${latestScene.timeInStory}`}</p>
-                  {latestScene.events ? <p>{latestScene.events}</p> : null}
-                </CardContent>
-              </Card>
+              <DetailSection title="最近场景">
+                <p>{`${latestScene.location} · ${latestScene.timeInStory}`}</p>
+                {latestScene.events ? <p>{latestScene.events}</p> : null}
+              </DetailSection>
             ) : null}
             {!hasOutlineContent ? (
-              <Card className="border-dashed border-border bg-muted/20">
-                <CardContent className="p-4">
-                  <p>暂无大纲信息</p>
-                </CardContent>
-              </Card>
+              <DetailEmpty message="暂无大纲信息" />
             ) : null}
           </TabsContent>
-          <TabsContent hidden={activeTab !== 'characters'}>
+          <TabsContent value="characters" className="grid gap-6">
             {characterStates?.length ? (
-              <Card className="border-border/70 bg-muted/40">
-                <CardContent className="p-4">
-                  <h3>人物状态</h3>
-                  <ul className="m-0 pl-5">
-                    {characterStates.map((state) => (
-                      <li key={state.characterId}>
-                        {state.characterName}
-                        {state.location ? ` · ${state.location}` : ''}
-                        {state.status ? ` · ${state.status}` : ''}
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
+              <DetailSection title="人物状态">
+                <ul className="m-0 pl-5">
+                  {characterStates.map((state) => (
+                    <li key={state.characterId}>
+                      {state.characterName}
+                      {state.location ? ` · ${state.location}` : ''}
+                      {state.status ? ` · ${state.status}` : ''}
+                    </li>
+                  ))}
+                </ul>
+              </DetailSection>
             ) : null}
-            {!characterStates?.length ? (
-              <Card className="border-dashed border-border bg-muted/20">
-                <CardContent className="p-4">
-                  <p>暂无人物状态</p>
-                </CardContent>
-              </Card>
-            ) : null}
+            {!characterStates?.length ? <DetailEmpty message="暂无人物状态" /> : null}
           </TabsContent>
-          <TabsContent hidden={activeTab !== 'threads'}>
+          <TabsContent value="threads" className="grid gap-6">
             {plotThreads?.length ? (
-              <Card className="border-border/70 bg-muted/40">
-                <CardContent className="p-4">
-                  <h3>伏笔追踪</h3>
-                  <ul className="m-0 pl-5">
-                    {plotThreads.map((thread) => (
-                      <li key={thread.id}>
-                        {thread.description}
-                        {thread.resolvedAt
-                          ? ` · 已回收（第 ${thread.resolvedAt} 章）`
-                          : ` · 待回收（预计第 ${thread.expectedPayoff ?? '?'} 章）`}
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
+              <DetailSection title="伏笔追踪">
+                <ul className="m-0 pl-5">
+                  {plotThreads.map((thread) => (
+                    <li key={thread.id}>
+                      {thread.description}
+                      {thread.resolvedAt
+                        ? ` · 已回收（第 ${thread.resolvedAt} 章）`
+                        : ` · 待回收（预计第 ${thread.expectedPayoff ?? '?'} 章）`}
+                    </li>
+                  ))}
+                </ul>
+              </DetailSection>
             ) : null}
-            {!plotThreads?.length ? (
-              <Card className="border-dashed border-border bg-muted/20">
-                <CardContent className="p-4">
-                  <p>暂无伏笔追踪</p>
-                </CardContent>
-              </Card>
-            ) : null}
+            {!plotThreads?.length ? <DetailEmpty message="暂无伏笔追踪" /> : null}
           </TabsContent>
-          <TabsContent hidden={activeTab !== 'chapters'}>
+          <TabsContent value="chapters" className="grid gap-6">
             <ScrollArea aria-label="章节滚动区">
               <div className="grid gap-6">
                 {renderedChapters.length ? (
                   <ChapterList chapters={renderedChapters} />
                 ) : null}
-                {!renderedChapters.length ? (
-                  <Card className="border-dashed border-border bg-muted/20">
-                    <CardContent className="p-4">
-                      <p>暂无章节内容</p>
-                    </CardContent>
-                  </Card>
-                ) : null}
+                {!renderedChapters.length ? <DetailEmpty message="暂无章节内容" /> : null}
                 {latestContent ? (
-                  <Card className="border-border/70 bg-muted/40">
-                <CardContent className="p-4">
-                  <h3>正文预览</h3>
-                  <p className="whitespace-pre-wrap">{latestContent}</p>
-                </CardContent>
-              </Card>
-            ) : null}
+                  <DetailSection title="正文预览">
+                    <p className="whitespace-pre-wrap">{latestContent}</p>
+                  </DetailSection>
+                ) : null}
                 {latestSummary ? (
-                  <Card className="border-border/70 bg-muted/40">
-                    <CardContent className="p-4">
-                      <h3>章节摘要</h3>
-                      <p>{latestSummary}</p>
-                    </CardContent>
-                  </Card>
+                  <DetailSection title="章节摘要">
+                    <p>{latestSummary}</p>
+                  </DetailSection>
                 ) : null}
               </div>
             </ScrollArea>

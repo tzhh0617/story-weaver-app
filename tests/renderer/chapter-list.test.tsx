@@ -23,7 +23,11 @@ describe('ChapterList', () => {
       />
     );
 
-    expect(screen.getByText('1200 字 · 已完成')).toBeInTheDocument();
-    expect(screen.getByText('0 字 · 待写作')).toBeInTheDocument();
+    expect(screen.getByText('Chapter 1')).toBeInTheDocument();
+    expect(screen.getByText('1200 字')).toBeInTheDocument();
+    expect(screen.getByText('已完成')).toBeInTheDocument();
+    expect(screen.getByText('Chapter 2')).toBeInTheDocument();
+    expect(screen.getByText('0 字')).toBeInTheDocument();
+    expect(screen.getByText('待写作')).toBeInTheDocument();
   });
 });

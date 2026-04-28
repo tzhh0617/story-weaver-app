@@ -24,7 +24,7 @@ describe('BookDetail', () => {
     );
   });
 
-  it('switches visible sections when a different tab is selected', () => {
+  it('switches visible sections when a different tab is selected', async () => {
     render(
       <BookDetail
         book={{ title: 'Book 1', status: 'writing', wordCount: 12000 }}
@@ -77,9 +77,9 @@ describe('BookDetail', () => {
     expect(screen.getByText('总纲')).toBeInTheDocument();
     expect(screen.queryByText('人物状态')).toBeNull();
 
-    fireEvent.click(screen.getByText('人物'));
+    fireEvent.click(screen.getByRole('tab', { name: '人物' }));
 
-    expect(screen.getByText('人物状态')).toBeInTheDocument();
+    expect(await screen.findByText('人物状态')).toBeInTheDocument();
     expect(screen.queryByText('总纲')).toBeNull();
     expect(screen.queryByText('正文预览')).toBeNull();
     expect(screen.getByRole('tab', { name: '人物' })).toHaveAttribute(
@@ -91,21 +91,21 @@ describe('BookDetail', () => {
       'false'
     );
 
-    fireEvent.click(screen.getByText('章节'));
+    fireEvent.click(screen.getByRole('tab', { name: '章节' }));
 
-    expect(screen.getByLabelText('章节滚动区')).toBeInTheDocument();
+    expect(await screen.findByLabelText('章节滚动区')).toBeInTheDocument();
   });
 
-  it('shows an empty state when the selected tab has no content yet', () => {
+  it('shows an empty state when the selected tab has no content yet', async () => {
     render(
       <BookDetail
         book={{ title: 'Book 1', status: 'writing', wordCount: 12000 }}
       />
     );
 
-    fireEvent.click(screen.getByText('人物'));
+    fireEvent.click(screen.getByRole('tab', { name: '人物' }));
 
-    expect(screen.getByText('暂无人物状态')).toBeInTheDocument();
+    expect(await screen.findByText('暂无人物状态')).toBeInTheDocument();
   });
 
   it('disables actions that are not valid for the current book state', () => {
@@ -163,7 +163,7 @@ describe('BookDetail', () => {
     expect(screen.getByRole('button', { name: '导出 MD' })).toBeDisabled();
   });
 
-  it('preserves chapter line breaks in the preview area', () => {
+  it('preserves chapter line breaks in the preview area', async () => {
     render(
       <BookDetail
         book={{ title: 'Book 1', status: 'completed', wordCount: 1200 }}
@@ -181,10 +181,10 @@ describe('BookDetail', () => {
       />
     );
 
-    fireEvent.click(screen.getByText('章节'));
+    fireEvent.click(screen.getByRole('tab', { name: '章节' }));
 
     expect(
-      screen.getByText(
+      await screen.findByText(
         (_content, element) =>
           element?.tagName === 'P' && element.textContent === '第一段\n第二段'
       )

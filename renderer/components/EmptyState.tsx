@@ -3,7 +3,6 @@ import {
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
 } from './ui/card';
 
 export function EmptyState({
@@ -16,10 +15,10 @@ export function EmptyState({
   return (
     <Card
       role="status"
-      className="border-dashed border-border bg-muted/20 shadow-none"
+      className="border-dashed bg-muted/20 shadow-none"
     >
       <CardHeader className="p-6 pb-2">
-        <CardTitle>{title}</CardTitle>
+        <h3 className="text-lg font-semibold tracking-tight">{title}</h3>
       </CardHeader>
       <CardContent className="p-6 pt-0">
         <CardDescription>{description}</CardDescription>

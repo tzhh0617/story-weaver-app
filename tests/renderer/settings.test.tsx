@@ -2,8 +2,14 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import Settings from '../../renderer/pages/Settings';
 
+async function selectProvider(value: string) {
+  fireEvent.change(screen.getByLabelText('Provider'), {
+    target: { value },
+  });
+}
+
 describe('Settings', () => {
-  it('submits model settings and global settings', () => {
+  it('submits model settings and global settings', async () => {
     const onSaveModel = vi.fn();
     const onTestModel = vi.fn();
     const onSaveSetting = vi.fn();
@@ -18,9 +24,7 @@ describe('Settings', () => {
         onSaveSetting={onSaveSetting}
       />
     );
-    fireEvent.change(screen.getByLabelText('Provider'), {
-      target: { value: 'openai' },
-    });
+    await selectProvider('openai');
     fireEvent.change(screen.getByLabelText('Model Name'), {
       target: { value: 'gpt-4o-mini' },
     });
@@ -46,7 +50,7 @@ describe('Settings', () => {
     });
   });
 
-  it('tests the current model settings', () => {
+  it('tests the current model settings', async () => {
     const onSaveModel = vi.fn();
     const onTestModel = vi.fn();
     const onSaveSetting = vi.fn();
@@ -62,9 +66,7 @@ describe('Settings', () => {
       />
     );
 
-    fireEvent.change(screen.getByLabelText('Provider'), {
-      target: { value: 'anthropic' },
-    });
+    await selectProvider('anthropic');
     fireEvent.change(screen.getByLabelText('Model Name'), {
       target: { value: 'claude-3-5-sonnet' },
     });
@@ -108,7 +110,7 @@ describe('Settings', () => {
     expect(onDeleteModel).toHaveBeenCalledWith('openai:gpt-4o-mini');
   });
 
-  it('loads a saved model into the form when selected from the list', () => {
+  it('loads a saved model into the form when selected from the list', async () => {
     render(
       <Settings
         onSaveModel={vi.fn()}
@@ -128,7 +130,9 @@ describe('Settings', () => {
 
     fireEvent.click(screen.getByText('deepseek-chat · deepseek'));
 
-    expect(screen.getByLabelText('Provider')).toHaveValue('deepseek');
+    expect(screen.getByRole('combobox', { name: 'Provider' })).toHaveTextContent(
+      'deepseek'
+    );
     expect(screen.getByLabelText('Model Name')).toHaveValue('deepseek-chat');
     expect(screen.getByText('编辑模型')).toBeInTheDocument();
     expect(
@@ -137,7 +141,7 @@ describe('Settings', () => {
     expect(screen.getByLabelText('已保存模型列表')).toBeInTheDocument();
   });
 
-  it('clears the form after deleting the selected saved model', () => {
+  it('clears the form after deleting the selected saved model', async () => {
     const { rerender } = render(
       <Settings
         onSaveModel={vi.fn()}
@@ -170,13 +174,15 @@ describe('Settings', () => {
       />
     );
 
-    expect(screen.getByLabelText('Provider')).toHaveValue('openai');
+    expect(screen.getByRole('combobox', { name: 'Provider' })).toHaveTextContent(
+      'openai'
+    );
     expect(screen.getByLabelText('Model Name')).toHaveValue('');
     expect(screen.getByLabelText('API Key')).toHaveValue('');
     expect(screen.getByLabelText('Base URL')).toHaveValue('');
   });
 
-  it('returns the form to new-model mode when clearing the current selection', () => {
+  it('returns the form to new-model mode when clearing the current selection', async () => {
     render(
       <Settings
         onSaveModel={vi.fn()}
@@ -200,13 +206,15 @@ describe('Settings', () => {
     fireEvent.click(screen.getByText('deepseek-chat · deepseek'));
     fireEvent.click(screen.getByText('新建模型'));
 
-    expect(screen.getByLabelText('Provider')).toHaveValue('openai');
+    expect(screen.getByRole('combobox', { name: 'Provider' })).toHaveTextContent(
+      'openai'
+    );
     expect(screen.getByLabelText('Model Name')).toHaveValue('');
     expect(screen.getByLabelText('API Key')).toHaveValue('');
     expect(screen.getByLabelText('Base URL')).toHaveValue('');
   });
 
-  it('disables save and test until required model fields are complete', () => {
+  it('disables save and test until required model fields are complete', async () => {
     render(
       <Settings
         onSaveModel={vi.fn()}
@@ -221,9 +229,7 @@ describe('Settings', () => {
     expect(screen.getByRole('button', { name: '保存模型' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '测试连接' })).toBeDisabled();
 
-    fireEvent.change(screen.getByLabelText('Provider'), {
-      target: { value: 'openai' },
-    });
+    await selectProvider('openai');
     fireEvent.change(screen.getByLabelText('Model Name'), {
       target: { value: 'gpt-4o-mini' },
     });
@@ -234,9 +240,7 @@ describe('Settings', () => {
     expect(screen.getByRole('button', { name: '保存模型' })).toBeEnabled();
     expect(screen.getByRole('button', { name: '测试连接' })).toBeEnabled();
 
-    fireEvent.change(screen.getByLabelText('Provider'), {
-      target: { value: 'deepseek' },
-    });
+    await selectProvider('deepseek');
 
     expect(screen.getByRole('button', { name: '保存模型' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '测试连接' })).toBeDisabled();

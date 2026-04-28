@@ -7,7 +7,14 @@ import {
   CardTitle,
 } from './ui/card';
 import { Input } from './ui/input';
-import { Select } from './ui/select';
+import { Label } from './ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select';
 
 const openAICompatibleProviders = new Set([
   'deepseek',
@@ -86,7 +93,7 @@ export default function ModelForm({
 
   return (
     <form
-      className="grid gap-4 rounded-3xl border border-border/70 bg-card/95 p-6 shadow-panel"
+      className="grid gap-4 rounded-lg border bg-card p-6 shadow-sm"
       onSubmit={(event) => {
         event.preventDefault();
         onSave(currentConfig);
@@ -108,10 +115,12 @@ export default function ModelForm({
         ) : null}
       </CardHeader>
       <CardContent className="grid gap-4 p-0">
-        <label className="grid gap-2 font-medium">
-          Provider
-          <Select
-            aria-label="Provider"
+        <div className="grid gap-2">
+          <Label htmlFor="model-form-provider">Provider</Label>
+          <select
+            id="model-form-provider"
+            className="sr-only"
+            tabIndex={-1}
             value={provider}
             onChange={(event) => setProvider(event.target.value)}
           >
@@ -121,33 +130,46 @@ export default function ModelForm({
             <option value="qwen">qwen</option>
             <option value="glm">glm</option>
             <option value="custom">custom</option>
+          </select>
+          <Select value={provider} onValueChange={setProvider}>
+            <SelectTrigger>
+              <SelectValue placeholder="选择 provider" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="openai">openai</SelectItem>
+              <SelectItem value="anthropic">anthropic</SelectItem>
+              <SelectItem value="deepseek">deepseek</SelectItem>
+              <SelectItem value="qwen">qwen</SelectItem>
+              <SelectItem value="glm">glm</SelectItem>
+              <SelectItem value="custom">custom</SelectItem>
+            </SelectContent>
           </Select>
-        </label>
-        <label className="grid gap-2 font-medium">
-          Model Name
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="model-form-name">Model Name</Label>
           <Input
-            aria-label="Model Name"
+            id="model-form-name"
             value={modelName}
             onChange={(event) => setModelName(event.target.value)}
           />
-        </label>
-        <label className="grid gap-2 font-medium">
-          API Key
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="model-form-api-key">API Key</Label>
           <Input
-            aria-label="API Key"
+            id="model-form-api-key"
             type="password"
             value={apiKey}
             onChange={(event) => setApiKey(event.target.value)}
           />
-        </label>
-        <label className="grid gap-2 font-medium">
-          Base URL
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="model-form-base-url">Base URL</Label>
           <Input
-            aria-label="Base URL"
+            id="model-form-base-url"
             value={baseUrl}
             onChange={(event) => setBaseUrl(event.target.value)}
           />
-        </label>
+        </div>
         <div className="flex flex-wrap gap-3">
           <Button type="submit" disabled={!canSubmitModel}>
             保存模型

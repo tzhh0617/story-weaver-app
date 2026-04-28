@@ -18,16 +18,11 @@ const config: Config = {
         accent: 'hsl(var(--accent))',
         'accent-foreground': 'hsl(var(--accent-foreground))',
         destructive: 'hsl(var(--destructive))',
-        success: 'hsl(var(--success))',
-        warning: 'hsl(var(--warning))',
       },
       borderRadius: {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
-      },
-      boxShadow: {
-        panel: '0 18px 48px rgba(15, 23, 42, 0.12)',
       },
     },
   },

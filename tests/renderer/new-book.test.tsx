@@ -3,6 +3,13 @@ import { describe, expect, it, vi } from 'vitest';
 import NewBook from '../../renderer/pages/NewBook';
 
 describe('NewBook', () => {
+  it('associates visible labels with the form controls', () => {
+    render(<NewBook onCreate={vi.fn()} />);
+
+    expect(screen.getByLabelText('IDEA')).toBeInTheDocument();
+    expect(screen.getByLabelText('目标字数')).toBeInTheDocument();
+  });
+
   it('submits idea, model, and target word count', () => {
     const onCreate = vi.fn();
 

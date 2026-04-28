@@ -166,7 +166,7 @@
 
 ## 新建作品视图
 
-`NewBook` 不再夹在 dashboard 旁边，而是独立成为一级主视图。
+`NewBook` 不再夹在作品列表视图旁边，而是独立成为一级主视图。
 
 结构建议：
 
@@ -332,10 +332,10 @@
 - 管理当前选中作品
 - 负责把现有动作分发到新视图
 
-### `renderer/pages/Dashboard.tsx`
+### `renderer/pages/Library.tsx`
 
-- 不再作为“整页 dashboard”存在
-- 可拆分为作品列表头部和统计区域的局部视图，或由新组件取代
+- 作为新的 `作品` 主视图存在
+- 承载作品列表、统计区、批量操作和详情区布局
 
 ### `renderer/components/BookCard.tsx`
 

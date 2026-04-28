@@ -8,11 +8,13 @@ import {
 } from '../src/shared/contracts';
 import { useIpc } from './hooks/useIpc';
 import { useProgress } from './hooks/useProgress';
+import { AppSidebar, type AppView } from './components/app-sidebar';
 import { Alert } from './components/ui/alert';
-import Dashboard from './pages/Dashboard';
-import BookDetail from './pages/BookDetail';
+import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
+import Library from './pages/Library';
 import NewBook from './pages/NewBook';
 import Settings from './pages/Settings';
+import type { BookDetailData } from './types/book-detail';
 
 const defaultScheduler: SchedulerStatus = {
   runningBookIds: [],
@@ -21,59 +23,7 @@ const defaultScheduler: SchedulerStatus = {
   concurrencyLimit: null,
 };
 
-const fallbackModels = [
-  { id: 'openai:gpt-4o-mini', label: 'GPT-4o mini' },
-  { id: 'anthropic:claude-3-5-sonnet', label: 'Claude 3.5 Sonnet' },
-];
-
 type BannerTone = 'error' | 'success' | 'info';
-
-type BookDetailData = {
-  book: BookRecord;
-  context: {
-    worldSetting?: string | null;
-    outline?: string | null;
-    styleGuide?: string | null;
-  } | null;
-  latestScene: {
-    location: string;
-    timeInStory: string;
-    charactersPresent: string[];
-    events: string | null;
-  } | null;
-  characterStates: Array<{
-    characterId: string;
-    characterName: string;
-    volumeIndex: number;
-    chapterIndex: number;
-    location: string | null;
-    status: string | null;
-    knowledge: string | null;
-    emotion: string | null;
-    powerLevel: string | null;
-  }>;
-  plotThreads: Array<{
-    id: string;
-    description: string;
-    plantedAt: number;
-    expectedPayoff: number | null;
-    resolvedAt: number | null;
-    importance: string;
-  }>;
-  chapters: Array<{
-    bookId: string;
-    volumeIndex: number;
-    chapterIndex: number;
-    title: string | null;
-    outline: string | null;
-    content: string | null;
-    summary: string | null;
-    wordCount: number;
-  }>;
-  progress: {
-    phase?: string | null;
-  } | null;
-};
 
 export default function App() {
   const ipc = useIpc();
@@ -97,13 +47,11 @@ export default function App() {
       config: Record<string, unknown>;
     }>
   >([]);
-  const [models, setModels] = useState<Array<{ id: string; label: string }>>(
-    fallbackModels
-  );
   const [banner, setBanner] = useState<{
     tone: BannerTone;
     message: string;
   } | null>(null);
+  const [currentView, setCurrentView] = useState<AppView>('library');
   const [selectedBookId, setSelectedBookId] = useState<string | null>(null);
   const [selectedBookDetail, setSelectedBookDetail] = useState<BookDetailData | null>(
     null
@@ -111,8 +59,9 @@ export default function App() {
 
   async function loadBooks() {
     const nextBooks = await ipc.invoke<BookRecord[]>(ipcChannels.bookList);
+    const safeBooks = Array.isArray(nextBooks) ? nextBooks : [];
     const nextBooksWithProgress = await Promise.all(
-      nextBooks.map(async (book) => {
+      safeBooks.map(async (book) => {
         const detail = await ipc.invoke<BookDetailData | null>(
           ipcChannels.bookDetail,
           { bookId: book.id }
@@ -155,20 +104,9 @@ export default function App() {
         config: Record<string, unknown>;
       }>
     >(ipcChannels.modelList);
+    const safeConfigs = Array.isArray(nextConfigs) ? nextConfigs : [];
 
-    setModelConfigs(nextConfigs);
-
-    if (!nextConfigs.length) {
-      setModels(fallbackModels);
-      return;
-    }
-
-    setModels(
-      nextConfigs.map((config) => ({
-        id: config.id,
-        label: config.modelName,
-      }))
-    );
+    setModelConfigs(safeConfigs);
   }
 
   async function loadBookDetail(bookId: string) {
@@ -193,484 +131,386 @@ export default function App() {
     progress.pausedBookIds.join(','),
   ]);
 
+  useEffect(() => {
+    if (!books.length) {
+      setSelectedBookId(null);
+      setSelectedBookDetail(null);
+      return;
+    }
+
+    if (selectedBookId && books.some((book) => book.id === selectedBookId)) {
+      return;
+    }
+
+    void loadBookDetail(books[0].id);
+  }, [books, selectedBookId]);
+
+  function showBanner(tone: BannerTone, message: string) {
+    flushSync(() => {
+      setBanner({ tone, message });
+    });
+  }
+
+  function clearBanner() {
+    flushSync(() => {
+      setBanner(null);
+    });
+  }
+
+  async function runSelectedBookAction({
+    startMessage,
+    errorMessage,
+    channel,
+    payload,
+    successMessage,
+    clearSelection,
+  }: {
+    startMessage: string | null;
+    errorMessage: string;
+    channel: string;
+    payload?: Record<string, unknown>;
+    successMessage?: string | null;
+    clearSelection?: boolean;
+  }) {
+    if (!selectedBookId) {
+      return;
+    }
+
+    try {
+      if (startMessage) {
+        showBanner('info', startMessage);
+      } else {
+        clearBanner();
+      }
+
+      await ipc.invoke(channel, payload ?? { bookId: selectedBookId });
+
+      if (clearSelection) {
+        setSelectedBookId(null);
+        setSelectedBookDetail(null);
+      }
+
+      await loadBooks();
+
+      if (!clearSelection) {
+        await loadBookDetail(selectedBookId);
+      }
+
+      if (typeof successMessage === 'string') {
+        showBanner('success', successMessage);
+      } else {
+        clearBanner();
+      }
+    } catch (error) {
+      showBanner(
+        'error',
+        error instanceof Error ? error.message : errorMessage
+      );
+    }
+  }
+
   return (
-    <main className="grid w-full min-h-screen content-start gap-6 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-      <section className="w-full rounded-[28px] border border-border/70 bg-card/90 px-9 py-8 shadow-panel">
-        <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
-          Story Weaver
-        </p>
-        <h1 className="text-[clamp(2.5rem,7vw,4.75rem)] leading-[0.95] tracking-tight">
-          AI Long-Form Fiction Studio
-        </h1>
-        <p className="mt-4 max-w-4xl text-base leading-7 text-muted-foreground">
-          Coordinate worldbuilding, outline generation, and chapter writing from one desktop console.
-        </p>
-      </section>
-      {banner ? (
-        <Alert tone={banner.tone}>
-          {banner.message}
-        </Alert>
-      ) : null}
-      <div className="grid w-full gap-6 lg:grid-cols-[1.4fr_0.9fr]">
-        <Dashboard
-          books={books}
-          scheduler={progress ?? defaultScheduler}
-          onSelectBook={(bookId) => {
-            void loadBookDetail(bookId);
-          }}
-          onStartAll={async () => {
-            try {
-              flushSync(() => {
-                setBanner({
-                  tone: 'info',
-                  message: '正在批量推进书籍写作...',
+    <SidebarProvider defaultOpen>
+      <AppSidebar currentView={currentView} onSelectView={setCurrentView} />
+      <SidebarInset>
+        <main className="grid w-full min-h-screen content-start gap-6 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+          <section className="w-full rounded-lg border bg-card px-8 py-7 shadow-sm">
+            <p className="text-sm font-medium text-muted-foreground">
+              Story Weaver
+            </p>
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
+              AI Long-Form Fiction Studio
+            </h1>
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground sm:text-base">
+              Coordinate worldbuilding, outline generation, and chapter writing from
+              one desktop console.
+            </p>
+          </section>
+          {banner ? <Alert tone={banner.tone}>{banner.message}</Alert> : null}
+          {currentView === 'library' ? (
+            <Library
+              books={books}
+              scheduler={progress ?? defaultScheduler}
+              selectedBookId={selectedBookId}
+              selectedBookDetail={selectedBookDetail}
+              onSelectBook={(bookId) => {
+                void loadBookDetail(bookId);
+              }}
+              onStartAll={async () => {
+                try {
+                  flushSync(() => {
+                    setBanner({
+                      tone: 'info',
+                      message: '正在批量推进书籍写作...',
+                    });
+                  });
+                  await ipc.invoke(ipcChannels.schedulerStartAll);
+                  await loadBooks();
+                  flushSync(() => {
+                    setBanner(null);
+                  });
+                } catch (error) {
+                  flushSync(() => {
+                    setBanner({
+                      tone: 'error',
+                      message:
+                        error instanceof Error
+                          ? error.message
+                          : 'Failed to start all books',
+                    });
+                  });
+                }
+              }}
+              onPauseAll={async () => {
+                try {
+                  flushSync(() => {
+                    setBanner({
+                      tone: 'info',
+                      message: '正在暂停所有书籍...',
+                    });
+                  });
+                  await ipc.invoke(ipcChannels.schedulerPauseAll);
+                  await loadBooks();
+                  if (selectedBookId) {
+                    await loadBookDetail(selectedBookId);
+                  }
+                  flushSync(() => {
+                    setBanner(null);
+                  });
+                } catch (error) {
+                  flushSync(() => {
+                    setBanner({
+                      tone: 'error',
+                      message:
+                        error instanceof Error
+                          ? error.message
+                          : 'Failed to pause all books',
+                    });
+                  });
+                }
+              }}
+              onResume={async () => {
+                await runSelectedBookAction({
+                  startMessage: '正在恢复写作...',
+                  errorMessage: 'Failed to resume book',
+                  channel: ipcChannels.bookResume,
                 });
-              });
-              await ipc.invoke(ipcChannels.schedulerStartAll);
-              await loadBooks();
-              flushSync(() => {
-                setBanner(null);
-              });
-            } catch (error) {
-              flushSync(() => {
-                setBanner({
-                  tone: 'error',
-                  message:
-                    error instanceof Error
-                      ? error.message
-                      : 'Failed to start all books',
+              }}
+              onRestart={async () => {
+                await runSelectedBookAction({
+                  startMessage: '正在重新开始写作...',
+                  errorMessage: 'Failed to restart book',
+                  channel: ipcChannels.bookRestart,
                 });
-              });
-            }
-          }}
-          onPauseAll={async () => {
-            try {
-              flushSync(() => {
-                setBanner({
-                  tone: 'info',
-                  message: '正在暂停所有书籍...',
+              }}
+              onPause={async () => {
+                await runSelectedBookAction({
+                  startMessage: null,
+                  errorMessage: 'Failed to pause book',
+                  channel: ipcChannels.bookPause,
                 });
-              });
-              await ipc.invoke(ipcChannels.schedulerPauseAll);
-              await loadBooks();
-              if (selectedBookId) {
-                await loadBookDetail(selectedBookId);
-              }
-              flushSync(() => {
-                setBanner(null);
-              });
-            } catch (error) {
-              flushSync(() => {
-                setBanner({
-                  tone: 'error',
-                  message:
-                    error instanceof Error
-                      ? error.message
-                      : 'Failed to pause all books',
+              }}
+              onWriteNext={async () => {
+                await runSelectedBookAction({
+                  startMessage: '正在生成章节正文...',
+                  errorMessage: 'Failed to write next chapter',
+                  channel: ipcChannels.bookWriteNext,
                 });
-              });
-            }
-          }}
-        />
-        <NewBook
-          onCreate={async (input) => {
-            try {
-              flushSync(() => {
-                setBanner({
-                  tone: 'info',
-                  message: '正在生成大纲...',
+              }}
+              onWriteAll={async () => {
+                await runSelectedBookAction({
+                  startMessage: '正在连续生成章节正文...',
+                  errorMessage: 'Failed to continue writing',
+                  channel: ipcChannels.bookWriteAll,
                 });
-              });
-              const bookId = await ipc.invoke<string>(ipcChannels.bookCreate, input);
-              await ipc.invoke(ipcChannels.bookStart, { bookId });
-              await loadBooks();
-              flushSync(() => {
-                setBanner(null);
-              });
-            } catch (error) {
-              flushSync(() => {
-                setBanner({
-                  tone: 'error',
-                  message:
-                    error instanceof Error
-                      ? error.message
-                      : 'Failed to start book',
-                });
-              });
-            }
-          }}
-        />
-      </div>
-      <section className="grid w-full gap-6">
-        <Settings
-          onSaveModel={async (input) => {
-            await ipc.invoke(ipcChannels.modelSave, input);
-            await loadModels();
-          }}
-          onTestModel={async (input) => {
-            try {
-              flushSync(() => {
-                setBanner({
-                  tone: 'info',
-                  message: '正在测试模型连接...',
-                });
-              });
-              await ipc.invoke(ipcChannels.modelSave, input);
-              const result = await ipc.invoke<{
-                ok: boolean;
-                latency: number;
-                error: string | null;
-              }>(ipcChannels.modelTest, {
-                modelId: input.id,
-              });
+              }}
+              onExport={async (format: BookExportFormat) => {
+                if (!selectedBookId) {
+                  return;
+                }
 
-              if (!result.ok) {
-                flushSync(() => {
-                  setBanner({
-                    tone: 'error',
-                    message: result.error ?? 'Model test failed',
+                try {
+                  showBanner('info', `正在导出 ${format.toUpperCase()}...`);
+                  const filePath = await ipc.invoke<string>(ipcChannels.bookExport, {
+                    bookId: selectedBookId,
+                    format,
                   });
+                  showBanner('success', `导出完成：${filePath}`);
+                } catch (error) {
+                  showBanner(
+                    'error',
+                    error instanceof Error ? error.message : 'Failed to export book'
+                  );
+                }
+              }}
+              onDelete={async () => {
+                await runSelectedBookAction({
+                  startMessage: '正在删除作品...',
+                  errorMessage: 'Failed to delete book',
+                  channel: ipcChannels.bookDelete,
+                  successMessage: '作品已删除',
+                  clearSelection: true,
                 });
-              } else {
-                flushSync(() => {
-                  setBanner({
-                    tone: 'success',
-                    message: `连接成功（${result.latency}ms）`,
+              }}
+            />
+          ) : null}
+          {currentView === 'new-book' ? (
+            <NewBook
+              onCreate={async (input) => {
+                try {
+                  flushSync(() => {
+                    setBanner({
+                      tone: 'info',
+                      message: '正在生成大纲...',
+                    });
                   });
-                });
-              }
-            } catch (error) {
-              flushSync(() => {
-                setBanner({
-                  tone: 'error',
-                  message:
-                    error instanceof Error ? error.message : 'Model test failed',
-                });
-              });
-            }
-            await loadModels();
-          }}
-          models={modelConfigs.map((config) => ({
-            id: config.id,
-            modelName: config.modelName,
-            provider: config.provider,
-            apiKey: config.apiKey,
-            baseUrl: config.baseUrl,
-            config: config.config,
-          }))}
-          onDeleteModel={async (modelId) => {
-            try {
-              flushSync(() => {
-                setBanner({
-                  tone: 'info',
-                  message: '正在删除模型...',
-                });
-              });
-              await ipc.invoke(ipcChannels.modelDelete, {
-                id: modelId,
-              });
-              await loadModels();
-              flushSync(() => {
-                setBanner({
-                  tone: 'success',
-                  message: '模型已删除',
-                });
-              });
-            } catch (error) {
-              flushSync(() => {
-                setBanner({
-                  tone: 'error',
-                  message:
-                    error instanceof Error ? error.message : 'Failed to delete model',
-                });
-              });
-            }
-          }}
-          concurrencyLimit={progress?.concurrencyLimit ?? null}
-          onSaveSetting={async (input) => {
-            try {
-              flushSync(() => {
-                setBanner({
-                  tone: 'info',
-                  message: '正在保存设置...',
-                });
-              });
-              await ipc.invoke(ipcChannels.settingsSet, {
-                key: 'scheduler.concurrencyLimit',
-                value:
-                  input.concurrencyLimit === null
-                    ? ''
-                    : String(input.concurrencyLimit),
-              });
-              flushSync(() => {
-                setBanner({
-                  tone: 'success',
-                  message: '设置已保存',
-                });
-              });
-            } catch (error) {
-              flushSync(() => {
-                setBanner({
-                  tone: 'error',
-                  message:
-                    error instanceof Error ? error.message : 'Failed to save settings',
-                });
-              });
-            }
-          }}
-        />
-      </section>
-      {selectedBookDetail ? (
-        <section className="grid w-full gap-6">
-          <BookDetail
-            book={{
-              title: selectedBookDetail.book?.title ?? 'Unknown Book',
-              status: selectedBookDetail.book?.status ?? 'error',
-              wordCount: selectedBookDetail.chapters.reduce(
-                (sum, chapter) => sum + chapter.wordCount,
-                0
-              ),
-            }}
-            context={selectedBookDetail.context}
-            latestScene={selectedBookDetail.latestScene}
-            characterStates={selectedBookDetail.characterStates}
-            plotThreads={selectedBookDetail.plotThreads}
-            progress={selectedBookDetail.progress}
-            onResume={async () => {
-              if (!selectedBookId) {
-                return;
-              }
+                  const bookId = await ipc.invoke<string>(
+                    ipcChannels.bookCreate,
+                    input
+                  );
+                  await ipc.invoke(ipcChannels.bookStart, { bookId });
+                  await loadBooks();
+                  setCurrentView('library');
+                  flushSync(() => {
+                    setBanner(null);
+                  });
+                } catch (error) {
+                  flushSync(() => {
+                    setBanner({
+                      tone: 'error',
+                      message:
+                        error instanceof Error
+                          ? error.message
+                          : 'Failed to start book',
+                    });
+                  });
+                }
+              }}
+            />
+          ) : null}
+          {currentView === 'settings' ? (
+            <Settings
+              onSaveModel={async (input) => {
+                await ipc.invoke(ipcChannels.modelSave, input);
+                await loadModels();
+              }}
+              onTestModel={async (input) => {
+                try {
+                  flushSync(() => {
+                    setBanner({
+                      tone: 'info',
+                      message: '正在测试模型连接...',
+                    });
+                  });
+                  await ipc.invoke(ipcChannels.modelSave, input);
+                  const result = await ipc.invoke<{
+                    ok: boolean;
+                    latency: number;
+                    error: string | null;
+                  }>(ipcChannels.modelTest, {
+                    modelId: input.id,
+                  });
 
-              try {
-                flushSync(() => {
-                  setBanner({
-                    tone: 'info',
-                    message: '正在恢复写作...',
+                  if (!result.ok) {
+                    flushSync(() => {
+                      setBanner({
+                        tone: 'error',
+                        message: result.error ?? 'Model test failed',
+                      });
+                    });
+                  } else {
+                    flushSync(() => {
+                      setBanner({
+                        tone: 'success',
+                        message: `连接成功（${result.latency}ms）`,
+                      });
+                    });
+                  }
+                } catch (error) {
+                  flushSync(() => {
+                    setBanner({
+                      tone: 'error',
+                      message:
+                        error instanceof Error ? error.message : 'Model test failed',
+                    });
                   });
-                });
-                await ipc.invoke(ipcChannels.bookResume, {
-                  bookId: selectedBookId,
-                });
-                await loadBooks();
-                await loadBookDetail(selectedBookId);
-                flushSync(() => {
-                  setBanner(null);
-                });
-              } catch (error) {
-                flushSync(() => {
-                  setBanner({
-                    tone: 'error',
-                    message:
-                      error instanceof Error
-                        ? error.message
-                        : 'Failed to resume book',
+                }
+                await loadModels();
+              }}
+              models={modelConfigs.map((config) => ({
+                id: config.id,
+                modelName: config.modelName,
+                provider: config.provider,
+                apiKey: config.apiKey,
+                baseUrl: config.baseUrl,
+                config: config.config,
+              }))}
+              onDeleteModel={async (modelId) => {
+                try {
+                  flushSync(() => {
+                    setBanner({
+                      tone: 'info',
+                      message: '正在删除模型...',
+                    });
                   });
-                });
-              }
-            }}
-            onRestart={async () => {
-              if (!selectedBookId) {
-                return;
-              }
-
-              try {
-                flushSync(() => {
-                  setBanner({
-                    tone: 'info',
-                    message: '正在重新开始写作...',
+                  await ipc.invoke(ipcChannels.modelDelete, {
+                    id: modelId,
                   });
-                });
-                await ipc.invoke(ipcChannels.bookRestart, {
-                  bookId: selectedBookId,
-                });
-                await loadBooks();
-                await loadBookDetail(selectedBookId);
-                flushSync(() => {
-                  setBanner(null);
-                });
-              } catch (error) {
-                flushSync(() => {
-                  setBanner({
-                    tone: 'error',
-                    message:
-                      error instanceof Error
-                        ? error.message
-                        : 'Failed to restart book',
+                  await loadModels();
+                  flushSync(() => {
+                    setBanner({
+                      tone: 'success',
+                      message: '模型已删除',
+                    });
                   });
-                });
-              }
-            }}
-            chapters={selectedBookDetail.chapters.map((chapter) => ({
-              id: `${chapter.volumeIndex}-${chapter.chapterIndex}`,
-              volumeIndex: chapter.volumeIndex,
-              chapterIndex: chapter.chapterIndex,
-              title:
-                chapter.title ??
-                `Chapter ${chapter.volumeIndex}.${chapter.chapterIndex}`,
-              wordCount: chapter.wordCount,
-              status: chapter.content ? 'done' : 'queued',
-              content: chapter.content,
-              summary: chapter.summary,
-            }))}
-            onPause={async () => {
-              if (!selectedBookId) {
-                return;
-              }
-
-              try {
-                flushSync(() => {
-                  setBanner(null);
-                });
-                await ipc.invoke(ipcChannels.bookPause, {
-                  bookId: selectedBookId,
-                });
-                await loadBooks();
-                await loadBookDetail(selectedBookId);
-              } catch (error) {
-                flushSync(() => {
-                  setBanner({
-                    tone: 'error',
-                    message:
-                      error instanceof Error
-                        ? error.message
-                        : 'Failed to pause book',
+                } catch (error) {
+                  flushSync(() => {
+                    setBanner({
+                      tone: 'error',
+                      message:
+                        error instanceof Error
+                          ? error.message
+                          : 'Failed to delete model',
+                    });
                   });
-                });
-              }
-            }}
-            onWriteNext={async () => {
-              if (!selectedBookId) {
-                return;
-              }
-
-              try {
-                flushSync(() => {
-                  setBanner({
-                    tone: 'info',
-                    message: '正在生成章节正文...',
+                }
+              }}
+              concurrencyLimit={progress?.concurrencyLimit ?? null}
+              onSaveSetting={async (input) => {
+                try {
+                  flushSync(() => {
+                    setBanner({
+                      tone: 'info',
+                      message: '正在保存设置...',
+                    });
                   });
-                });
-                await ipc.invoke(ipcChannels.bookWriteNext, {
-                  bookId: selectedBookId,
-                });
-                await loadBooks();
-                await loadBookDetail(selectedBookId);
-                flushSync(() => {
-                  setBanner(null);
-                });
-              } catch (error) {
-                flushSync(() => {
-                  setBanner({
-                    tone: 'error',
-                    message:
-                      error instanceof Error
-                        ? error.message
-                        : 'Failed to write next chapter',
+                  await ipc.invoke(ipcChannels.settingsSet, {
+                    key: 'scheduler.concurrencyLimit',
+                    value:
+                      input.concurrencyLimit === null
+                        ? ''
+                        : String(input.concurrencyLimit),
                   });
-                });
-              }
-            }}
-            onWriteAll={async () => {
-              if (!selectedBookId) {
-                return;
-              }
-
-              try {
-                flushSync(() => {
-                  setBanner({
-                    tone: 'info',
-                    message: '正在连续生成章节正文...',
+                  flushSync(() => {
+                    setBanner({
+                      tone: 'success',
+                      message: '设置已保存',
+                    });
                   });
-                });
-                await ipc.invoke(ipcChannels.bookWriteAll, {
-                  bookId: selectedBookId,
-                });
-                await loadBooks();
-                await loadBookDetail(selectedBookId);
-                flushSync(() => {
-                  setBanner(null);
-                });
-              } catch (error) {
-                flushSync(() => {
-                  setBanner({
-                    tone: 'error',
-                    message:
-                      error instanceof Error
-                        ? error.message
-                        : 'Failed to continue writing',
+                } catch (error) {
+                  flushSync(() => {
+                    setBanner({
+                      tone: 'error',
+                      message:
+                        error instanceof Error ? error.message : 'Failed to save settings',
+                    });
                   });
-                });
-              }
-            }}
-            onExport={async (format: BookExportFormat) => {
-              if (!selectedBookId) {
-                return;
-              }
-
-              try {
-                flushSync(() => {
-                  setBanner({
-                    tone: 'info',
-                    message: `正在导出 ${format.toUpperCase()}...`,
-                  });
-                });
-                const filePath = await ipc.invoke<string>(ipcChannels.bookExport, {
-                  bookId: selectedBookId,
-                  format,
-                });
-                flushSync(() => {
-                  setBanner({
-                    tone: 'success',
-                    message: `导出完成：${filePath}`,
-                  });
-                });
-              } catch (error) {
-                flushSync(() => {
-                  setBanner({
-                    tone: 'error',
-                    message:
-                      error instanceof Error ? error.message : 'Failed to export book',
-                  });
-                });
-              }
-            }}
-            onDelete={async () => {
-              if (!selectedBookId) {
-                return;
-              }
-
-              try {
-                flushSync(() => {
-                  setBanner({
-                    tone: 'info',
-                    message: '正在删除作品...',
-                  });
-                });
-                await ipc.invoke(ipcChannels.bookDelete, {
-                  bookId: selectedBookId,
-                });
-                setSelectedBookId(null);
-                setSelectedBookDetail(null);
-                await loadBooks();
-                flushSync(() => {
-                  setBanner({
-                    tone: 'success',
-                    message: '作品已删除',
-                  });
-                });
-              } catch (error) {
-                flushSync(() => {
-                  setBanner({
-                    tone: 'error',
-                    message:
-                      error instanceof Error ? error.message : 'Failed to delete book',
-                  });
-                });
-              }
-            }}
-          />
-        </section>
-      ) : null}
-    </main>
+                }
+              }}
+            />
+          ) : null}
+        </main>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }

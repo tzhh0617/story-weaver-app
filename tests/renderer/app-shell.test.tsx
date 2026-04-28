@@ -33,8 +33,130 @@ function installIpcMock(
   };
 }
 
+async function openView(name: '作品' | '新建作品' | '设置') {
+  fireEvent.click(await screen.findByRole('button', { name }));
+}
+
+async function openNewBookView() {
+  await openView('新建作品');
+}
+
+async function openSettingsView() {
+  await openView('设置');
+}
+
+async function selectBook(title: string) {
+  fireEvent.click(await screen.findByRole('button', { name: title }));
+}
+
+async function selectProvider(value: string) {
+  fireEvent.change(screen.getByLabelText('Provider'), {
+    target: { value },
+  });
+}
+
 describe('App shell', () => {
-  it('loads books from IPC and refreshes the dashboard after creating one', async () => {
+  it('switches between 作品, 新建作品, and 设置 through the left sidebar', async () => {
+    installIpcMock(async (channel) => {
+      switch (channel) {
+        case 'book:list':
+          return [];
+        case 'model:list':
+          return [];
+        default:
+          return null;
+      }
+    });
+
+    render(<App />);
+
+    expect(await screen.findByText('暂无作品')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '新建作品' }));
+    expect(
+      await screen.findByRole('heading', { name: '新建作品' })
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '设置' }));
+    expect(await screen.findByRole('heading', { name: '设置' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '作品' }));
+    expect(await screen.findByText('暂无作品')).toBeInTheDocument();
+  });
+
+  it('renders a safe empty preview when Electron IPC is unavailable', async () => {
+    delete window.storyWeaver;
+
+    render(<App />);
+
+    expect((await screen.findAllByText('Story Weaver')).length).toBeGreaterThan(0);
+    expect(await screen.findByText('暂无作品')).toBeInTheDocument();
+    expect(await screen.findByText('全部开始')).toBeDisabled();
+  });
+
+  it('updates the detail panel when a book is selected from the library list', async () => {
+    const books = [
+      {
+        id: 'book-1',
+        title: 'First Book',
+        idea: 'First idea',
+        status: 'writing',
+        targetWords: 500000,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      {
+        id: 'book-2',
+        title: 'Second Book',
+        idea: 'Second idea',
+        status: 'paused',
+        targetWords: 500000,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    ];
+
+    installIpcMock(async (channel, payload) => {
+      switch (channel) {
+        case 'book:list':
+          return copy(books);
+        case 'model:list':
+          return [];
+        case 'book:detail': {
+          const { bookId } = payload as { bookId: string };
+          const book = books.find((item) => item.id === bookId) ?? books[0];
+
+          return {
+            book,
+            context: null,
+            latestScene: null,
+            characterStates: [],
+            plotThreads: [],
+            chapters: [],
+            progress: {
+              phase: book.status,
+            },
+          };
+        }
+        default:
+          return null;
+      }
+    });
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole('heading', { name: 'First Book' })
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Second Book' }));
+
+    expect(
+      await screen.findByRole('heading', { name: 'Second Book' })
+    ).toBeInTheDocument();
+  });
+
+  it('loads books from IPC and refreshes the library after creating one', async () => {
     const books = [
       {
         id: 'book-1',
@@ -90,8 +212,10 @@ describe('App shell', () => {
     render(<App />);
 
     expect(
-      await screen.findByRole('heading', { name: 'Existing Book' })
+      await screen.findByRole('button', { name: 'Existing Book' })
     ).toBeInTheDocument();
+
+    await openNewBookView();
 
     fireEvent.change(screen.getByLabelText('IDEA'), {
       target: { value: 'A map eats its explorers.' },
@@ -109,13 +233,96 @@ describe('App shell', () => {
     });
 
     expect(
-      await screen.findByRole('heading', {
+      await screen.findByRole('button', {
         name: 'A map eats its explorers.',
       })
     ).toBeInTheDocument();
   });
 
-  it('updates the dashboard summary from scheduler progress events', async () => {
+  it('returns to 作品 and selects the newly created book', async () => {
+    const books: Array<{
+      id: string;
+      title: string;
+      idea: string;
+      status: string;
+      targetWords: number;
+      createdAt: string;
+      updatedAt: string;
+    }> = [];
+
+    const { invoke } = installIpcMock(async (channel, payload) => {
+      switch (channel) {
+        case 'book:list':
+          return copy(books);
+        case 'model:list':
+          return [];
+        case 'book:create': {
+          const input = payload as {
+            idea: string;
+            targetWords: number;
+          };
+
+          books.push({
+            id: 'book-9',
+            title: input.idea,
+            idea: input.idea,
+            status: 'creating',
+            targetWords: input.targetWords,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          });
+          return 'book-9';
+        }
+        case 'book:start':
+          return undefined;
+        case 'book:detail':
+          return {
+            book: books[0],
+            context: null,
+            latestScene: null,
+            characterStates: [],
+            plotThreads: [],
+            chapters: [],
+            progress: {
+              phase: books[0]?.status ?? 'creating',
+            },
+          };
+        default:
+          return null;
+      }
+    });
+
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole('button', { name: '新建作品' }));
+    fireEvent.change(screen.getByLabelText('IDEA'), {
+      target: { value: 'A lighthouse writes back.' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '开始写作' }));
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith('book:create', {
+        idea: 'A lighthouse writes back.',
+        targetWords: 500000,
+      });
+      expect(invoke).toHaveBeenCalledWith('book:start', {
+        bookId: 'book-9',
+      });
+      expect(invoke).toHaveBeenCalledWith('book:detail', {
+        bookId: 'book-9',
+      });
+    });
+
+    expect(await screen.findByRole('button', { name: '作品' })).toHaveAttribute(
+      'data-active',
+      'true'
+    );
+    expect(
+      await screen.findByRole('button', { name: 'A lighthouse writes back.' })
+    ).toBeInTheDocument();
+  });
+
+  it('updates the library summary from scheduler progress events', async () => {
     const { emitProgress } = installIpcMock(async (channel) => {
       switch (channel) {
         case 'book:list':
@@ -141,7 +348,7 @@ describe('App shell', () => {
     ).toBeInTheDocument();
   });
 
-  it('renders chapter completion progress on the dashboard cards', async () => {
+  it('renders chapter completion progress in the library list', async () => {
     const books = [
       {
         id: 'book-1',
@@ -200,14 +407,15 @@ describe('App shell', () => {
 
     render(<App />);
 
-    const progressBar = await screen.findByLabelText('progress');
-    const fill = progressBar.firstElementChild as HTMLElement | null;
+    const progressBar = await screen.findByRole('progressbar', {
+      name: '章节进度',
+    });
 
-    expect(fill?.style.width).toBe('50%');
+    expect(progressBar).toHaveAttribute('aria-valuenow', '50');
     expect(await screen.findByText('1/2 章 · 50%')).toBeInTheDocument();
   });
 
-  it('starts all runnable books from the dashboard', async () => {
+  it('starts all runnable books from the library', async () => {
     const books = [
       {
         id: 'book-1',
@@ -247,7 +455,13 @@ describe('App shell', () => {
 
     render(<App />);
 
-    fireEvent.click(await screen.findByText('全部开始'));
+    const startAllButton = await screen.findByRole('button', { name: '全部开始' });
+
+    await waitFor(() => {
+      expect(startAllButton).toBeEnabled();
+    });
+
+    fireEvent.click(startAllButton);
 
     await waitFor(() => {
       expect(invoke).toHaveBeenCalledWith('scheduler:startAll', undefined);
@@ -256,7 +470,7 @@ describe('App shell', () => {
     expect(await screen.findByText('已完成')).toBeInTheDocument();
   });
 
-  it('pauses all books from the dashboard', async () => {
+  it('pauses all books from the library', async () => {
     const books = [
       {
         id: 'book-1',
@@ -296,7 +510,13 @@ describe('App shell', () => {
 
     render(<App />);
 
-    fireEvent.click(await screen.findByText('全部暂停'));
+    const pauseAllButton = await screen.findByRole('button', { name: '全部暂停' });
+
+    await waitFor(() => {
+      expect(pauseAllButton).toBeEnabled();
+    });
+
+    fireEvent.click(pauseAllButton);
 
     await waitFor(() => {
       expect(invoke).toHaveBeenCalledWith('scheduler:pauseAll', undefined);
@@ -442,7 +662,7 @@ describe('App shell', () => {
 
     render(<App />);
 
-    fireEvent.click((await screen.findAllByText('查看详情'))[0]);
+    await selectBook('Existing Book');
     expect(await screen.findByText('World rules')).toBeInTheDocument();
 
     fireEvent.click(screen.getByText('暂停'));
@@ -528,7 +748,7 @@ describe('App shell', () => {
 
     render(<App />);
 
-    fireEvent.click((await screen.findAllByText('查看详情'))[0]);
+    await selectBook('Existing Book');
     fireEvent.click(await screen.findByText('导出 TXT'));
 
     await waitFor(() => {
@@ -607,7 +827,7 @@ describe('App shell', () => {
 
     render(<App />);
 
-    fireEvent.click((await screen.findAllByText('查看详情'))[0]);
+    await selectBook('Existing Book');
     fireEvent.click(await screen.findByText('删除作品'));
 
     await waitFor(() => {
@@ -752,7 +972,7 @@ describe('App shell', () => {
 
     render(<App />);
 
-    fireEvent.click((await screen.findAllByText('查看详情'))[0]);
+    await selectBook('Existing Book');
     fireEvent.click(await screen.findByText('恢复写作'));
 
     await waitFor(() => {
@@ -891,7 +1111,7 @@ describe('App shell', () => {
 
     render(<App />);
 
-    fireEvent.click((await screen.findAllByText('查看详情'))[0]);
+    await selectBook('Existing Book');
     fireEvent.click(await screen.findByText('重新开始'));
 
     await waitFor(() => {
@@ -1066,7 +1286,7 @@ describe('App shell', () => {
 
     render(<App />);
 
-    fireEvent.click((await screen.findAllByText('查看详情'))[0]);
+    await selectBook('Existing Book');
     fireEvent.click(await screen.findByText('写下一章'));
 
     await waitFor(() => {
@@ -1263,7 +1483,7 @@ describe('App shell', () => {
 
     render(<App />);
 
-    fireEvent.click((await screen.findAllByText('查看详情'))[0]);
+    await selectBook('Existing Book');
     fireEvent.click(await screen.findByText('连续写作'));
 
     await waitFor(() => {
@@ -1304,6 +1524,8 @@ describe('App shell', () => {
 
     render(<App />);
 
+    await openSettingsView();
+
     expect(await screen.findByText('deepseek-chat · deepseek')).toBeInTheDocument();
   });
 
@@ -1335,9 +1557,9 @@ describe('App shell', () => {
 
     render(<App />);
 
-    fireEvent.change(screen.getByLabelText('Provider'), {
-      target: { value: 'deepseek' },
-    });
+    await openSettingsView();
+
+    await selectProvider('deepseek');
     fireEvent.change(screen.getByLabelText('Model Name'), {
       target: { value: 'deepseek-chat' },
     });
@@ -1397,9 +1619,13 @@ describe('App shell', () => {
 
     render(<App />);
 
+    await openSettingsView();
+
     fireEvent.click(await screen.findByText('deepseek-chat · deepseek'));
 
-    expect(screen.getByLabelText('Provider')).toHaveValue('deepseek');
+    expect(screen.getByRole('combobox', { name: 'Provider' })).toHaveTextContent(
+      'deepseek'
+    );
     expect(screen.getByLabelText('Model Name')).toHaveValue('deepseek-chat');
     expect(screen.getByLabelText('API Key')).toHaveValue('sk-old');
     expect(screen.getByLabelText('Base URL')).toHaveValue(
@@ -1464,11 +1690,15 @@ describe('App shell', () => {
 
     render(<App />);
 
+    await openSettingsView();
+
     fireEvent.click(await screen.findByText('deepseek-chat · deepseek'));
     fireEvent.click(screen.getAllByText('删除模型')[0]);
 
     expect(await screen.findByText('还没有保存的模型配置。')).toBeInTheDocument();
-    expect(screen.getByLabelText('Provider')).toHaveValue('openai');
+    expect(screen.getByRole('combobox', { name: 'Provider' })).toHaveTextContent(
+      'openai'
+    );
     expect(screen.getByLabelText('Model Name')).toHaveValue('');
     expect(screen.getByLabelText('API Key')).toHaveValue('');
     expect(screen.getByLabelText('Base URL')).toHaveValue('');
@@ -1506,10 +1736,14 @@ describe('App shell', () => {
 
     render(<App />);
 
+    await openSettingsView();
+
     fireEvent.click(await screen.findByText('deepseek-chat · deepseek'));
     fireEvent.click(screen.getByText('新建模型'));
 
-    expect(screen.getByLabelText('Provider')).toHaveValue('openai');
+    expect(screen.getByRole('combobox', { name: 'Provider' })).toHaveTextContent(
+      'openai'
+    );
     expect(screen.getByLabelText('Model Name')).toHaveValue('');
     expect(screen.getByLabelText('API Key')).toHaveValue('');
     expect(screen.getByLabelText('Base URL')).toHaveValue('');
@@ -1555,6 +1789,8 @@ describe('App shell', () => {
     });
 
     render(<App />);
+
+    await openSettingsView();
 
     expect(await screen.findByText('deepseek-chat · deepseek')).toBeInTheDocument();
     fireEvent.click(await screen.findByText('删除模型'));
@@ -1615,9 +1851,13 @@ describe('App shell', () => {
 
     render(<App />);
 
+    await openSettingsView();
+
     expect(await screen.findByText('deepseek-chat · deepseek')).toBeInTheDocument();
     fireEvent.click(await screen.findByText('删除模型'));
     expect(await screen.findByText('还没有保存的模型配置。')).toBeInTheDocument();
+
+    await openNewBookView();
 
     fireEvent.change(screen.getByLabelText('IDEA'), {
       target: { value: 'A map eats its explorers.' },
@@ -1654,6 +1894,8 @@ describe('App shell', () => {
     });
 
     render(<App />);
+
+    await openSettingsView();
 
     fireEvent.change(await screen.findByLabelText('并发上限'), {
       target: { value: '2' },
@@ -1697,6 +1939,8 @@ describe('App shell', () => {
 
     render(<App />);
 
+    await openNewBookView();
+
     fireEvent.change(screen.getByLabelText('IDEA'), {
       target: { value: 'A map eats its explorers.' },
     });
@@ -1727,9 +1971,9 @@ describe('App shell', () => {
 
     render(<App />);
 
-    fireEvent.change(screen.getByLabelText('Provider'), {
-      target: { value: 'openai' },
-    });
+    await openSettingsView();
+
+    await selectProvider('openai');
     fireEvent.change(screen.getByLabelText('Model Name'), {
       target: { value: 'gpt-4o-mini' },
     });
@@ -1773,6 +2017,8 @@ describe('App shell', () => {
     });
 
     render(<App />);
+
+    await openNewBookView();
 
     fireEvent.change(screen.getByLabelText('IDEA'), {
       target: { value: 'A map eats its explorers.' },
