@@ -3,7 +3,7 @@ import { createDatabase } from '../../src/storage/database';
 import { createModelConfigRepository } from '../../src/storage/model-configs';
 
 describe('model config repository', () => {
-  it('saves and lists persisted model configs', () => {
+  it('saves and lists the single persisted model config', () => {
     const db = createDatabase(':memory:');
     const repo = createModelConfigRepository(db);
 
@@ -28,7 +28,7 @@ describe('model config repository', () => {
     ]);
   });
 
-  it('deletes a persisted model config', () => {
+  it('replaces the existing persisted model config when saving another one', () => {
     const db = createDatabase(':memory:');
     const repo = createModelConfigRepository(db);
 
@@ -41,8 +41,23 @@ describe('model config repository', () => {
       config: {},
     });
 
-    repo.delete('openai:gpt-4o-mini');
+    repo.save({
+      id: 'anthropic:claude-3-5-sonnet',
+      provider: 'anthropic',
+      modelName: 'claude-3-5-sonnet',
+      apiKey: 'sk-new',
+      baseUrl: '',
+      config: {},
+    });
 
-    expect(repo.list()).toEqual([]);
+    expect(repo.list()).toEqual([
+      expect.objectContaining({
+        id: 'anthropic:claude-3-5-sonnet',
+        provider: 'anthropic',
+        modelName: 'claude-3-5-sonnet',
+        apiKey: 'sk-new',
+      }),
+    ]);
+    expect(repo.getById('openai:gpt-4o-mini')).toBeNull();
   });
 });

@@ -22,10 +22,10 @@ describe('createRuntimeMode', () => {
       persistedConfigs: [],
       environmentConfigs: [
         {
-          id: 'custom:demo',
-          provider: 'custom',
-          modelName: 'demo',
-          apiKey: 'sk-test',
+          id: 'openai:gpt-4o-mini',
+          provider: 'openai',
+          modelName: 'gpt-4o-mini',
+          apiKey: '',
           baseUrl: '',
           config: {},
         },

@@ -2,16 +2,16 @@ import { describe, expect, it } from 'vitest';
 import { validateModelConfig } from '../../src/models/config';
 
 describe('validateModelConfig', () => {
-  it('requires baseUrl for custom openai-compatible providers', () => {
+  it('rejects unsupported model providers', () => {
     expect(() =>
       validateModelConfig({
         id: 'deepseek-chat',
-        provider: 'deepseek',
+        provider: 'deepseek' as never,
         modelName: 'deepseek-chat',
         apiKey: 'sk-test',
-        baseUrl: '',
+        baseUrl: 'https://api.deepseek.com',
         config: {},
       })
-    ).toThrow(/baseUrl/);
+    ).toThrow(/unsupported provider/);
   });
 });

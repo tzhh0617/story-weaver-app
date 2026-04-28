@@ -47,7 +47,6 @@ export const ipcChannels = {
   modelList: 'model:list',
   modelSave: 'model:save',
   modelTest: 'model:test',
-  modelDelete: 'model:delete',
   settingsGet: 'settings:get',
   settingsSet: 'settings:set',
 } as const;

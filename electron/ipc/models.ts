@@ -13,7 +13,4 @@ export function registerModelHandlers() {
     ipcChannels.modelTest,
     async (_event, payload: { modelId: string }) => testModel(payload.modelId)
   );
-  ipcMain.handle(ipcChannels.modelDelete, async (_event, payload: { id: string }) =>
-    modelConfigs.delete(payload.id)
-  );
 }

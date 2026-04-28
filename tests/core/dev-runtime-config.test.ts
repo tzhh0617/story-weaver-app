@@ -27,10 +27,8 @@ describe('desktop runtime config', () => {
     expect(packageJson.scripts?.['dev:renderer']).toBe('vite --strictPort');
   });
 
-  it('rebuilds native dependencies for the Electron runtime after install', () => {
-    expect(packageJson.scripts?.['rebuild:native']).toBe(
-      'node scripts/rebuild-native.cjs'
-    );
-    expect(packageJson.scripts?.postinstall).toBe('npm run rebuild:native');
+  it('does not force a native rebuild during installation', () => {
+    expect(packageJson.scripts?.['rebuild:native']).toBeUndefined();
+    expect(packageJson.scripts?.postinstall).toBeUndefined();
   });
 });

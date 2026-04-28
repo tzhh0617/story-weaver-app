@@ -5,7 +5,6 @@ import {
   validateModelConfig,
 } from './config.js';
 import { createAnthropicProvider } from './providers/anthropic.js';
-import { createCompatibleProvider } from './providers/custom.js';
 import { createOpenAIProvider } from './providers/openai.js';
 
 export function createRuntimeRegistry(configs: ModelConfigInput[]) {
@@ -19,13 +18,6 @@ export function createRuntimeRegistry(configs: ModelConfigInput[]) {
         break;
       case 'anthropic':
         providers.anthropic = createAnthropicProvider(config.apiKey);
-        break;
-      default:
-        providers[config.provider] = createCompatibleProvider({
-          name: config.provider,
-          apiKey: config.apiKey,
-          baseURL: config.baseUrl,
-        });
         break;
     }
   }

@@ -1,10 +1,4 @@
-export type ModelProvider =
-  | 'openai'
-  | 'anthropic'
-  | 'deepseek'
-  | 'qwen'
-  | 'glm'
-  | 'custom';
+export type ModelProvider = 'openai' | 'anthropic';
 
 export type ModelConfigInput = {
   id: string;
@@ -15,16 +9,15 @@ export type ModelConfigInput = {
   config: Record<string, unknown>;
 };
 
-const openAICompatibleProviders = new Set<ModelProvider>([
-  'deepseek',
-  'qwen',
-  'glm',
-  'custom',
-]);
+const supportedProviders = new Set(['openai', 'anthropic']);
 
 export function validateModelConfig(input: ModelConfigInput) {
   if (!input.id.trim()) {
     throw new Error('id is required');
+  }
+
+  if (!supportedProviders.has(input.provider)) {
+    throw new Error('unsupported provider');
   }
 
   if (!input.modelName.trim()) {
@@ -33,13 +26,6 @@ export function validateModelConfig(input: ModelConfigInput) {
 
   if (!input.apiKey.trim()) {
     throw new Error('apiKey is required');
-  }
-
-  if (
-    openAICompatibleProviders.has(input.provider) &&
-    !input.baseUrl.trim()
-  ) {
-    throw new Error('baseUrl is required for openai-compatible providers');
   }
 
   return {

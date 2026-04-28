@@ -9,6 +9,8 @@ export function createModelConfigRepository(db: SqliteDatabase) {
     save(input: ModelConfigInput) {
       const config = validateModelConfig(input);
 
+      db.prepare('DELETE FROM model_configs WHERE id <> ?').run(config.id);
+
       db.prepare(
         `
           INSERT INTO model_configs (
@@ -59,6 +61,7 @@ export function createModelConfigRepository(db: SqliteDatabase) {
             FROM model_configs
             WHERE is_active = 1
             ORDER BY id ASC
+            LIMIT 1
           `
         )
         .all() as Array<{
@@ -82,10 +85,6 @@ export function createModelConfigRepository(db: SqliteDatabase) {
 
     getById(id: string) {
       return this.list().find((config) => config.id === id) ?? null;
-    },
-
-    delete(id: string) {
-      db.prepare('DELETE FROM model_configs WHERE id = ?').run(id);
     },
   };
 }

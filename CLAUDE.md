@@ -6,21 +6,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 # Development (starts renderer + electron concurrently)
-npm run dev
+pnpm run dev
 
 # Type checking (both renderer and electron tsconfigs)
-npm run typecheck
+pnpm run typecheck
 
 # Tests
-npm test               # run all tests once
-npm run test:watch     # watch mode
+pnpm test              # run all tests once
+pnpm run test:watch    # watch mode
 
 # Run a single test file
-npx vitest run tests/core/scheduler.test.ts
+pnpm exec vitest run tests/core/scheduler.test.ts
 
 # Build
-npm run build          # renderer (vite) + electron (tsc)
-npm run package        # build + electron-builder (creates .dmg/.zip)
+pnpm run build         # renderer (vite) + electron (tsc)
+pnpm run package       # build + electron-builder (creates .dmg/.zip)
 ```
 
 Data is stored in `~/.story-weaver/` (SQLite DB, exports, logs).
