@@ -116,14 +116,27 @@ export default function App() {
 
   async function loadBookDetail(
     bookId: string,
-    options?: { openView?: boolean }
+    options?: { openView?: boolean; preserveExistingOnMissing?: boolean }
   ) {
     const detail = await ipc.invoke<BookDetailData | null>(
       ipcChannels.bookDetail,
       { bookId }
     );
     setSelectedBookId(bookId);
-    setSelectedBookDetail(detail);
+    setSelectedBookDetail((currentDetail) => {
+      if (detail) {
+        return detail;
+      }
+
+      if (
+        options?.preserveExistingOnMissing &&
+        currentDetail?.book.id === bookId
+      ) {
+        return currentDetail;
+      }
+
+      return null;
+    });
 
     if (options?.openView ?? true) {
       setCurrentView('book-detail');
@@ -140,7 +153,10 @@ export default function App() {
       await loadBooks();
 
       if (selectedBookId) {
-        await loadBookDetail(selectedBookId, { openView: false });
+        await loadBookDetail(selectedBookId, {
+          openView: false,
+          preserveExistingOnMissing: true,
+        });
       }
     })();
   }, [progress, selectedBookId]);
@@ -214,7 +230,9 @@ export default function App() {
       await loadBooks();
 
       if (!clearSelection) {
-        await loadBookDetail(selectedBookId);
+        await loadBookDetail(selectedBookId, {
+          preserveExistingOnMissing: true,
+        });
       }
 
       if (typeof successMessage === 'string') {
@@ -426,7 +444,10 @@ export default function App() {
                     try {
                       await ipc.invoke(ipcChannels.bookStart, { bookId });
                       await loadBooks();
-                      await loadBookDetail(bookId, { openView: false });
+                      await loadBookDetail(bookId, {
+                        openView: false,
+                        preserveExistingOnMissing: true,
+                      });
                       flushSync(() => {
                         setBanner(null);
                       });

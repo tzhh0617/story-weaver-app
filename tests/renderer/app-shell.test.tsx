@@ -598,6 +598,7 @@ describe('App shell', () => {
 
   it('keeps the new book detail open when the list refresh is briefly stale', async () => {
     let resolveStart: (() => void) | null = null;
+    let detailRequests = 0;
     const createdBook = {
       id: 'book-stale-list',
       title: '新作品',
@@ -625,6 +626,11 @@ describe('App shell', () => {
         case 'book:detail': {
           const { bookId } = payload as { bookId: string };
           if (bookId !== createdBook.id) {
+            return null;
+          }
+
+          detailRequests += 1;
+          if (detailRequests > 1) {
             return null;
           }
 
@@ -669,6 +675,19 @@ describe('App shell', () => {
 
     const startResolver = resolveStart as null | (() => void);
     startResolver?.();
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith('book:start', {
+        bookId: createdBook.id,
+      });
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(
+      screen.getByRole('heading', { name: '新作品' })
+    ).toBeInTheDocument();
+    expect(screen.queryByText('暂无作品')).not.toBeInTheDocument();
   });
 
   it('updates the library summary from scheduler progress events', async () => {
