@@ -302,9 +302,41 @@ export function createMockPlotThreadExtractor() {
   };
 }
 
+export function createMockChapterUpdateExtractor() {
+  const summaryGenerator = createMockSummaryGenerator();
+  const plotThreadExtractor = createMockPlotThreadExtractor();
+  const characterStateExtractor = createMockCharacterStateExtractor();
+  const sceneRecordExtractor = createMockSceneRecordExtractor();
+
+  return {
+    async extractChapterUpdate(input: {
+      modelId: string;
+      chapterIndex: number;
+      content: string;
+    }) {
+      const [summary, threadUpdates, characterStates, scene] =
+        await Promise.all([
+          summaryGenerator.summarizeChapter(input),
+          plotThreadExtractor.extractThreads(input),
+          characterStateExtractor.extractStates(input),
+          sceneRecordExtractor.extractScene(input),
+        ]);
+
+      return {
+        summary,
+        openedThreads: threadUpdates.openedThreads,
+        resolvedThreadIds: threadUpdates.resolvedThreadIds,
+        characterStates,
+        scene,
+      };
+    },
+  };
+}
+
 export type MockStoryServices = {
   outlineService: ReturnType<typeof createMockOutlineService>;
   chapterWriter: ReturnType<typeof createMockChapterWriter>;
+  chapterUpdateExtractor: ReturnType<typeof createMockChapterUpdateExtractor>;
   summaryGenerator: ReturnType<typeof createMockSummaryGenerator>;
   characterStateExtractor: ReturnType<typeof createMockCharacterStateExtractor>;
   plotThreadExtractor: ReturnType<typeof createMockPlotThreadExtractor>;
@@ -315,6 +347,7 @@ export function createMockStoryServices(): MockStoryServices {
   return {
     outlineService: createMockOutlineService(),
     chapterWriter: createMockChapterWriter(),
+    chapterUpdateExtractor: createMockChapterUpdateExtractor(),
     summaryGenerator: createMockSummaryGenerator(),
     characterStateExtractor: createMockCharacterStateExtractor(),
     plotThreadExtractor: createMockPlotThreadExtractor(),

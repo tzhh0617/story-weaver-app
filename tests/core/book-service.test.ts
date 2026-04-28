@@ -297,12 +297,280 @@ describe('createBookService', () => {
     );
   });
 
+  it('falls back to legacy post-chapter extractors when unified extraction fails', async () => {
+    const db = createDatabase(':memory:');
+    const chapterUpdateExtractor = vi
+      .fn()
+      .mockRejectedValue(new Error('invalid JSON'));
+    const summarizeChapter = vi.fn().mockResolvedValue('Fallback summary');
+    const extractThreads = vi.fn().mockResolvedValue({
+      openedThreads: [
+        {
+          id: 'thread-fallback',
+          description: 'Fallback thread',
+          plantedAt: 1,
+          expectedPayoff: 4,
+          importance: 'normal',
+        },
+      ],
+      resolvedThreadIds: [],
+    });
+    const extractStates = vi.fn().mockResolvedValue([
+      {
+        characterId: 'protagonist',
+        characterName: 'Lin Mo',
+        location: 'Archive Gate',
+        status: 'Recovering continuity state',
+        knowledge: 'Knows fallback extraction worked',
+        emotion: 'Calm',
+        powerLevel: 'Awakened',
+      },
+    ]);
+    const extractScene = vi.fn().mockResolvedValue({
+      location: 'Archive Gate',
+      timeInStory: 'Dawn',
+      charactersPresent: ['Lin Mo'],
+      events: 'Fallback extractor records the scene',
+    });
+
+    const service = createBookService({
+      books: createBookRepository(db),
+      chapters: createChapterRepository(db),
+      characters: createCharacterRepository(db),
+      plotThreads: createPlotThreadRepository(db),
+      sceneRecords: createSceneRecordRepository(db),
+      progress: createProgressRepository(db),
+      outlineService: {
+        generateFromIdea: vi.fn().mockResolvedValue({
+          worldSetting: 'World rules',
+          masterOutline: 'Master outline',
+          volumeOutlines: ['Volume 1'],
+          chapterOutlines: [
+            {
+              volumeIndex: 1,
+              chapterIndex: 1,
+              title: 'Chapter 1',
+              outline: 'Opening conflict',
+            },
+          ],
+        }),
+      },
+      chapterWriter: {
+        writeChapter: vi.fn().mockResolvedValue({
+          content: 'Generated chapter content',
+          usage: { inputTokens: 100, outputTokens: 400 },
+        }),
+      },
+      summaryGenerator: {
+        summarizeChapter,
+      },
+      plotThreadExtractor: {
+        extractThreads,
+      },
+      characterStateExtractor: {
+        extractStates,
+      },
+      sceneRecordExtractor: {
+        extractScene,
+      },
+      chapterUpdateExtractor: {
+        extractChapterUpdate: chapterUpdateExtractor,
+      },
+    });
+
+    const bookId = service.createBook({
+      idea: 'The moon taxes miracles.',
+      modelId: 'openai:gpt-4o-mini',
+      targetWords: 300000,
+    });
+
+    await service.startBook(bookId);
+    await service.writeNextChapter(bookId);
+
+    const detail = service.getBookDetail(bookId);
+
+    expect(chapterUpdateExtractor).toHaveBeenCalledTimes(1);
+    expect(summarizeChapter).toHaveBeenCalledTimes(1);
+    expect(extractThreads).toHaveBeenCalledTimes(1);
+    expect(extractStates).toHaveBeenCalledTimes(1);
+    expect(extractScene).toHaveBeenCalledTimes(1);
+    expect(detail?.chapters[0]).toEqual(
+      expect.objectContaining({
+        content: 'Generated chapter content',
+        summary: 'Fallback summary',
+      })
+    );
+    expect(detail?.plotThreads).toEqual([
+      expect.objectContaining({
+        id: 'thread-fallback',
+        description: 'Fallback thread',
+      }),
+    ]);
+    expect(detail?.latestScene).toEqual(
+      expect.objectContaining({
+        location: 'Archive Gate',
+        events: 'Fallback extractor records the scene',
+      })
+    );
+  });
+
+  it('falls back to legacy post-chapter extractors when unified extraction returns an empty summary', async () => {
+    const db = createDatabase(':memory:');
+    const chapterUpdateExtractor = vi.fn().mockResolvedValue({
+      summary: '',
+      openedThreads: [],
+      resolvedThreadIds: [],
+      characterStates: [],
+      scene: null,
+    });
+    const summarizeChapter = vi.fn().mockResolvedValue('Recovered summary');
+
+    const service = createBookService({
+      books: createBookRepository(db),
+      chapters: createChapterRepository(db),
+      characters: createCharacterRepository(db),
+      plotThreads: createPlotThreadRepository(db),
+      sceneRecords: createSceneRecordRepository(db),
+      progress: createProgressRepository(db),
+      outlineService: {
+        generateFromIdea: vi.fn().mockResolvedValue({
+          worldSetting: 'World rules',
+          masterOutline: 'Master outline',
+          volumeOutlines: ['Volume 1'],
+          chapterOutlines: [
+            {
+              volumeIndex: 1,
+              chapterIndex: 1,
+              title: 'Chapter 1',
+              outline: 'Opening conflict',
+            },
+          ],
+        }),
+      },
+      chapterWriter: {
+        writeChapter: vi.fn().mockResolvedValue({
+          content: 'Generated chapter content',
+          usage: { inputTokens: 100, outputTokens: 400 },
+        }),
+      },
+      summaryGenerator: {
+        summarizeChapter,
+      },
+      plotThreadExtractor: {
+        extractThreads: vi.fn().mockResolvedValue({
+          openedThreads: [],
+          resolvedThreadIds: [],
+        }),
+      },
+      characterStateExtractor: {
+        extractStates: vi.fn().mockResolvedValue([]),
+      },
+      sceneRecordExtractor: {
+        extractScene: vi.fn().mockResolvedValue(null),
+      },
+      chapterUpdateExtractor: {
+        extractChapterUpdate: chapterUpdateExtractor,
+      },
+    });
+
+    const bookId = service.createBook({
+      idea: 'The moon taxes miracles.',
+      modelId: 'openai:gpt-4o-mini',
+      targetWords: 300000,
+    });
+
+    await service.startBook(bookId);
+    await service.writeNextChapter(bookId);
+
+    const detail = service.getBookDetail(bookId);
+
+    expect(chapterUpdateExtractor).toHaveBeenCalledTimes(1);
+    expect(summarizeChapter).toHaveBeenCalledTimes(1);
+    expect(detail?.chapters[0]).toEqual(
+      expect.objectContaining({
+        summary: 'Recovered summary',
+      })
+    );
+  });
+
+  it('trims oversized world and master outline context in chapter prompts', async () => {
+    const db = createDatabase(':memory:');
+    const writeChapter = vi.fn().mockResolvedValue({
+      content: 'Generated chapter content',
+      usage: { inputTokens: 100, outputTokens: 400 },
+    });
+    const longWorld = `World start ${'w'.repeat(9000)} World end`;
+    const longMaster = `Master start ${'m'.repeat(9000)} Master end`;
+
+    const service = createBookService({
+      books: createBookRepository(db),
+      chapters: createChapterRepository(db),
+      characters: createCharacterRepository(db),
+      plotThreads: createPlotThreadRepository(db),
+      sceneRecords: createSceneRecordRepository(db),
+      progress: createProgressRepository(db),
+      outlineService: {
+        generateFromIdea: vi.fn().mockResolvedValue({
+          worldSetting: longWorld,
+          masterOutline: longMaster,
+          volumeOutlines: ['Volume 1'],
+          chapterOutlines: [
+            {
+              volumeIndex: 1,
+              chapterIndex: 1,
+              title: 'Chapter 1',
+              outline: 'Opening conflict must remain visible.',
+            },
+          ],
+        }),
+      },
+      chapterWriter: {
+        writeChapter,
+      },
+      summaryGenerator: {
+        summarizeChapter: vi.fn().mockResolvedValue('Chapter summary'),
+      },
+      plotThreadExtractor: {
+        extractThreads: vi.fn().mockResolvedValue({
+          openedThreads: [],
+          resolvedThreadIds: [],
+        }),
+      },
+      characterStateExtractor: {
+        extractStates: vi.fn().mockResolvedValue([]),
+      },
+      sceneRecordExtractor: {
+        extractScene: vi.fn().mockResolvedValue(null),
+      },
+    });
+
+    const bookId = service.createBook({
+      idea: 'The moon taxes miracles.',
+      modelId: 'openai:gpt-4o-mini',
+      targetWords: 300000,
+    });
+
+    await service.startBook(bookId);
+    await service.writeNextChapter(bookId);
+
+    const prompt = writeChapter.mock.calls[0]?.[0].prompt ?? '';
+
+    expect(prompt).toContain('World start');
+    expect(prompt).toContain('Master start');
+    expect(prompt).toContain('[truncated]');
+    expect(prompt).not.toContain('World end');
+    expect(prompt).not.toContain('Master end');
+    expect(prompt).toContain('Opening conflict must remain visible.');
+    expect(prompt.length).toBeLessThan(12000);
+  });
+
   it('writes all remaining outlined chapters in order', async () => {
     const db = createDatabase(':memory:');
     const writeChapter = vi
       .fn()
       .mockResolvedValueOnce({
-        content: 'Generated chapter 1',
+        content:
+          'Generated chapter 1. Lin Mo pressed the debt seal into the rain-soaked stone and heard the vault answer.',
         usage: { inputTokens: 100, outputTokens: 300 },
       })
       .mockResolvedValueOnce({
@@ -423,6 +691,30 @@ describe('createBookService', () => {
 
     expect(result.completedChapters).toBe(2);
     expect(writeChapter).toHaveBeenCalledTimes(2);
+    expect(writeChapter.mock.calls[1]?.[0].prompt).toContain(
+      'Recent chapter summaries:'
+    );
+    expect(writeChapter.mock.calls[1]?.[0].prompt).toContain(
+      'Chapter 1: Summary 1'
+    );
+    expect(writeChapter.mock.calls[1]?.[0].prompt).toContain(
+      'Previous chapter ending:'
+    );
+    expect(writeChapter.mock.calls[1]?.[0].prompt).toContain(
+      'heard the vault answer'
+    );
+    expect(writeChapter.mock.calls[1]?.[0].prompt).toContain(
+      'Debt clue'
+    );
+    expect(writeChapter.mock.calls[1]?.[0].prompt).toContain(
+      'Lin Mo: location=Archive Gate'
+    );
+    expect(writeChapter.mock.calls[1]?.[0].prompt).toContain(
+      'Last scene: Dawn at Archive Gate'
+    );
+    expect(writeChapter.mock.calls[1]?.[0].prompt).toContain(
+      'Treat the continuity context as hard constraints'
+    );
     expect(detail?.book.status).toBe('completed');
     expect(detail?.progress?.phase).toBe('completed');
     expect(detail?.plotThreads).toEqual([
@@ -448,7 +740,8 @@ describe('createBookService', () => {
     expect(detail?.chapters).toEqual([
       expect.objectContaining({
         chapterIndex: 1,
-        content: 'Generated chapter 1',
+        content:
+          'Generated chapter 1. Lin Mo pressed the debt seal into the rain-soaked stone and heard the vault answer.',
         summary: 'Summary 1',
       }),
       expect.objectContaining({

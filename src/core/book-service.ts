@@ -1,7 +1,24 @@
 import { randomUUID } from 'node:crypto';
 import type { BookStatus } from '../shared/contracts.js';
 import { DEFAULT_MOCK_MODEL_ID } from '../models/runtime-mode.js';
+import { buildStoredChapterContext } from './consistency.js';
 import type { OutlineBundle } from './types.js';
+
+const CHAPTER_CONTEXT_MAX_CHARACTERS = 6000;
+const WORLD_SETTING_MAX_CHARACTERS = 3000;
+const MASTER_OUTLINE_MAX_CHARACTERS = 3000;
+
+function trimPromptText(text: string | null, maxCharacters: number) {
+  if (!text) {
+    return 'N/A';
+  }
+
+  if (text.length <= maxCharacters) {
+    return text;
+  }
+
+  return `${text.slice(0, maxCharacters)}\n[truncated]`;
+}
 
 function deriveTitleFromIdea(idea: string) {
   const cleaned = idea.trim().replace(/\s+/g, ' ');
@@ -17,18 +34,114 @@ function buildChapterDraftPrompt(input: {
   idea: string;
   worldSetting: string | null;
   masterOutline: string | null;
+  continuityContext: string | null;
   chapterTitle: string;
   chapterOutline: string;
 }) {
   return [
     'Write the next chapter of a long-form Chinese web novel.',
     `Book idea: ${input.idea}`,
-    `World setting:\n${input.worldSetting ?? 'N/A'}`,
-    `Master outline:\n${input.masterOutline ?? 'N/A'}`,
+    `World setting:\n${trimPromptText(
+      input.worldSetting,
+      WORLD_SETTING_MAX_CHARACTERS
+    )}`,
+    `Master outline:\n${trimPromptText(
+      input.masterOutline,
+      MASTER_OUTLINE_MAX_CHARACTERS
+    )}`,
+    `Continuity context:\n${input.continuityContext ?? 'N/A'}`,
+    'Treat the continuity context as hard constraints: do not contradict character states, last scene timing/location, unresolved plot threads, or established world rules.',
     `Chapter title: ${input.chapterTitle}`,
     `Chapter outline: ${input.chapterOutline}`,
     'Return only the final chapter prose.',
   ].join('\n');
+}
+
+type ChapterUpdate = {
+  summary: string;
+  openedThreads: Array<{
+    id: string;
+    description: string;
+    plantedAt: number;
+    expectedPayoff?: number | null;
+    importance?: string | null;
+  }>;
+  resolvedThreadIds: string[];
+  characterStates: Array<{
+    characterId: string;
+    characterName: string;
+    location?: string | null;
+    status?: string | null;
+    knowledge?: string | null;
+    emotion?: string | null;
+    powerLevel?: string | null;
+  }>;
+  scene: {
+    location: string;
+    timeInStory: string;
+    charactersPresent: string[];
+    events?: string | null;
+  } | null;
+};
+
+function hasUsableChapterUpdate(update: ChapterUpdate) {
+  return update.summary.trim().length > 0;
+}
+
+async function extractChapterUpdate(input: {
+  modelId: string;
+  chapterIndex: number;
+  content: string;
+  deps: Pick<
+    Parameters<typeof createBookService>[0],
+    | 'summaryGenerator'
+    | 'plotThreadExtractor'
+    | 'characterStateExtractor'
+    | 'sceneRecordExtractor'
+    | 'chapterUpdateExtractor'
+  >;
+}): Promise<ChapterUpdate> {
+  if (input.deps.chapterUpdateExtractor) {
+    try {
+      const chapterUpdate =
+        await input.deps.chapterUpdateExtractor.extractChapterUpdate({
+          modelId: input.modelId,
+          chapterIndex: input.chapterIndex,
+          content: input.content,
+        });
+
+      if (hasUsableChapterUpdate(chapterUpdate)) {
+        return chapterUpdate;
+      }
+    } catch {
+      // Fall back to the older extractors so one malformed JSON response does not lose the chapter.
+    }
+  }
+
+  const threadUpdates = await input.deps.plotThreadExtractor.extractThreads({
+    modelId: input.modelId,
+    chapterIndex: input.chapterIndex,
+    content: input.content,
+  });
+
+  return {
+    summary: await input.deps.summaryGenerator.summarizeChapter({
+      modelId: input.modelId,
+      content: input.content,
+    }),
+    openedThreads: threadUpdates.openedThreads,
+    resolvedThreadIds: threadUpdates.resolvedThreadIds,
+    characterStates: await input.deps.characterStateExtractor.extractStates({
+      modelId: input.modelId,
+      chapterIndex: input.chapterIndex,
+      content: input.content,
+    }),
+    scene: await input.deps.sceneRecordExtractor.extractScene({
+      modelId: input.modelId,
+      chapterIndex: input.chapterIndex,
+      content: input.content,
+    }),
+  };
 }
 
 export function createBookService(deps: {
@@ -263,6 +376,13 @@ export function createBookService(deps: {
       events?: string | null;
     } | null>;
   };
+  chapterUpdateExtractor?: {
+    extractChapterUpdate: (input: {
+      modelId: string;
+      chapterIndex: number;
+      content: string;
+    }) => Promise<ChapterUpdate>;
+  };
   resolveModelId?: () => string;
 }) {
   const resolveModelId = deps.resolveModelId ?? (() => DEFAULT_MOCK_MODEL_ID);
@@ -377,20 +497,35 @@ export function createBookService(deps: {
       }
 
       const context = deps.books.getContext(bookId);
-      const nextChapter = deps.chapters
-        .listByBook(bookId)
-        .find((chapter) => chapter.outline && !chapter.content);
+      const chapters = deps.chapters.listByBook(bookId);
+      const nextChapter = chapters.find(
+        (chapter) => chapter.outline && !chapter.content
+      );
 
       if (!nextChapter || !nextChapter.outline || !nextChapter.title) {
         throw new Error('No outlined chapter available to write');
       }
 
+      const modelId = resolveModelId();
       const result = await deps.chapterWriter.writeChapter({
-        modelId: resolveModelId(),
+        modelId,
         prompt: buildChapterDraftPrompt({
           idea: book.idea,
           worldSetting: context?.worldSetting ?? null,
           masterOutline: context?.outline ?? null,
+          continuityContext: buildStoredChapterContext({
+            worldSetting: context?.worldSetting ?? null,
+            characterStates: deps.characters.listLatestStatesByBook(bookId),
+            plotThreads: deps.plotThreads.listByBook(bookId),
+            latestScene: deps.sceneRecords.getLatestByBook(bookId),
+            chapters,
+            currentChapter: {
+              volumeIndex: nextChapter.volumeIndex,
+              chapterIndex: nextChapter.chapterIndex,
+              outline: nextChapter.outline,
+            },
+            maxCharacters: CHAPTER_CONTEXT_MAX_CHARACTERS,
+          }),
           chapterTitle: nextChapter.title,
           chapterOutline: nextChapter.outline,
         }),
@@ -402,24 +537,11 @@ export function createBookService(deps: {
         };
       }
 
-      const summary = await deps.summaryGenerator.summarizeChapter({
-        modelId: resolveModelId(),
-        content: result.content,
-      });
-      const threadUpdates = await deps.plotThreadExtractor.extractThreads({
-        modelId: resolveModelId(),
+      const chapterUpdate = await extractChapterUpdate({
+        modelId,
         chapterIndex: nextChapter.chapterIndex,
         content: result.content,
-      });
-      const characterStates = await deps.characterStateExtractor.extractStates({
-        modelId: resolveModelId(),
-        chapterIndex: nextChapter.chapterIndex,
-        content: result.content,
-      });
-      const latestScene = await deps.sceneRecordExtractor.extractScene({
-        modelId: resolveModelId(),
-        chapterIndex: nextChapter.chapterIndex,
-        content: result.content,
+        deps,
       });
 
       if (!deps.books.getById(bookId)) {
@@ -433,11 +555,11 @@ export function createBookService(deps: {
         volumeIndex: nextChapter.volumeIndex,
         chapterIndex: nextChapter.chapterIndex,
         content: result.content,
-        summary,
+        summary: chapterUpdate.summary,
         wordCount: result.content.length,
       });
 
-      for (const thread of threadUpdates.openedThreads) {
+      for (const thread of chapterUpdate.openedThreads) {
         deps.plotThreads.upsertThread({
           id: thread.id,
           bookId,
@@ -448,11 +570,11 @@ export function createBookService(deps: {
         });
       }
 
-      for (const threadId of threadUpdates.resolvedThreadIds) {
+      for (const threadId of chapterUpdate.resolvedThreadIds) {
         deps.plotThreads.resolveThread(threadId, nextChapter.chapterIndex);
       }
 
-      for (const state of characterStates) {
+      for (const state of chapterUpdate.characterStates) {
         deps.characters.saveState({
           bookId,
           characterId: state.characterId,
@@ -467,15 +589,15 @@ export function createBookService(deps: {
         });
       }
 
-      if (latestScene) {
+      if (chapterUpdate.scene) {
         deps.sceneRecords.save({
           bookId,
           volumeIndex: nextChapter.volumeIndex,
           chapterIndex: nextChapter.chapterIndex,
-          location: latestScene.location,
-          timeInStory: latestScene.timeInStory,
-          charactersPresent: latestScene.charactersPresent,
-          events: latestScene.events ?? null,
+          location: chapterUpdate.scene.location,
+          timeInStory: chapterUpdate.scene.timeInStory,
+          charactersPresent: chapterUpdate.scene.charactersPresent,
+          events: chapterUpdate.scene.events ?? null,
         });
       }
 

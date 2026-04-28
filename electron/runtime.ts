@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { createAiOutlineService } from '../src/core/ai-outline.js';
 import {
+  createAiChapterUpdateExtractor,
   createAiCharacterStateExtractor,
   createAiPlotThreadExtractor,
   createAiSceneRecordExtractor,
@@ -316,6 +317,30 @@ export function getRuntimeServices() {
       }).extractScene(input);
     },
   };
+  const chapterUpdateExtractor = {
+    async extractChapterUpdate(input: {
+      modelId: string;
+      chapterIndex: number;
+      content: string;
+    }) {
+      const persistedConfigs = modelConfigs.list();
+      const runtimeMode = getRuntimeModelMode(persistedConfigs);
+      if (runtimeMode.kind === 'mock') {
+        return mockServices.chapterUpdateExtractor.extractChapterUpdate(input);
+      }
+
+      const registry = createRuntimeRegistry(runtimeMode.availableConfigs);
+      return createAiChapterUpdateExtractor({
+        registry: registry as {
+          languageModel: (id: string) => unknown;
+        },
+        generateText: generateText as (input: {
+          model: unknown;
+          prompt: string;
+        }) => Promise<{ text: string }>,
+      }).extractChapterUpdate(input);
+    },
+  };
   const runningBookIds = new Set<string>();
   let bookService!: ReturnType<typeof createBookService>;
 
@@ -382,6 +407,7 @@ export function getRuntimeServices() {
     characterStateExtractor,
     plotThreadExtractor,
     sceneRecordExtractor,
+    chapterUpdateExtractor,
     resolveModelId: () => {
       const runtimeMode = getRuntimeModelMode(modelConfigs.list());
       return runtimeMode.resolveModelId();

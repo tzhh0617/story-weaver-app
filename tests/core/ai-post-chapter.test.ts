@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  createAiChapterUpdateExtractor,
   createAiCharacterStateExtractor,
   createAiPlotThreadExtractor,
   createAiSceneRecordExtractor,
@@ -148,6 +149,119 @@ describe('AI post-chapter extractors', () => {
       timeInStory: 'Noon',
       charactersPresent: ['Lin Mo'],
       events: 'Lin Mo confronts the magistrate',
+    });
+  });
+
+  it('extracts all post-chapter updates with one model call', async () => {
+    const registry = {
+      languageModel: vi.fn().mockReturnValue({ id: 'model' }),
+    };
+    const generateText = vi.fn().mockResolvedValue({
+      text: JSON.stringify({
+        summary: 'Lin Mo opens the sealed vault.',
+        openedThreads: [
+          {
+            id: 'thread-1',
+            description: 'The vault debt is unpaid',
+            plantedAt: 1,
+            expectedPayoff: 3,
+            importance: 'critical',
+          },
+        ],
+        resolvedThreadIds: ['thread-0'],
+        characterStates: [
+          {
+            characterId: 'protagonist',
+            characterName: 'Lin Mo',
+            location: 'Archive Gate',
+            status: 'Holding the vault key',
+            knowledge: 'Knows the sigil is forged',
+            emotion: 'Focused',
+            powerLevel: 'Awakened',
+          },
+        ],
+        scene: {
+          location: 'Archive Gate',
+          timeInStory: 'Dawn',
+          charactersPresent: ['Lin Mo'],
+          events: 'Lin Mo opens the sealed vault',
+        },
+      }),
+    });
+
+    const extractor = createAiChapterUpdateExtractor({
+      registry: registry as never,
+      generateText: generateText as never,
+    });
+
+    await expect(
+      extractor.extractChapterUpdate({
+        modelId: 'openai:gpt-4o-mini',
+        chapterIndex: 1,
+        content: 'Chapter content',
+      })
+    ).resolves.toEqual({
+      summary: 'Lin Mo opens the sealed vault.',
+      openedThreads: [
+        {
+          id: 'thread-1',
+          description: 'The vault debt is unpaid',
+          plantedAt: 1,
+          expectedPayoff: 3,
+          importance: 'critical',
+        },
+      ],
+      resolvedThreadIds: ['thread-0'],
+      characterStates: [
+        {
+          characterId: 'protagonist',
+          characterName: 'Lin Mo',
+          location: 'Archive Gate',
+          status: 'Holding the vault key',
+          knowledge: 'Knows the sigil is forged',
+          emotion: 'Focused',
+          powerLevel: 'Awakened',
+        },
+      ],
+      scene: {
+        location: 'Archive Gate',
+        timeInStory: 'Dawn',
+        charactersPresent: ['Lin Mo'],
+        events: 'Lin Mo opens the sealed vault',
+      },
+    });
+
+    expect(generateText).toHaveBeenCalledTimes(1);
+  });
+
+  it('normalizes partial chapter updates from JSON text', async () => {
+    const registry = {
+      languageModel: vi.fn().mockReturnValue({ id: 'model' }),
+    };
+    const generateText = vi.fn().mockResolvedValue({
+      text: JSON.stringify({
+        summary: 'Only summary was returned.',
+        scene: null,
+      }),
+    });
+
+    const extractor = createAiChapterUpdateExtractor({
+      registry: registry as never,
+      generateText: generateText as never,
+    });
+
+    await expect(
+      extractor.extractChapterUpdate({
+        modelId: 'openai:gpt-4o-mini',
+        chapterIndex: 1,
+        content: 'Chapter content',
+      })
+    ).resolves.toEqual({
+      summary: 'Only summary was returned.',
+      openedThreads: [],
+      resolvedThreadIds: [],
+      characterStates: [],
+      scene: null,
     });
   });
 });
