@@ -25,12 +25,20 @@ describe('renderer entry styling', () => {
       onProgress: () => () => undefined,
     };
 
-    render(<App />);
+    const { container } = render(<App />);
 
     expect(
       await screen.findByRole('heading', {
         name: 'AI Long-Form Fiction Studio',
       })
     ).toBeInTheDocument();
+
+    const main = container.querySelector('main');
+    const cappedChildren = Array.from(main?.children ?? []).filter((child) =>
+      child.className.includes('max-w-[1100px]')
+    );
+
+    expect(main).toHaveClass('w-full');
+    expect(cappedChildren).toHaveLength(0);
   });
 });

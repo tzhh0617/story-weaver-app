@@ -194,8 +194,8 @@ export default function App() {
   ]);
 
   return (
-    <main className="grid min-h-screen content-start gap-6 px-8 py-8">
-      <section className="w-full max-w-[1100px] rounded-[28px] border border-border/70 bg-card/90 px-9 py-8 shadow-panel">
+    <main className="grid w-full min-h-screen content-start gap-6 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+      <section className="w-full rounded-[28px] border border-border/70 bg-card/90 px-9 py-8 shadow-panel">
         <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
           Story Weaver
         </p>
@@ -207,11 +207,11 @@ export default function App() {
         </p>
       </section>
       {banner ? (
-        <Alert tone={banner.tone} className="max-w-[1100px]">
+        <Alert tone={banner.tone}>
           {banner.message}
         </Alert>
       ) : null}
-      <div className="grid w-full max-w-[1100px] gap-6 lg:grid-cols-[1.4fr_0.9fr]">
+      <div className="grid w-full gap-6 lg:grid-cols-[1.4fr_0.9fr]">
         <Dashboard
           books={books}
           scheduler={progress ?? defaultScheduler}
@@ -301,7 +301,7 @@ export default function App() {
           }}
         />
       </div>
-      <section className="grid w-full max-w-[1100px] gap-6">
+      <section className="grid w-full gap-6">
         <Settings
           onSaveModel={async (input) => {
             await ipc.invoke(ipcChannels.modelSave, input);
@@ -421,7 +421,7 @@ export default function App() {
         />
       </section>
       {selectedBookDetail ? (
-        <section className="grid w-full max-w-[1100px] gap-6">
+        <section className="grid w-full gap-6">
           <BookDetail
             book={{
               title: selectedBookDetail.book?.title ?? 'Unknown Book',
