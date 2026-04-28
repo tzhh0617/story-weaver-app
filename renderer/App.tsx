@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { flushSync } from 'react-dom';
 import {
   ipcChannels,
@@ -11,7 +11,7 @@ import { useProgress } from './hooks/useProgress';
 import { AppSidebar, type AppView } from './components/app-sidebar';
 import { Alert } from './components/ui/alert';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
-import logoImage from '@/assets/story-weaver-logo.png';
+import BookDetail from './pages/BookDetail';
 import Library from './pages/Library';
 import NewBook from './pages/NewBook';
 import Settings from './pages/Settings';
@@ -23,6 +23,10 @@ const defaultScheduler: SchedulerStatus = {
   pausedBookIds: [],
   concurrencyLimit: null,
 };
+
+const sidebarProviderStyle = {
+  '--sidebar-width': '12.75rem',
+} as CSSProperties;
 
 type BannerTone = 'error' | 'success' | 'info';
 
@@ -110,13 +114,20 @@ export default function App() {
     setModelConfigs(safeConfigs);
   }
 
-  async function loadBookDetail(bookId: string) {
+  async function loadBookDetail(
+    bookId: string,
+    options?: { openView?: boolean }
+  ) {
     const detail = await ipc.invoke<BookDetailData | null>(
       ipcChannels.bookDetail,
       { bookId }
     );
     setSelectedBookId(bookId);
     setSelectedBookDetail(detail);
+
+    if (options?.openView ?? true) {
+      setCurrentView('book-detail');
+    }
   }
 
   useEffect(() => {
@@ -136,6 +147,9 @@ export default function App() {
     if (!books.length) {
       setSelectedBookId(null);
       setSelectedBookDetail(null);
+      if (currentView === 'book-detail') {
+        setCurrentView('library');
+      }
       return;
     }
 
@@ -143,8 +157,8 @@ export default function App() {
       return;
     }
 
-    void loadBookDetail(books[0].id);
-  }, [books, selectedBookId]);
+    void loadBookDetail(books[0].id, { openView: false });
+  }, [books, currentView, selectedBookId]);
 
   function showBanner(tone: BannerTone, message: string) {
     flushSync(() => {
@@ -211,37 +225,24 @@ export default function App() {
   }
 
   return (
-    <SidebarProvider defaultOpen>
+    <SidebarProvider
+      defaultOpen
+      style={sidebarProviderStyle}
+      className="app-paper-background h-svh overflow-hidden"
+    >
       <AppSidebar currentView={currentView} onSelectView={setCurrentView} />
-      <SidebarInset>
-        <main className="grid w-full min-h-screen content-start gap-6 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-          <section className="w-full rounded-lg border bg-card px-8 py-7 shadow-sm">
-            <img
-              src={logoImage}
-              alt="Story Weaver logo"
-              className="h-44 w-full object-contain object-left"
-            />
-            <p className="text-sm font-medium text-muted-foreground">
-              Story Weaver
-            </p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
-              AI Long-Form Fiction Studio
-            </h1>
-            <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground sm:text-base">
-              Coordinate worldbuilding, outline generation, and chapter writing from
-              one desktop console.
-            </p>
-          </section>
+      <SidebarInset className="app-paper-background min-w-0 flex-1 overflow-hidden">
+        <main className="h-svh overflow-y-auto w-full p-5">
+          <div className="grid w-full content-start gap-5">
           {banner ? <Alert tone={banner.tone}>{banner.message}</Alert> : null}
           {currentView === 'library' ? (
             <Library
               books={books}
               scheduler={progress ?? defaultScheduler}
-              selectedBookId={selectedBookId}
-              selectedBookDetail={selectedBookDetail}
               onSelectBook={(bookId) => {
-                void loadBookDetail(bookId);
+                void loadBookDetail(bookId, { openView: true });
               }}
+              onCreateBook={() => setCurrentView('new-book')}
               onStartAll={async () => {
                 try {
                   flushSync(() => {
@@ -278,7 +279,7 @@ export default function App() {
                   await ipc.invoke(ipcChannels.schedulerPauseAll);
                   await loadBooks();
                   if (selectedBookId) {
-                    await loadBookDetail(selectedBookId);
+                    await loadBookDetail(selectedBookId, { openView: false });
                   }
                   flushSync(() => {
                     setBanner(null);
@@ -295,6 +296,24 @@ export default function App() {
                   });
                 }
               }}
+            />
+          ) : null}
+          {currentView === 'book-detail' && selectedBookDetail ? (
+            <BookDetail
+              book={{
+                title: selectedBookDetail.book?.title ?? 'Unknown Book',
+                status: selectedBookDetail.book?.status ?? 'error',
+                wordCount: selectedBookDetail.chapters.reduce(
+                  (sum, chapter) => sum + chapter.wordCount,
+                  0
+                ),
+              }}
+              context={selectedBookDetail.context}
+              latestScene={selectedBookDetail.latestScene}
+              characterStates={selectedBookDetail.characterStates}
+              plotThreads={selectedBookDetail.plotThreads}
+              progress={selectedBookDetail.progress}
+              onBackToLibrary={() => setCurrentView('library')}
               onResume={async () => {
                 await runSelectedBookAction({
                   startMessage: '正在恢复写作...',
@@ -309,6 +328,18 @@ export default function App() {
                   channel: ipcChannels.bookRestart,
                 });
               }}
+              chapters={selectedBookDetail.chapters.map((chapter) => ({
+                id: `${chapter.volumeIndex}-${chapter.chapterIndex}`,
+                volumeIndex: chapter.volumeIndex,
+                chapterIndex: chapter.chapterIndex,
+                title:
+                  chapter.title ??
+                  `Chapter ${chapter.volumeIndex}.${chapter.chapterIndex}`,
+                wordCount: chapter.wordCount,
+                status: chapter.content ? 'done' : 'queued',
+                content: chapter.content,
+                summary: chapter.summary,
+              }))}
               onPause={async () => {
                 await runSelectedBookAction({
                   startMessage: null,
@@ -357,6 +388,7 @@ export default function App() {
                   successMessage: '作品已删除',
                   clearSelection: true,
                 });
+                setCurrentView('library');
               }}
             />
           ) : null}
@@ -451,36 +483,6 @@ export default function App() {
                 baseUrl: config.baseUrl,
                 config: config.config,
               }))}
-              onDeleteModel={async (modelId) => {
-                try {
-                  flushSync(() => {
-                    setBanner({
-                      tone: 'info',
-                      message: '正在删除模型...',
-                    });
-                  });
-                  await ipc.invoke(ipcChannels.modelDelete, {
-                    id: modelId,
-                  });
-                  await loadModels();
-                  flushSync(() => {
-                    setBanner({
-                      tone: 'success',
-                      message: '模型已删除',
-                    });
-                  });
-                } catch (error) {
-                  flushSync(() => {
-                    setBanner({
-                      tone: 'error',
-                      message:
-                        error instanceof Error
-                          ? error.message
-                          : 'Failed to delete model',
-                    });
-                  });
-                }
-              }}
               concurrencyLimit={progress?.concurrencyLimit ?? null}
               onSaveSetting={async (input) => {
                 try {
@@ -515,6 +517,7 @@ export default function App() {
               }}
             />
           ) : null}
+          </div>
         </main>
       </SidebarInset>
     </SidebarProvider>

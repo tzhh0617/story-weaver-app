@@ -33,12 +33,16 @@ function installIpcMock(
   };
 }
 
-async function openView(name: '作品' | '新建作品' | '设置') {
+async function openView(name: '作品' | '设置') {
   fireEvent.click(await screen.findByRole('button', { name }));
 }
 
 async function openNewBookView() {
-  await openView('新建作品');
+  if (!screen.queryByRole('button', { name: '新建作品' })) {
+    await openView('作品');
+  }
+
+  fireEvent.click(await screen.findByRole('button', { name: '新建作品' }));
 }
 
 async function openSettingsView() {
@@ -56,7 +60,7 @@ async function selectProvider(value: string) {
 }
 
 describe('App shell', () => {
-  it('switches between 作品, 新建作品, and 设置 through the left sidebar', async () => {
+  it('keeps primary navigation in the sidebar and opens new books from the library page', async () => {
     installIpcMock(async (channel) => {
       switch (channel) {
         case 'book:list':
@@ -71,11 +75,19 @@ describe('App shell', () => {
     render(<App />);
 
     expect(await screen.findByText('暂无作品')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '作品' })).toHaveAttribute(
+      'data-active',
+      'true'
+    );
 
     fireEvent.click(screen.getByRole('button', { name: '新建作品' }));
     expect(
       await screen.findByRole('heading', { name: '新建作品' })
     ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '作品' })).toHaveAttribute(
+      'data-active',
+      'true'
+    );
 
     fireEvent.click(screen.getByRole('button', { name: '设置' }));
     expect(await screen.findByRole('heading', { name: '设置' })).toBeInTheDocument();
@@ -89,30 +101,71 @@ describe('App shell', () => {
 
     render(<App />);
 
-    expect((await screen.findAllByText('Story Weaver')).length).toBeGreaterThan(0);
+    expect(
+      await screen.findByRole('group', { name: 'Story Weaver brand' })
+    ).toBeInTheDocument();
+    expect(screen.getByText('Story Weaver')).toBeInTheDocument();
+    expect(screen.getByText('藏书工坊')).toBeInTheDocument();
+    expect(await screen.findByAltText('Story Weaver logo')).toHaveAttribute(
+      'src',
+      expect.stringContaining('story-weaver-logo-white')
+    );
+    expect(screen.getByRole('button', { name: '作品' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '设置' })).toBeInTheDocument();
     expect(await screen.findByText('暂无作品')).toBeInTheDocument();
     expect(await screen.findByText('全部开始')).toBeDisabled();
   });
 
-  it('renders the provided Story Weaver logo in the sidebar and hero card', async () => {
+  it('opens the new-book workspace from the empty shelf action', async () => {
+    installIpcMock(async (channel) => {
+      switch (channel) {
+        case 'book:list':
+          return [];
+        case 'model:list':
+          return [];
+        default:
+          return null;
+      }
+    });
+
+    render(<App />);
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: '新建第一本作品' })
+    );
+
+    expect(
+      await screen.findByRole('heading', { name: '新建作品' })
+    ).toBeInTheDocument();
+  });
+
+  it('opens directly into the library workspace without the old hero card', async () => {
     delete window.storyWeaver;
 
     render(<App />);
 
+    expect(
+      await screen.findByPlaceholderText('搜索作品、设定或状态')
+    ).toBeInTheDocument();
+    expect(screen.queryByText('AI Long-Form Fiction Studio')).toBeNull();
+
     const logos = await screen.findAllByAltText('Story Weaver logo');
 
-    expect(logos).toHaveLength(2);
+    expect(
+      screen.getByRole('group', { name: 'Story Weaver brand' })
+    ).toBeInTheDocument();
+    expect(screen.getByText('Story Weaver')).toBeInTheDocument();
+    expect(screen.getByText('藏书工坊')).toBeInTheDocument();
+    expect(screen.queryByText('AI 长篇写作工作台')).toBeNull();
+    expect(screen.queryByText('Novel Archive')).toBeNull();
+    expect(logos).toHaveLength(1);
     expect(logos[0]).toHaveAttribute(
       'src',
-      expect.stringContaining('story-weaver-logo')
-    );
-    expect(logos[1]).toHaveAttribute(
-      'src',
-      expect.stringContaining('story-weaver-logo')
+      expect.stringContaining('story-weaver-logo-white')
     );
   });
 
-  it('updates the detail panel when a book is selected from the library list', async () => {
+  it('opens the selected book in the dedicated detail view', async () => {
     const books = [
       {
         id: 'book-1',
@@ -164,7 +217,7 @@ describe('App shell', () => {
     render(<App />);
 
     expect(
-      await screen.findByRole('heading', { name: 'First Book' })
+      await screen.findByRole('button', { name: 'First Book' })
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Second Book' }));
@@ -172,6 +225,75 @@ describe('App shell', () => {
     expect(
       await screen.findByRole('heading', { name: 'Second Book' })
     ).toBeInTheDocument();
+  });
+
+  it('opens a dedicated detail view for the selected book and returns to the library through the sidebar', async () => {
+    const books = [
+      {
+        id: 'book-1',
+        title: 'First Book',
+        idea: 'First idea',
+        status: 'writing',
+        targetWords: 500000,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      {
+        id: 'book-2',
+        title: 'Second Book',
+        idea: 'Second idea',
+        status: 'paused',
+        targetWords: 500000,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    ];
+
+    installIpcMock(async (channel, payload) => {
+      switch (channel) {
+        case 'book:list':
+          return copy(books);
+        case 'model:list':
+          return [];
+        case 'book:detail': {
+          const { bookId } = payload as { bookId: string };
+          const book = books.find((item) => item.id === bookId) ?? books[0];
+
+          return {
+            book,
+            context: null,
+            latestScene: null,
+            characterStates: [],
+            plotThreads: [],
+            chapters: [],
+            progress: {
+              phase: book.status,
+            },
+          };
+        }
+        default:
+          return null;
+      }
+    });
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole('button', { name: 'Second Book' })
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Second Book' }));
+
+    expect(
+      await screen.findByRole('heading', { name: 'Second Book' })
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '作品' }));
+
+    expect(
+      await screen.findByRole('button', { name: 'Second Book' })
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Second Book' })).toBeNull();
   });
 
   it('loads books from IPC and refreshes the library after creating one', async () => {
@@ -235,7 +357,7 @@ describe('App shell', () => {
 
     await openNewBookView();
 
-    fireEvent.change(screen.getByLabelText('IDEA'), {
+    fireEvent.change(screen.getByLabelText('故事设想'), {
       target: { value: 'A map eats its explorers.' },
     });
     fireEvent.click(screen.getByText('开始写作'));
@@ -313,7 +435,7 @@ describe('App shell', () => {
     render(<App />);
 
     fireEvent.click(await screen.findByRole('button', { name: '新建作品' }));
-    fireEvent.change(screen.getByLabelText('IDEA'), {
+    fireEvent.change(screen.getByLabelText('故事设想'), {
       target: { value: 'A lighthouse writes back.' },
     });
     fireEvent.click(screen.getByRole('button', { name: '开始写作' }));
@@ -361,9 +483,12 @@ describe('App shell', () => {
       concurrencyLimit: 1,
     });
 
-    expect(
-      await screen.findByText('0/50 完成 | 1 写作中 | 1 排队 | 1 已暂停')
-    ).toBeInTheDocument();
+    expect(await screen.findByText('完成')).toBeInTheDocument();
+    expect(await screen.findByText('0/50')).toBeInTheDocument();
+    expect(await screen.findByText('写作中')).toBeInTheDocument();
+    expect(await screen.findByText('排队')).toBeInTheDocument();
+    expect(await screen.findByText('已暂停')).toBeInTheDocument();
+    expect(screen.getAllByText('1')).toHaveLength(3);
   });
 
   it('renders chapter completion progress in the library list', async () => {
@@ -430,7 +555,7 @@ describe('App shell', () => {
     });
 
     expect(progressBar).toHaveAttribute('aria-valuenow', '50');
-    expect(await screen.findByText('1/2 章 · 50%')).toBeInTheDocument();
+    expect(await screen.findByText('1 / 2 章')).toBeInTheDocument();
   });
 
   it('starts all runnable books from the library', async () => {
@@ -540,7 +665,10 @@ describe('App shell', () => {
       expect(invoke).toHaveBeenCalledWith('scheduler:pauseAll', undefined);
     });
 
-    expect((await screen.findAllByText('已暂停')).length).toBeGreaterThan(0);
+    expect(await screen.findByRole('button', { name: '作品' })).toHaveAttribute(
+      'data-active',
+      'true'
+    );
   });
 
   it('loads book detail and pauses the selected book', async () => {
@@ -681,6 +809,11 @@ describe('App shell', () => {
     render(<App />);
 
     await selectBook('Existing Book');
+    expect(
+      await screen.findByRole('heading', { name: 'Existing Book' })
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('tab', { name: '大纲' }));
     expect(await screen.findByText('World rules')).toBeInTheDocument();
 
     fireEvent.click(screen.getByText('暂停'));
@@ -1519,7 +1652,7 @@ describe('App shell', () => {
     expect((await screen.findAllByText(/Debt Court/)).length).toBeGreaterThan(0);
   });
 
-  it('loads model configs from IPC into the saved model list', async () => {
+  it('loads the saved model config from IPC into the single model form', async () => {
     installIpcMock(async (channel) => {
       switch (channel) {
         case 'book:list':
@@ -1527,11 +1660,11 @@ describe('App shell', () => {
         case 'model:list':
           return copy([
             {
-              id: 'deepseek:deepseek-chat',
-              provider: 'deepseek',
-              modelName: 'deepseek-chat',
+              id: 'anthropic:claude-3-5-sonnet',
+              provider: 'anthropic',
+              modelName: 'claude-3-5-sonnet',
               apiKey: 'sk-test',
-              baseUrl: 'https://api.deepseek.com',
+              baseUrl: '',
               config: {},
             },
           ]);
@@ -1544,10 +1677,16 @@ describe('App shell', () => {
 
     await openSettingsView();
 
-    expect(await screen.findByText('deepseek-chat · deepseek')).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Provider' })).toHaveTextContent(
+      'anthropic'
+    );
+    expect(screen.getByLabelText('Model Name')).toHaveValue('claude-3-5-sonnet');
+    expect(screen.getByLabelText('API Key')).toHaveValue('sk-test');
+    expect(screen.getByLabelText('Base URL')).toHaveValue('');
+    expect(screen.queryByText('已保存模型')).toBeNull();
   });
 
-  it('saves a model config from settings and refreshes the saved model list', async () => {
+  it('saves a model config from settings and refreshes the single model form', async () => {
     const models: Array<{
       id: string;
       provider: string;
@@ -1577,30 +1716,29 @@ describe('App shell', () => {
 
     await openSettingsView();
 
-    await selectProvider('deepseek');
+    await selectProvider('anthropic');
     fireEvent.change(screen.getByLabelText('Model Name'), {
-      target: { value: 'deepseek-chat' },
+      target: { value: 'claude-3-5-sonnet' },
     });
     fireEvent.change(screen.getByLabelText('API Key'), {
       target: { value: 'sk-test' },
-    });
-    fireEvent.change(screen.getByLabelText('Base URL'), {
-      target: { value: 'https://api.deepseek.com' },
     });
     fireEvent.click(screen.getByText('保存模型'));
 
     await waitFor(() => {
       expect(invoke).toHaveBeenCalledWith('model:save', {
-        id: 'deepseek:deepseek-chat',
-        provider: 'deepseek',
-        modelName: 'deepseek-chat',
+        id: 'anthropic:claude-3-5-sonnet',
+        provider: 'anthropic',
+        modelName: 'claude-3-5-sonnet',
         apiKey: 'sk-test',
-        baseUrl: 'https://api.deepseek.com',
+        baseUrl: '',
         config: {},
       });
     });
 
-    expect(await screen.findByText('deepseek-chat · deepseek')).toBeInTheDocument();
+    expect(screen.getByLabelText('Model Name')).toHaveValue(
+      'claude-3-5-sonnet'
+    );
   });
 
   it('loads a saved model into the settings form for editing', async () => {
@@ -1613,11 +1751,11 @@ describe('App shell', () => {
       config: Record<string, unknown>;
     }> = [
       {
-        id: 'deepseek:deepseek-chat',
-        provider: 'deepseek',
-        modelName: 'deepseek-chat',
+        id: 'anthropic:claude-3-5-sonnet',
+        provider: 'anthropic',
+        modelName: 'claude-3-5-sonnet',
         apiKey: 'sk-old',
-        baseUrl: 'https://api.deepseek.com',
+        baseUrl: '',
         config: {},
       },
     ];
@@ -1639,16 +1777,12 @@ describe('App shell', () => {
 
     await openSettingsView();
 
-    fireEvent.click(await screen.findByText('deepseek-chat · deepseek'));
-
     expect(screen.getByRole('combobox', { name: 'Provider' })).toHaveTextContent(
-      'deepseek'
+      'anthropic'
     );
-    expect(screen.getByLabelText('Model Name')).toHaveValue('deepseek-chat');
+    expect(screen.getByLabelText('Model Name')).toHaveValue('claude-3-5-sonnet');
     expect(screen.getByLabelText('API Key')).toHaveValue('sk-old');
-    expect(screen.getByLabelText('Base URL')).toHaveValue(
-      'https://api.deepseek.com'
-    );
+    expect(screen.getByLabelText('Base URL')).toHaveValue('');
 
     fireEvent.change(screen.getByLabelText('API Key'), {
       target: { value: 'sk-new' },
@@ -1657,17 +1791,17 @@ describe('App shell', () => {
 
     await waitFor(() => {
       expect(invoke).toHaveBeenCalledWith('model:save', {
-        id: 'deepseek:deepseek-chat',
-        provider: 'deepseek',
-        modelName: 'deepseek-chat',
+        id: 'anthropic:claude-3-5-sonnet',
+        provider: 'anthropic',
+        modelName: 'claude-3-5-sonnet',
         apiKey: 'sk-new',
-        baseUrl: 'https://api.deepseek.com',
+        baseUrl: '',
         config: {},
       });
     });
   });
 
-  it('clears the settings form after deleting the currently selected saved model', async () => {
+  it('still creates a book when a saved supported model exists', async () => {
     const models: Array<{
       id: string;
       provider: string;
@@ -1677,111 +1811,11 @@ describe('App shell', () => {
       config: Record<string, unknown>;
     }> = [
       {
-        id: 'deepseek:deepseek-chat',
-        provider: 'deepseek',
-        modelName: 'deepseek-chat',
-        apiKey: 'sk-old',
-        baseUrl: 'https://api.deepseek.com',
-        config: {},
-      },
-    ];
-
-    installIpcMock(async (channel, payload) => {
-      switch (channel) {
-        case 'book:list':
-          return [];
-        case 'model:list':
-          return copy(models);
-        case 'model:delete': {
-          const { id } = payload as { id: string };
-          models.splice(
-            0,
-            models.length,
-            ...models.filter((model) => model.id !== id)
-          );
-          return undefined;
-        }
-        default:
-          return null;
-      }
-    });
-
-    render(<App />);
-
-    await openSettingsView();
-
-    fireEvent.click(await screen.findByText('deepseek-chat · deepseek'));
-    fireEvent.click(screen.getAllByText('删除模型')[0]);
-
-    expect(await screen.findByText('还没有保存的模型配置。')).toBeInTheDocument();
-    expect(screen.getByRole('combobox', { name: 'Provider' })).toHaveTextContent(
-      'openai'
-    );
-    expect(screen.getByLabelText('Model Name')).toHaveValue('');
-    expect(screen.getByLabelText('API Key')).toHaveValue('');
-    expect(screen.getByLabelText('Base URL')).toHaveValue('');
-  });
-
-  it('returns the settings form to new-model mode when requested', async () => {
-    const models: Array<{
-      id: string;
-      provider: string;
-      modelName: string;
-      apiKey: string;
-      baseUrl: string;
-      config: Record<string, unknown>;
-    }> = [
-      {
-        id: 'deepseek:deepseek-chat',
-        provider: 'deepseek',
-        modelName: 'deepseek-chat',
-        apiKey: 'sk-old',
-        baseUrl: 'https://api.deepseek.com',
-        config: {},
-      },
-    ];
-
-    installIpcMock(async (channel) => {
-      switch (channel) {
-        case 'book:list':
-          return [];
-        case 'model:list':
-          return copy(models);
-        default:
-          return null;
-      }
-    });
-
-    render(<App />);
-
-    await openSettingsView();
-
-    fireEvent.click(await screen.findByText('deepseek-chat · deepseek'));
-    fireEvent.click(screen.getByText('新建模型'));
-
-    expect(screen.getByRole('combobox', { name: 'Provider' })).toHaveTextContent(
-      'openai'
-    );
-    expect(screen.getByLabelText('Model Name')).toHaveValue('');
-    expect(screen.getByLabelText('API Key')).toHaveValue('');
-    expect(screen.getByLabelText('Base URL')).toHaveValue('');
-  });
-
-  it('deletes a saved model and removes it from the saved model list', async () => {
-    const models: Array<{
-      id: string;
-      provider: string;
-      modelName: string;
-      apiKey: string;
-      baseUrl: string;
-      config: Record<string, unknown>;
-    }> = [
-      {
-        id: 'deepseek:deepseek-chat',
-        provider: 'deepseek',
-        modelName: 'deepseek-chat',
+        id: 'anthropic:claude-3-5-sonnet',
+        provider: 'anthropic',
+        modelName: 'claude-3-5-sonnet',
         apiKey: 'sk-test',
-        baseUrl: 'https://api.deepseek.com',
+        baseUrl: '',
         config: {},
       },
     ];
@@ -1792,72 +1826,6 @@ describe('App shell', () => {
           return [];
         case 'model:list':
           return copy(models);
-        case 'model:delete': {
-          const { id } = payload as { id: string };
-          models.splice(
-            0,
-            models.length,
-            ...models.filter((model) => model.id !== id)
-          );
-          return undefined;
-        }
-        default:
-          return null;
-      }
-    });
-
-    render(<App />);
-
-    await openSettingsView();
-
-    expect(await screen.findByText('deepseek-chat · deepseek')).toBeInTheDocument();
-    fireEvent.click(await screen.findByText('删除模型'));
-
-    await waitFor(() => {
-      expect(invoke).toHaveBeenCalledWith('model:delete', {
-        id: 'deepseek:deepseek-chat',
-      });
-    });
-
-    expect(await screen.findByText('模型已删除')).toBeInTheDocument();
-    expect(screen.queryByText('deepseek-chat · deepseek')).toBeNull();
-    expect(await screen.findByText('还没有保存的模型配置。')).toBeInTheDocument();
-  });
-
-  it('still creates a book after deleting the last saved custom model', async () => {
-    const models: Array<{
-      id: string;
-      provider: string;
-      modelName: string;
-      apiKey: string;
-      baseUrl: string;
-      config: Record<string, unknown>;
-    }> = [
-      {
-        id: 'deepseek:deepseek-chat',
-        provider: 'deepseek',
-        modelName: 'deepseek-chat',
-        apiKey: 'sk-test',
-        baseUrl: 'https://api.deepseek.com',
-        config: {},
-      },
-    ];
-
-    const { invoke } = installIpcMock(async (channel, payload) => {
-      switch (channel) {
-        case 'book:list':
-          return [];
-        case 'model:list':
-          return copy(models);
-        case 'model:delete': {
-          const { id } = payload as { id: string };
-          models.splice(
-            0,
-            models.length,
-            ...models.filter((model) => model.id !== id)
-          );
-          return undefined;
-        }
         case 'book:create':
           return 'book-1';
         case 'book:start':
@@ -1871,13 +1839,13 @@ describe('App shell', () => {
 
     await openSettingsView();
 
-    expect(await screen.findByText('deepseek-chat · deepseek')).toBeInTheDocument();
-    fireEvent.click(await screen.findByText('删除模型'));
-    expect(await screen.findByText('还没有保存的模型配置。')).toBeInTheDocument();
+    expect(screen.getByLabelText('Model Name')).toHaveValue(
+      'claude-3-5-sonnet'
+    );
 
     await openNewBookView();
 
-    fireEvent.change(screen.getByLabelText('IDEA'), {
+    fireEvent.change(screen.getByLabelText('故事设想'), {
       target: { value: 'A map eats its explorers.' },
     });
     fireEvent.click(screen.getByText('开始写作'));
@@ -1959,7 +1927,7 @@ describe('App shell', () => {
 
     await openNewBookView();
 
-    fireEvent.change(screen.getByLabelText('IDEA'), {
+    fireEvent.change(screen.getByLabelText('故事设想'), {
       target: { value: 'A map eats its explorers.' },
     });
     fireEvent.click(screen.getByText('开始写作'));
@@ -2038,7 +2006,7 @@ describe('App shell', () => {
 
     await openNewBookView();
 
-    fireEvent.change(screen.getByLabelText('IDEA'), {
+    fireEvent.change(screen.getByLabelText('故事设想'), {
       target: { value: 'A map eats its explorers.' },
     });
     fireEvent.click(screen.getByText('开始写作'));

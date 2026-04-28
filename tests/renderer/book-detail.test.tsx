@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import BookDetail from '../../renderer/pages/BookDetail';
 
 describe('BookDetail', () => {
-  it('shows tabs for outline, characters, chapters, and plot threads', () => {
+  it('renders the detail title inside the shared intro panel', () => {
     render(
       <BookDetail
         book={{ title: 'Book 1', status: 'writing', wordCount: 12000 }}
@@ -11,17 +11,42 @@ describe('BookDetail', () => {
       />
     );
 
+    expect(screen.getByTestId('book-detail-intro-panel').className).toContain(
+      'rounded-[1.35rem]'
+    );
+    expect(screen.getByText('Manuscript Workspace')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Book 1' })).toBeInTheDocument();
+  });
+
+  it('defaults to chapters as the primary view while keeping outline, characters, and plot threads available', async () => {
+    render(
+      <BookDetail
+        book={{ title: 'Book 1', status: 'writing', wordCount: 12000 }}
+        progress={{ phase: 'writing' }}
+        chapters={[
+          {
+            id: '1-1',
+            title: 'Chapter 1',
+            wordCount: 1200,
+            status: 'done',
+            content: 'Generated chapter content',
+            summary: 'Chapter summary',
+          },
+        ]}
+      />
+    );
+
     expect(screen.getByText('写作中 · 12000 字')).toBeInTheDocument();
+    expect(screen.getByText('章节')).toBeInTheDocument();
     expect(screen.getByText('大纲')).toBeInTheDocument();
     expect(screen.getByText('人物')).toBeInTheDocument();
-    expect(screen.getByText('章节')).toBeInTheDocument();
     expect(screen.getByText('伏笔')).toBeInTheDocument();
     expect(screen.getByRole('tablist')).toBeInTheDocument();
-    expect(screen.getByRole('separator')).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: '大纲' })).toHaveAttribute(
+    expect(screen.getByRole('tab', { name: '章节' })).toHaveAttribute(
       'aria-selected',
       'true'
     );
+    expect(await screen.findByLabelText('章节滚动区')).toBeInTheDocument();
   });
 
   it('switches visible sections when a different tab is selected', async () => {
@@ -74,8 +99,13 @@ describe('BookDetail', () => {
       />
     );
 
-    expect(screen.getByText('总纲')).toBeInTheDocument();
-    expect(screen.queryByText('人物状态')).toBeNull();
+    expect(screen.getByText('正文预览')).toBeInTheDocument();
+    expect(screen.queryByText('总纲')).toBeNull();
+
+    fireEvent.click(screen.getByRole('tab', { name: '大纲' }));
+
+    expect(await screen.findByText('总纲')).toBeInTheDocument();
+    expect(screen.queryByText('正文预览')).toBeNull();
 
     fireEvent.click(screen.getByRole('tab', { name: '人物' }));
 
@@ -189,5 +219,24 @@ describe('BookDetail', () => {
           element?.tagName === 'P' && element.textContent === '第一段\n第二段'
       )
     ).toHaveClass('whitespace-pre-wrap');
+  });
+
+  it('uses the shared layout card treatment for the page shell and detail sections', async () => {
+    render(
+      <BookDetail
+        book={{ title: 'Book 1', status: 'writing', wordCount: 12000 }}
+      />
+    );
+
+    expect(screen.getByTestId('book-detail-header').className).toContain(
+      'rounded-[1.35rem]'
+    );
+    expect(screen.getByTestId('book-detail-header').className).toContain('ring-1');
+
+    fireEvent.click(screen.getByRole('tab', { name: '大纲' }));
+
+    expect(
+      (await screen.findByTestId('book-detail-empty-outline')).className
+    ).toContain('border-dashed');
   });
 });

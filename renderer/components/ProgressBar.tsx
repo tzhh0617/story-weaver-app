@@ -10,7 +10,7 @@ export default function ProgressBar({ value }: { value: number }) {
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={safeValue}
-      className="mt-3 h-2.5"
+      className="h-2.5 bg-muted"
     />
   );
 }

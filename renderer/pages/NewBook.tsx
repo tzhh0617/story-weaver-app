@@ -6,6 +6,12 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  layoutCardClassName,
+  layoutCardHeaderClassName,
+  pageIntroDescriptionClassName,
+  pageIntroEyebrowClassName,
+  pageIntroPanelClassName,
+  pageIntroTitleClassName,
 } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -26,16 +32,20 @@ export default function NewBook({
   const canSubmit = idea.trim().length > 0 && hasValidTargetWords;
 
   return (
-    <section className="mx-auto grid w-full max-w-3xl gap-6">
-      <div className="space-y-2">
-        <h2 className="text-3xl font-semibold tracking-tight">新建作品</h2>
-        <p className="text-sm text-muted-foreground">
-          输入故事钩子、核心冲突或主角目标，开始一条新的长篇创作线。
+    <section className="grid w-full gap-6">
+      <div
+        data-testid="new-book-intro-panel"
+        className={pageIntroPanelClassName}
+      >
+        <p className={pageIntroEyebrowClassName}>New Manuscript</p>
+        <h2 className={pageIntroTitleClassName}>新建作品</h2>
+        <p className={pageIntroDescriptionClassName}>
+          先写下故事钩子、核心冲突或主角目标。这里更像给一本新书贴第一张索引卡，而不是填写一串系统参数。
         </p>
       </div>
-      <Card className="rounded-2xl shadow-none">
+      <Card data-testid="new-book-form-panel" className={layoutCardClassName}>
         <form
-          className="grid gap-4"
+          className="grid gap-0 lg:grid-cols-[16rem_minmax(0,1fr)]"
           onSubmit={(event) => {
             event.preventDefault();
             if (!canSubmit) {
@@ -45,17 +55,23 @@ export default function NewBook({
             onCreate({ idea, targetWords });
           }}
         >
-          <CardHeader className="pb-2">
-            <CardTitle>创作参数</CardTitle>
-            <CardDescription>
-              先给出故事起点，剩下的世界观、大纲和章节会继续自动推进。
+          <CardHeader
+            className={`${layoutCardHeaderClassName} lg:border-b-0 lg:border-r`}
+          >
+            <CardTitle>创作索引</CardTitle>
+            <CardDescription className="leading-6">
+              故事起点越清晰，后续世界观、大纲和章节推进越稳定。
             </CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-5">
+          <CardContent
+            data-testid="new-book-fields-panel"
+            className="grid gap-5 p-6"
+          >
             <div className="grid gap-2">
-              <Label htmlFor="new-book-idea">IDEA</Label>
+              <Label htmlFor="new-book-idea">故事设想</Label>
               <Textarea
                 id="new-book-idea"
+                className="min-h-40"
                 value={idea}
                 onChange={(event) => setIdea(event.target.value)}
               />

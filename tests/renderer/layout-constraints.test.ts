@@ -35,4 +35,138 @@ describe('renderer layout constraints', () => {
 
     expect(offenders).toEqual([]);
   });
+
+  it('keeps the app shell page gutter consistent across viewport sizes', () => {
+    const appSource = fs.readFileSync(path.join(rendererRoot, 'App.tsx'), 'utf8');
+
+    expect(appSource).not.toMatch(/\b(?:sm|md|lg|xl|2xl):px-/);
+    expect(appSource).not.toContain('max-w-screen-2xl');
+    expect(appSource).not.toContain('mx-auto grid w-full');
+  });
+
+  it('applies the paper grid background to the whole app shell', () => {
+    const appSource = fs.readFileSync(path.join(rendererRoot, 'App.tsx'), 'utf8');
+    const cssSource = fs.readFileSync(path.join(rendererRoot, 'index.css'), 'utf8');
+
+    expect(cssSource).toContain('.app-paper-background');
+    expect(appSource.match(/app-paper-background/g)).toHaveLength(2);
+  });
+
+  it('uses a fixed viewport shell with right-side internal scrolling', () => {
+    const appSource = fs.readFileSync(path.join(rendererRoot, 'App.tsx'), 'utf8');
+    const sidebarSource = fs.readFileSync(
+      path.join(rendererRoot, 'components/app-sidebar.tsx'),
+      'utf8'
+    );
+
+    expect(appSource).toContain('h-svh overflow-hidden');
+    expect(appSource).toContain('min-w-0 flex-1 overflow-hidden');
+    expect(appSource).toContain('h-svh overflow-y-auto');
+    expect(appSource).not.toContain('min-h-screen w-full p-5');
+    expect(sidebarSource).toContain('h-svh shrink-0');
+  });
+
+  it('defines the shared shadcn theme tokens used by overlay and form primitives', () => {
+    const cssSource = fs.readFileSync(path.join(rendererRoot, 'index.css'), 'utf8');
+    const tailwindSource = fs.readFileSync(
+      path.resolve(rendererRoot, '../tailwind.config.ts'),
+      'utf8'
+    );
+
+    expect(cssSource).toContain('--popover:');
+    expect(cssSource).toContain('--popover-foreground:');
+    expect(cssSource).toContain('--secondary:');
+    expect(cssSource).toContain('--secondary-foreground:');
+    expect(cssSource).toContain('--destructive-foreground:');
+    expect(cssSource).toContain('--input:');
+    expect(cssSource).toContain('--ring:');
+
+    expect(tailwindSource).toContain("popover: 'hsl(var(--popover))'");
+    expect(tailwindSource).toContain("'popover-foreground': 'hsl(var(--popover-foreground))'");
+    expect(tailwindSource).toContain("secondary: 'hsl(var(--secondary))'");
+    expect(tailwindSource).toContain(
+      "'secondary-foreground': 'hsl(var(--secondary-foreground))'"
+    );
+    expect(tailwindSource).toContain(
+      "'destructive-foreground': 'hsl(var(--destructive-foreground))'"
+    );
+    expect(tailwindSource).toContain("input: 'hsl(var(--input))'");
+    expect(tailwindSource).toContain("ring: 'hsl(var(--ring))'");
+  });
+
+  it('routes layout containers through the shared layout-card contract', () => {
+    const cardSource = fs.readFileSync(
+      path.join(rendererRoot, 'components/ui/card.tsx'),
+      'utf8'
+    );
+    const settingsSource = fs.readFileSync(
+      path.join(rendererRoot, 'pages/Settings.tsx'),
+      'utf8'
+    );
+    const newBookSource = fs.readFileSync(
+      path.join(rendererRoot, 'pages/NewBook.tsx'),
+      'utf8'
+    );
+    const bookDetailSource = fs.readFileSync(
+      path.join(rendererRoot, 'pages/BookDetail.tsx'),
+      'utf8'
+    );
+    const modelFormSource = fs.readFileSync(
+      path.join(rendererRoot, 'components/ModelForm.tsx'),
+      'utf8'
+    );
+
+    expect(cardSource).toContain('export const layoutCardClassName');
+    expect(cardSource).toContain('export const layoutCardHeaderClassName');
+    expect(cardSource).toContain('export const layoutCardSectionClassName');
+    expect(settingsSource).toContain('layoutCardClassName');
+    expect(settingsSource).toContain('layoutCardHeaderClassName');
+    expect(newBookSource).toContain('layoutCardClassName');
+    expect(newBookSource).toContain('layoutCardHeaderClassName');
+    expect(bookDetailSource).toContain('layoutCardClassName');
+    expect(bookDetailSource).toContain('layoutCardSectionClassName');
+    expect(modelFormSource).toContain('layoutCardClassName');
+  });
+
+  it('routes page titles through the shared intro panel contract', () => {
+    const cardSource = fs.readFileSync(
+      path.join(rendererRoot, 'components/ui/card.tsx'),
+      'utf8'
+    );
+    const librarySource = fs.readFileSync(
+      path.join(rendererRoot, 'pages/Library.tsx'),
+      'utf8'
+    );
+    const settingsSource = fs.readFileSync(
+      path.join(rendererRoot, 'pages/Settings.tsx'),
+      'utf8'
+    );
+    const newBookSource = fs.readFileSync(
+      path.join(rendererRoot, 'pages/NewBook.tsx'),
+      'utf8'
+    );
+    const bookDetailSource = fs.readFileSync(
+      path.join(rendererRoot, 'pages/BookDetail.tsx'),
+      'utf8'
+    );
+
+    expect(cardSource).toContain('export const pageIntroPanelClassName');
+    expect(cardSource).toContain('export const pageIntroEyebrowClassName');
+    expect(cardSource).toContain('export const pageIntroTitleClassName');
+    expect(cardSource).toContain('export const pageIntroDescriptionClassName');
+    expect(librarySource).toContain('pageIntroPanelClassName');
+    expect(settingsSource).toContain('pageIntroPanelClassName');
+    expect(newBookSource).toContain('pageIntroPanelClassName');
+    expect(bookDetailSource).toContain('pageIntroPanelClassName');
+  });
+
+  it('does not clamp the new-book workspace to a centered max width', () => {
+    const newBookSource = fs.readFileSync(
+      path.join(rendererRoot, 'pages/NewBook.tsx'),
+      'utf8'
+    );
+
+    expect(newBookSource).not.toContain('max-w-screen-lg');
+    expect(newBookSource).not.toContain('mx-auto');
+  });
 });

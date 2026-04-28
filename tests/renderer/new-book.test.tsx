@@ -6,7 +6,7 @@ describe('NewBook', () => {
   it('associates visible labels with the form controls', () => {
     render(<NewBook onCreate={vi.fn()} />);
 
-    expect(screen.getByLabelText('IDEA')).toBeInTheDocument();
+    expect(screen.getByLabelText('故事设想')).toBeInTheDocument();
     expect(screen.getByLabelText('目标字数')).toBeInTheDocument();
   });
 
@@ -15,7 +15,7 @@ describe('NewBook', () => {
 
     render(<NewBook onCreate={onCreate} />);
 
-    fireEvent.change(screen.getByLabelText('IDEA'), {
+    fireEvent.change(screen.getByLabelText('故事设想'), {
       target: { value: 'A map eats its explorers.' },
     });
     fireEvent.change(screen.getByLabelText('目标字数'), {
@@ -35,12 +35,31 @@ describe('NewBook', () => {
     expect(screen.queryByLabelText('模型')).toBeNull();
   });
 
+  it('renders the intro and form shells with the shared layout card treatment', () => {
+    render(<NewBook onCreate={vi.fn()} />);
+
+    expect(screen.getByTestId('new-book-intro-panel').className).toContain(
+      'rounded-[1.35rem]'
+    );
+    expect(screen.getByTestId('new-book-form-panel').className).toContain(
+      'ring-1'
+    );
+  });
+
+  it('gives the right-side creation fields their own top padding', () => {
+    render(<NewBook onCreate={vi.fn()} />);
+
+    expect(screen.getByTestId('new-book-fields-panel').className).toContain(
+      'p-6'
+    );
+  });
+
   it('disables submit until the idea has content', () => {
     render(<NewBook onCreate={vi.fn()} />);
 
     expect(screen.getByRole('button', { name: '开始写作' })).toBeDisabled();
 
-    fireEvent.change(screen.getByLabelText('IDEA'), {
+    fireEvent.change(screen.getByLabelText('故事设想'), {
       target: { value: 'A map eats its explorers.' },
     });
 
@@ -50,7 +69,7 @@ describe('NewBook', () => {
   it('keeps submit disabled when target word count is invalid', () => {
     render(<NewBook onCreate={vi.fn()} />);
 
-    fireEvent.change(screen.getByLabelText('IDEA'), {
+    fireEvent.change(screen.getByLabelText('故事设想'), {
       target: { value: 'A map eats its explorers.' },
     });
     fireEvent.change(screen.getByLabelText('目标字数'), {

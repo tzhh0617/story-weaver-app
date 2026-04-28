@@ -5,6 +5,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  layoutCardClassName,
 } from './ui/card';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -16,18 +17,23 @@ import {
   SelectValue,
 } from './ui/select';
 
-const openAICompatibleProviders = new Set([
-  'deepseek',
-  'qwen',
-  'glm',
-  'custom',
-]);
+const supportedProviders = ['openai', 'anthropic'] as const;
+type SupportedProvider = (typeof supportedProviders)[number];
+
+function getSupportedProvider(provider?: string | null): SupportedProvider {
+  return (
+    supportedProviders.find(
+      (supportedProvider) => supportedProvider === provider
+    ) ?? 'openai'
+  );
+}
 
 export default function ModelForm({
   onSave,
   onTest,
   selectedModel,
   onClearSelection,
+  variant = 'card',
 }: {
   onSave: (input: {
     id: string;
@@ -53,12 +59,17 @@ export default function ModelForm({
     config?: Record<string, unknown>;
   } | null;
   onClearSelection?: () => void;
+  variant?: 'card' | 'inline';
 }) {
-  const [provider, setProvider] = useState('openai');
-  const [modelName, setModelName] = useState('');
-  const [apiKey, setApiKey] = useState('');
-  const [baseUrl, setBaseUrl] = useState('');
-  const [config, setConfig] = useState<Record<string, unknown>>({});
+  const [provider, setProvider] = useState(() =>
+    getSupportedProvider(selectedModel?.provider)
+  );
+  const [modelName, setModelName] = useState(selectedModel?.modelName ?? '');
+  const [apiKey, setApiKey] = useState(selectedModel?.apiKey ?? '');
+  const [baseUrl, setBaseUrl] = useState(selectedModel?.baseUrl ?? '');
+  const [config, setConfig] = useState<Record<string, unknown>>(
+    selectedModel?.config ?? {}
+  );
 
   useEffect(() => {
     if (!selectedModel) {
@@ -70,16 +81,17 @@ export default function ModelForm({
       return;
     }
 
-    setProvider(selectedModel.provider);
+    setProvider(getSupportedProvider(selectedModel.provider));
     setModelName(selectedModel.modelName);
     setApiKey(selectedModel.apiKey ?? '');
     setBaseUrl(selectedModel.baseUrl ?? '');
     setConfig(selectedModel.config ?? {});
   }, [selectedModel]);
 
+  const effectiveProvider = getSupportedProvider(provider);
   const currentConfig = {
-    id: `${provider}:${modelName}`,
-    provider,
+    id: `${effectiveProvider}:${modelName}`,
+    provider: effectiveProvider,
     modelName,
     apiKey,
     baseUrl,
@@ -87,33 +99,39 @@ export default function ModelForm({
   };
   const canSubmitModel =
     modelName.trim().length > 0 &&
-    apiKey.trim().length > 0 &&
-    (!openAICompatibleProviders.has(provider) || baseUrl.trim().length > 0);
+    apiKey.trim().length > 0;
   const isEditingModel = Boolean(selectedModel);
+  const isInline = variant === 'inline';
 
   return (
     <form
-      className="grid gap-4 rounded-lg border bg-card p-6 shadow-sm"
+      className={
+        isInline
+          ? 'grid gap-5'
+          : `grid gap-5 p-6 ${layoutCardClassName}`
+      }
       onSubmit={(event) => {
         event.preventDefault();
         onSave(currentConfig);
       }}
     >
-      <CardHeader className="gap-3 p-0">
-        <CardTitle>{isEditingModel ? '编辑模型' : '模型管理'}</CardTitle>
-        <CardDescription>
-          {isEditingModel
-            ? '调整当前模型配置后重新保存。'
-            : '配置 provider、model name、API Key 和 base URL。'}
-        </CardDescription>
-        {selectedModel ? (
-          <div>
-            <Button type="button" variant="secondary" onClick={onClearSelection}>
-              新建模型
-            </Button>
-          </div>
-        ) : null}
-      </CardHeader>
+      {!isInline ? (
+        <CardHeader className="gap-3 p-0">
+          <CardTitle>{isEditingModel ? '编辑模型' : '模型管理'}</CardTitle>
+          <CardDescription>
+            {isEditingModel
+              ? '调整当前模型配置后重新保存。'
+              : '配置 provider、model name、API Key 和 base URL。'}
+          </CardDescription>
+          {selectedModel && onClearSelection ? (
+            <div>
+              <Button type="button" variant="secondary" onClick={onClearSelection}>
+                新建模型
+              </Button>
+            </div>
+          ) : null}
+        </CardHeader>
+      ) : null}
       <CardContent className="grid gap-4 p-0">
         <div className="grid gap-2">
           <Label htmlFor="model-form-provider">Provider</Label>
@@ -122,26 +140,31 @@ export default function ModelForm({
             className="sr-only"
             tabIndex={-1}
             value={provider}
-            onChange={(event) => setProvider(event.target.value)}
+            onChange={(event) =>
+              setProvider(getSupportedProvider(event.target.value))
+            }
           >
-            <option value="openai">openai</option>
-            <option value="anthropic">anthropic</option>
-            <option value="deepseek">deepseek</option>
-            <option value="qwen">qwen</option>
-            <option value="glm">glm</option>
-            <option value="custom">custom</option>
+            {supportedProviders.map((providerOption) => (
+              <option key={providerOption} value={providerOption}>
+                {providerOption}
+              </option>
+            ))}
           </select>
-          <Select value={provider} onValueChange={setProvider}>
+          <Select
+            value={provider}
+            onValueChange={(nextProvider) =>
+              setProvider(getSupportedProvider(nextProvider))
+            }
+          >
             <SelectTrigger>
               <SelectValue placeholder="选择 provider" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="openai">openai</SelectItem>
-              <SelectItem value="anthropic">anthropic</SelectItem>
-              <SelectItem value="deepseek">deepseek</SelectItem>
-              <SelectItem value="qwen">qwen</SelectItem>
-              <SelectItem value="glm">glm</SelectItem>
-              <SelectItem value="custom">custom</SelectItem>
+              {supportedProviders.map((providerOption) => (
+                <SelectItem key={providerOption} value={providerOption}>
+                  {providerOption}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>

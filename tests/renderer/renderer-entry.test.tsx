@@ -29,16 +29,16 @@ describe('renderer entry styling', () => {
 
     expect(
       await screen.findByRole('heading', {
-        name: 'AI Long-Form Fiction Studio',
+        name: '作品库',
       })
     ).toBeInTheDocument();
 
-    const main = container.querySelector('main');
+    const main = container.querySelector('main.h-svh');
     const cappedChildren = Array.from(main?.children ?? []).filter((child) =>
       child.className.includes('max-w-[1100px]')
     );
 
-    expect(main).toHaveClass('w-full');
+    expect(main).toHaveClass('h-svh', 'overflow-y-auto', 'w-full');
     expect(cappedChildren).toHaveLength(0);
   });
 });

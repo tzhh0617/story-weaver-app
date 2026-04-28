@@ -7,7 +7,7 @@ const chapterStatusLabels: Record<'done' | 'writing' | 'queued', string> = {
 };
 
 const chapterStatusClasses: Record<'done' | 'writing' | 'queued', string> = {
-  done: 'bg-secondary text-secondary-foreground',
+  done: 'border-emerald-700/20 bg-emerald-100 text-emerald-800',
   writing: 'bg-primary/10 text-primary border-primary/20',
   queued: 'bg-muted text-muted-foreground',
 };
@@ -27,7 +27,7 @@ export default function ChapterList({
       {chapters.map((chapter) => (
         <li
           key={chapter.id}
-          className="flex items-center justify-between gap-4 rounded-lg border bg-card px-4 py-3"
+          className="flex items-center justify-between gap-4 rounded-lg border border-border/75 bg-card/90 px-4 py-3 shadow-sm"
         >
           <span className="font-medium">{chapter.title}</span>
           <div className="flex items-center gap-3 text-sm text-muted-foreground">

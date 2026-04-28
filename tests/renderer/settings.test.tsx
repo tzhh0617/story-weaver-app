@@ -9,6 +9,83 @@ async function selectProvider(value: string) {
 }
 
 describe('Settings', () => {
+  it('renders the settings title inside the shared intro panel', () => {
+    render(
+      <Settings
+        onSaveModel={vi.fn()}
+        onTestModel={vi.fn()}
+        models={[]}
+        concurrencyLimit={null}
+        onSaveSetting={vi.fn()}
+      />
+    );
+
+    expect(screen.getByTestId('settings-intro-panel').className).toContain(
+      'rounded-[1.35rem]'
+    );
+    expect(screen.getByText('Studio Settings')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '设置' })).toBeInTheDocument();
+  });
+
+  it('only offers openai and anthropic model providers', () => {
+    render(
+      <Settings
+        onSaveModel={vi.fn()}
+        onTestModel={vi.fn()}
+        models={[]}
+        concurrencyLimit={null}
+        onSaveSetting={vi.fn()}
+      />
+    );
+
+    const providerOptions = Array.from(
+      screen.getByLabelText('Provider').querySelectorAll('option')
+    ).map((option) => option.value);
+
+    expect(providerOptions).toEqual(['openai', 'anthropic']);
+  });
+
+  it('arranges setting blocks in a waterfall list', () => {
+    render(
+      <Settings
+        onSaveModel={vi.fn()}
+        onTestModel={vi.fn()}
+        models={[]}
+        concurrencyLimit={null}
+        onSaveSetting={vi.fn()}
+      />
+    );
+
+    const settingsList = screen.getByRole('list', { name: '设置项' });
+    const settingBlocks = screen.getAllByRole('listitem');
+
+    expect(settingsList).toHaveClass('columns-1');
+    expect(settingsList).toHaveClass('xl:columns-2');
+    expect(settingBlocks).toHaveLength(2);
+    expect(settingBlocks[0]).toHaveTextContent('模型设置');
+    expect(settingBlocks[1]).toHaveTextContent('写作设置');
+    expect(settingBlocks[0]).toHaveClass('break-inside-avoid');
+    expect(settingBlocks[1]).toHaveClass('break-inside-avoid');
+  });
+
+  it('uses the shared layout card shell for each settings block', () => {
+    render(
+      <Settings
+        onSaveModel={vi.fn()}
+        onTestModel={vi.fn()}
+        models={[]}
+        concurrencyLimit={null}
+        onSaveSetting={vi.fn()}
+      />
+    );
+
+    for (const block of screen.getAllByRole('listitem')) {
+      expect(block.className).toContain('rounded-[1.35rem]');
+      expect(block.className).toContain('ring-1');
+      expect(block.className).not.toContain('hover:shadow');
+    }
+  });
+
   it('submits model settings and global settings', async () => {
     const onSaveModel = vi.fn();
     const onTestModel = vi.fn();
@@ -19,7 +96,6 @@ describe('Settings', () => {
         onSaveModel={onSaveModel}
         onTestModel={onTestModel}
         models={[]}
-        onDeleteModel={vi.fn()}
         concurrencyLimit={null}
         onSaveSetting={onSaveSetting}
       />
@@ -60,7 +136,6 @@ describe('Settings', () => {
         onSaveModel={onSaveModel}
         onTestModel={onTestModel}
         models={[]}
-        onDeleteModel={vi.fn()}
         concurrencyLimit={null}
         onSaveSetting={onSaveSetting}
       />
@@ -85,126 +160,101 @@ describe('Settings', () => {
     });
   });
 
-  it('deletes a saved model from the model list', () => {
-    const onDeleteModel = vi.fn();
-
+  it('loads a supported saved model directly into the single model form', async () => {
     render(
       <Settings
         onSaveModel={vi.fn()}
         onTestModel={vi.fn()}
         models={[
           {
-            id: 'openai:gpt-4o-mini',
-            modelName: 'gpt-4o-mini',
-            provider: 'openai',
+            id: 'anthropic:claude-3-5-sonnet',
+            modelName: 'claude-3-5-sonnet',
+            provider: 'anthropic',
           },
         ]}
-        onDeleteModel={onDeleteModel}
         concurrencyLimit={null}
         onSaveSetting={vi.fn()}
       />
     );
-
-    fireEvent.click(screen.getByText('删除模型'));
-
-    expect(onDeleteModel).toHaveBeenCalledWith('openai:gpt-4o-mini');
-  });
-
-  it('loads a saved model into the form when selected from the list', async () => {
-    render(
-      <Settings
-        onSaveModel={vi.fn()}
-        onTestModel={vi.fn()}
-        models={[
-          {
-            id: 'deepseek:deepseek-chat',
-            modelName: 'deepseek-chat',
-            provider: 'deepseek',
-          },
-        ]}
-        onDeleteModel={vi.fn()}
-        concurrencyLimit={null}
-        onSaveSetting={vi.fn()}
-      />
-    );
-
-    fireEvent.click(screen.getByText('deepseek-chat · deepseek'));
 
     expect(screen.getByRole('combobox', { name: 'Provider' })).toHaveTextContent(
-      'deepseek'
+      'anthropic'
     );
-    expect(screen.getByLabelText('Model Name')).toHaveValue('deepseek-chat');
-    expect(screen.getByText('编辑模型')).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'deepseek-chat · deepseek' })
-    ).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByLabelText('已保存模型列表')).toBeInTheDocument();
+    expect(screen.getByLabelText('Model Name')).toHaveValue('claude-3-5-sonnet');
+    expect(screen.getByText('模型设置')).toBeInTheDocument();
+    expect(screen.queryByText('已保存模型')).toBeNull();
+    expect(screen.queryByText('删除模型')).toBeNull();
+    expect(screen.queryByText('新建模型')).toBeNull();
   });
 
-  it('clears the form after deleting the selected saved model', async () => {
+  it('keeps the saved provider when updating the single model form', () => {
+    const onSaveModel = vi.fn();
+
+    render(
+      <Settings
+        onSaveModel={onSaveModel}
+        onTestModel={vi.fn()}
+        models={[
+          {
+            id: 'anthropic:claude-3-5-sonnet',
+            modelName: 'claude-3-5-sonnet',
+            provider: 'anthropic',
+            apiKey: 'sk-old',
+            baseUrl: '',
+            config: {},
+          },
+        ]}
+        concurrencyLimit={null}
+        onSaveSetting={vi.fn()}
+      />
+    );
+
+    expect(screen.getByLabelText('Provider')).toHaveValue('anthropic');
+
+    fireEvent.change(screen.getByLabelText('API Key'), {
+      target: { value: 'sk-new' },
+    });
+    fireEvent.click(screen.getByText('保存模型'));
+
+    expect(onSaveModel).toHaveBeenCalledWith({
+      id: 'anthropic:claude-3-5-sonnet',
+      provider: 'anthropic',
+      modelName: 'claude-3-5-sonnet',
+      apiKey: 'sk-new',
+      baseUrl: '',
+      config: {},
+    });
+  });
+
+  it('clears the single model form when no saved model exists', async () => {
     const { rerender } = render(
       <Settings
         onSaveModel={vi.fn()}
         onTestModel={vi.fn()}
         models={[
           {
-            id: 'deepseek:deepseek-chat',
-            modelName: 'deepseek-chat',
-            provider: 'deepseek',
+            id: 'anthropic:claude-3-5-sonnet',
+            modelName: 'claude-3-5-sonnet',
+            provider: 'anthropic',
             apiKey: 'sk-old',
-            baseUrl: 'https://api.deepseek.com',
+            baseUrl: '',
             config: {},
           },
         ]}
-        onDeleteModel={vi.fn()}
         concurrencyLimit={null}
         onSaveSetting={vi.fn()}
       />
     );
 
-    fireEvent.click(screen.getByText('deepseek-chat · deepseek'));
     rerender(
       <Settings
         onSaveModel={vi.fn()}
         onTestModel={vi.fn()}
         models={[]}
-        onDeleteModel={vi.fn()}
         concurrencyLimit={null}
         onSaveSetting={vi.fn()}
       />
     );
-
-    expect(screen.getByRole('combobox', { name: 'Provider' })).toHaveTextContent(
-      'openai'
-    );
-    expect(screen.getByLabelText('Model Name')).toHaveValue('');
-    expect(screen.getByLabelText('API Key')).toHaveValue('');
-    expect(screen.getByLabelText('Base URL')).toHaveValue('');
-  });
-
-  it('returns the form to new-model mode when clearing the current selection', async () => {
-    render(
-      <Settings
-        onSaveModel={vi.fn()}
-        onTestModel={vi.fn()}
-        models={[
-          {
-            id: 'deepseek:deepseek-chat',
-            modelName: 'deepseek-chat',
-            provider: 'deepseek',
-            apiKey: 'sk-old',
-            baseUrl: 'https://api.deepseek.com',
-            config: {},
-          },
-        ]}
-        onDeleteModel={vi.fn()}
-        concurrencyLimit={null}
-        onSaveSetting={vi.fn()}
-      />
-    );
-
-    fireEvent.click(screen.getByText('deepseek-chat · deepseek'));
-    fireEvent.click(screen.getByText('新建模型'));
 
     expect(screen.getByRole('combobox', { name: 'Provider' })).toHaveTextContent(
       'openai'
@@ -220,7 +270,6 @@ describe('Settings', () => {
         onSaveModel={vi.fn()}
         onTestModel={vi.fn()}
         models={[]}
-        onDeleteModel={vi.fn()}
         concurrencyLimit={null}
         onSaveSetting={vi.fn()}
       />
@@ -240,14 +289,7 @@ describe('Settings', () => {
     expect(screen.getByRole('button', { name: '保存模型' })).toBeEnabled();
     expect(screen.getByRole('button', { name: '测试连接' })).toBeEnabled();
 
-    await selectProvider('deepseek');
-
-    expect(screen.getByRole('button', { name: '保存模型' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: '测试连接' })).toBeDisabled();
-
-    fireEvent.change(screen.getByLabelText('Base URL'), {
-      target: { value: 'https://api.deepseek.com' },
-    });
+    await selectProvider('anthropic');
 
     expect(screen.getByRole('button', { name: '保存模型' })).toBeEnabled();
     expect(screen.getByRole('button', { name: '测试连接' })).toBeEnabled();
@@ -259,7 +301,6 @@ describe('Settings', () => {
         onSaveModel={vi.fn()}
         onTestModel={vi.fn()}
         models={[]}
-        onDeleteModel={vi.fn()}
         concurrencyLimit={1}
         onSaveSetting={vi.fn()}
       />
