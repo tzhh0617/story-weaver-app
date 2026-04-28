@@ -3,7 +3,11 @@ productName: Story Weaver
 files:
   - dist/**
   - dist-electron/**
+  - build/icon.png
 mac:
   category: public.app-category.productivity
+  icon: build/icon.icns
+win:
+  icon: build/icon.ico
 directories:
   output: release

@@ -11,6 +11,7 @@ import { useProgress } from './hooks/useProgress';
 import { AppSidebar, type AppView } from './components/app-sidebar';
 import { Alert } from './components/ui/alert';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
+import logoImage from '@/assets/story-weaver-logo.png';
 import Library from './pages/Library';
 import NewBook from './pages/NewBook';
 import Settings from './pages/Settings';
@@ -215,6 +216,11 @@ export default function App() {
       <SidebarInset>
         <main className="grid w-full min-h-screen content-start gap-6 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
           <section className="w-full rounded-lg border bg-card px-8 py-7 shadow-sm">
+            <img
+              src={logoImage}
+              alt="Story Weaver logo"
+              className="h-44 w-full object-contain object-left"
+            />
             <p className="text-sm font-medium text-muted-foreground">
               Story Weaver
             </p>

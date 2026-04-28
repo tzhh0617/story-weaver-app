@@ -5,3 +5,4 @@ dist-electron
 release
 coverage
 *.log
+__pycache__/

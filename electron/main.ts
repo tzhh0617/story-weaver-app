@@ -6,9 +6,14 @@ import { registerSchedulerHandlers } from './ipc/scheduler.js';
 import { registerSettingsHandlers } from './ipc/settings.js';
 
 async function createWindow() {
+  const windowIcon =
+    process.platform === 'darwin'
+      ? undefined
+      : path.join(app.getAppPath(), 'build/icon.png');
   const mainWindow = new BrowserWindow({
     width: 1440,
     height: 960,
+    icon: windowIcon,
     webPreferences: {
       preload: path.join(app.getAppPath(), 'dist-electron/electron/preload.js'),
       contextIsolation: true,

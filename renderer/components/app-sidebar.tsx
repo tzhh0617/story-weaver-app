@@ -1,3 +1,4 @@
+import logoImage from '@/assets/story-weaver-logo.png';
 import {
   Sidebar,
   SidebarContent,
@@ -27,10 +28,12 @@ export function AppSidebar({
   return (
     <Sidebar collapsible="none" className="border-r">
       <SidebarHeader className="border-b border-sidebar-border">
-        <div className="grid gap-1 px-2 py-2">
-          <p className="text-sm font-semibold text-sidebar-foreground">
-            Story Weaver
-          </p>
+        <div className="grid gap-2 px-2 py-3">
+          <img
+            src={logoImage}
+            alt="Story Weaver logo"
+            className="h-24 w-full object-contain"
+          />
           <p className="text-xs text-sidebar-foreground/70">
             长篇写作工作台
           </p>

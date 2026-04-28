@@ -94,6 +94,24 @@ describe('App shell', () => {
     expect(await screen.findByText('全部开始')).toBeDisabled();
   });
 
+  it('renders the provided Story Weaver logo in the sidebar and hero card', async () => {
+    delete window.storyWeaver;
+
+    render(<App />);
+
+    const logos = await screen.findAllByAltText('Story Weaver logo');
+
+    expect(logos).toHaveLength(2);
+    expect(logos[0]).toHaveAttribute(
+      'src',
+      expect.stringContaining('story-weaver-logo')
+    );
+    expect(logos[1]).toHaveAttribute(
+      'src',
+      expect.stringContaining('story-weaver-logo')
+    );
+  });
+
   it('updates the detail panel when a book is selected from the library list', async () => {
     const books = [
       {
