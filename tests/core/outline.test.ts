@@ -16,7 +16,8 @@ describe('createOutlineService', () => {
     await service.generateFromIdea({
       bookId: 'book-1',
       idea: 'The moon taxes miracles.',
-      targetWords: 500000,
+      targetChapters: 500,
+      wordsPerChapter: 2500,
     });
 
     expect(generate).toHaveBeenNthCalledWith(

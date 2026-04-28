@@ -45,7 +45,7 @@ export function createOutlineService({ generateText }: { generateText: GenerateT
       })).text;
 
       const volumeOutlineText = (await generateText({
-        prompt: buildVolumeOutlinePrompt(masterOutline),
+        prompt: buildVolumeOutlinePrompt(masterOutline, input),
       })).text;
 
       const volumeOutlines = volumeOutlineText
@@ -57,7 +57,7 @@ export function createOutlineService({ generateText }: { generateText: GenerateT
         await Promise.all(
           volumeOutlines.map(async (volumeOutline, index) => {
             const chapterText = (await generateText({
-              prompt: buildChapterOutlinePrompt(volumeOutline, index + 1),
+              prompt: buildChapterOutlinePrompt(volumeOutline, index + 1, input),
             })).text;
 
             return parseChapterOutlineLines(chapterText, index + 1);

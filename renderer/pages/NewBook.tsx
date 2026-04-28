@@ -17,19 +17,31 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
 
+const targetChapterOptions = [500, 800, 1000, 1500, 2000] as const;
+
 export default function NewBook({
   onCreate,
 }: {
   onCreate: (input: {
     idea: string;
-    targetWords: number;
+    targetChapters: number;
+    wordsPerChapter: number;
   }) => void;
 }) {
   const [idea, setIdea] = useState('');
-  const [targetWords, setTargetWords] = useState(500000);
-  const hasValidTargetWords =
-    Number.isInteger(targetWords) && targetWords > 0;
-  const canSubmit = idea.trim().length > 0 && hasValidTargetWords;
+  const [targetChapters, setTargetChapters] = useState(500);
+  const [wordsPerChapter, setWordsPerChapter] = useState(2500);
+  const hasValidTargetChapters =
+    Number.isInteger(targetChapters) &&
+    targetChapterOptions.includes(
+      targetChapters as (typeof targetChapterOptions)[number]
+    );
+  const hasValidWordsPerChapter =
+    Number.isInteger(wordsPerChapter) && wordsPerChapter > 0;
+  const canSubmit =
+    idea.trim().length > 0 &&
+    hasValidTargetChapters &&
+    hasValidWordsPerChapter;
 
   return (
     <section className="grid w-full gap-6">
@@ -52,7 +64,7 @@ export default function NewBook({
               return;
             }
 
-            onCreate({ idea, targetWords });
+            onCreate({ idea, targetChapters, wordsPerChapter });
           }}
         >
           <CardHeader
@@ -77,12 +89,32 @@ export default function NewBook({
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="new-book-target-words">目标字数</Label>
+              <Label htmlFor="new-book-target-chapters">目标章节数</Label>
+              <select
+                id="new-book-target-chapters"
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 md:text-sm"
+                value={targetChapters}
+                onChange={(event) =>
+                  setTargetChapters(Number(event.target.value))
+                }
+              >
+                {targetChapterOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option} 章
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="new-book-words-per-chapter">每章字数</Label>
               <Input
-                id="new-book-target-words"
+                id="new-book-words-per-chapter"
                 type="number"
-                value={targetWords}
-                onChange={(event) => setTargetWords(Number(event.target.value))}
+                min={1}
+                value={wordsPerChapter}
+                onChange={(event) =>
+                  setWordsPerChapter(Number(event.target.value))
+                }
               />
             </div>
             <Button type="submit" disabled={!canSubmit} className="w-fit">

@@ -7,7 +7,8 @@ export default function BookCard({
   idea,
   status,
   progress,
-  targetWords,
+  targetChapters,
+  wordsPerChapter,
   updatedAt,
   completedChapters,
   totalChapters,
@@ -18,7 +19,8 @@ export default function BookCard({
   idea: string;
   status: string;
   progress: number;
-  targetWords: number;
+  targetChapters: number;
+  wordsPerChapter: number;
   updatedAt: string;
   completedChapters?: number;
   totalChapters?: number;
@@ -28,7 +30,8 @@ export default function BookCard({
     typeof totalChapters === 'number' && totalChapters > 0
       ? `${completedChapters ?? 0} / ${totalChapters} 章`
       : '章节待生成';
-  const targetWordsText = `${Math.round(targetWords / 10000)} 万字目标`;
+  const targetText = `${targetChapters} 章目标`;
+  const chapterLengthText = `${wordsPerChapter} 字/章`;
   const updatedDate = new Date(updatedAt);
   const updatedText = Number.isNaN(updatedDate.getTime())
     ? '最近更新待同步'
@@ -72,10 +75,11 @@ export default function BookCard({
           </div>
           <ProgressBar value={progress} />
           <div className="grid gap-2 border-t border-border/70 pt-3 text-xs text-muted-foreground sm:grid-cols-3">
-            <span>{targetWordsText}</span>
+            <span>{targetText}</span>
+            <span>{chapterLengthText}</span>
             <span>{chapterText}</span>
-            <span>{updatedText}</span>
           </div>
+          <span className="text-xs text-muted-foreground">{updatedText}</span>
         </div>
       </div>
     </button>

@@ -2,23 +2,10 @@ import { randomUUID } from 'node:crypto';
 import type { BookStatus } from '../shared/contracts.js';
 import { DEFAULT_MOCK_MODEL_ID } from '../models/runtime-mode.js';
 import { buildStoredChapterContext } from './consistency.js';
+import { buildChapterDraftPrompt } from './prompt-builder.js';
 import type { OutlineBundle } from './types.js';
 
 const CHAPTER_CONTEXT_MAX_CHARACTERS = 6000;
-const WORLD_SETTING_MAX_CHARACTERS = 3000;
-const MASTER_OUTLINE_MAX_CHARACTERS = 3000;
-
-function trimPromptText(text: string | null, maxCharacters: number) {
-  if (!text) {
-    return 'N/A';
-  }
-
-  if (text.length <= maxCharacters) {
-    return text;
-  }
-
-  return `${text.slice(0, maxCharacters)}\n[truncated]`;
-}
 
 function deriveTitleFromIdea(idea: string) {
   const cleaned = idea.trim().replace(/\s+/g, ' ');
@@ -28,33 +15,6 @@ function deriveTitleFromIdea(idea: string) {
   }
 
   return cleaned.length > 48 ? `${cleaned.slice(0, 48)}...` : cleaned;
-}
-
-function buildChapterDraftPrompt(input: {
-  idea: string;
-  worldSetting: string | null;
-  masterOutline: string | null;
-  continuityContext: string | null;
-  chapterTitle: string;
-  chapterOutline: string;
-}) {
-  return [
-    'Write the next chapter of a long-form Chinese web novel.',
-    `Book idea: ${input.idea}`,
-    `World setting:\n${trimPromptText(
-      input.worldSetting,
-      WORLD_SETTING_MAX_CHARACTERS
-    )}`,
-    `Master outline:\n${trimPromptText(
-      input.masterOutline,
-      MASTER_OUTLINE_MAX_CHARACTERS
-    )}`,
-    `Continuity context:\n${input.continuityContext ?? 'N/A'}`,
-    'Treat the continuity context as hard constraints: do not contradict character states, last scene timing/location, unresolved plot threads, or established world rules.',
-    `Chapter title: ${input.chapterTitle}`,
-    `Chapter outline: ${input.chapterOutline}`,
-    'Return only the final chapter prose.',
-  ].join('\n');
 }
 
 type ChapterUpdate = {
@@ -150,14 +110,16 @@ export function createBookService(deps: {
       id: string;
       title: string;
       idea: string;
-      targetWords: number;
+      targetChapters: number;
+      wordsPerChapter: number;
     }) => void;
     list: () => Array<{
       id: string;
       title: string;
       idea: string;
       status: string;
-      targetWords: number;
+      targetChapters: number;
+      wordsPerChapter: number;
       createdAt: string;
       updatedAt: string;
     }>;
@@ -167,7 +129,8 @@ export function createBookService(deps: {
           title: string;
           idea: string;
           status: string;
-          targetWords: number;
+          targetChapters: number;
+          wordsPerChapter: number;
           createdAt: string;
           updatedAt: string;
         }
@@ -309,7 +272,8 @@ export function createBookService(deps: {
     generateFromIdea: (input: {
       bookId: string;
       idea: string;
-      targetWords: number;
+      targetChapters: number;
+      wordsPerChapter: number;
       modelId: string;
     }) => Promise<OutlineBundle>;
   };
@@ -390,7 +354,8 @@ export function createBookService(deps: {
   return {
     createBook(input: {
       idea: string;
-      targetWords: number;
+      targetChapters: number;
+      wordsPerChapter: number;
       modelId?: string;
     }) {
       const id = randomUUID();
@@ -399,7 +364,8 @@ export function createBookService(deps: {
         id,
         title: deriveTitleFromIdea(input.idea),
         idea: input.idea,
-        targetWords: input.targetWords,
+        targetChapters: input.targetChapters,
+        wordsPerChapter: input.wordsPerChapter,
       });
 
       deps.progress.updatePhase(id, 'creating');
@@ -440,7 +406,8 @@ export function createBookService(deps: {
       const outlineBundle = await deps.outlineService.generateFromIdea({
         bookId,
         idea: book.idea,
-        targetWords: book.targetWords,
+        targetChapters: book.targetChapters,
+        wordsPerChapter: book.wordsPerChapter,
         modelId: resolveModelId(),
       });
 
@@ -528,6 +495,8 @@ export function createBookService(deps: {
           }),
           chapterTitle: nextChapter.title,
           chapterOutline: nextChapter.outline,
+          targetChapters: book.targetChapters,
+          wordsPerChapter: book.wordsPerChapter,
         }),
       });
 

@@ -6,7 +6,8 @@ export const migrations = [
     idea TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'creating',
     model_id TEXT NOT NULL,
-    target_words INTEGER NOT NULL,
+    target_chapters INTEGER NOT NULL,
+    words_per_chapter INTEGER NOT NULL,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   );

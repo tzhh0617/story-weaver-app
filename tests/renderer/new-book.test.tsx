@@ -7,10 +7,12 @@ describe('NewBook', () => {
     render(<NewBook onCreate={vi.fn()} />);
 
     expect(screen.getByLabelText('故事设想')).toBeInTheDocument();
-    expect(screen.getByLabelText('目标字数')).toBeInTheDocument();
+    expect(screen.getByLabelText('目标章节数')).toBeInTheDocument();
+    expect(screen.getByLabelText('每章字数')).toBeInTheDocument();
+    expect(screen.queryByLabelText('目标字数')).toBeNull();
   });
 
-  it('submits idea, model, and target word count', () => {
+  it('submits idea, target chapters, words per chapter, and derived total words', () => {
     const onCreate = vi.fn();
 
     render(<NewBook onCreate={onCreate} />);
@@ -18,14 +20,35 @@ describe('NewBook', () => {
     fireEvent.change(screen.getByLabelText('故事设想'), {
       target: { value: 'A map eats its explorers.' },
     });
-    fireEvent.change(screen.getByLabelText('目标字数'), {
-      target: { value: '500000' },
+    fireEvent.change(screen.getByLabelText('目标章节数'), {
+      target: { value: '800' },
+    });
+    fireEvent.change(screen.getByLabelText('每章字数'), {
+      target: { value: '3000' },
     });
     fireEvent.click(screen.getByText('开始写作'));
 
     expect(onCreate).toHaveBeenCalledWith({
       idea: 'A map eats its explorers.',
-      targetWords: 500000,
+      targetChapters: 800,
+      wordsPerChapter: 3000,
+    });
+  });
+
+  it('defaults to 500 chapters and 2500 words per chapter', () => {
+    const onCreate = vi.fn();
+
+    render(<NewBook onCreate={onCreate} />);
+
+    fireEvent.change(screen.getByLabelText('故事设想'), {
+      target: { value: 'A map eats its explorers.' },
+    });
+    fireEvent.click(screen.getByText('开始写作'));
+
+    expect(onCreate).toHaveBeenCalledWith({
+      idea: 'A map eats its explorers.',
+      targetChapters: 500,
+      wordsPerChapter: 2500,
     });
   });
 
@@ -66,13 +89,13 @@ describe('NewBook', () => {
     expect(screen.getByRole('button', { name: '开始写作' })).toBeEnabled();
   });
 
-  it('keeps submit disabled when target word count is invalid', () => {
+  it('keeps submit disabled when words per chapter is invalid', () => {
     render(<NewBook onCreate={vi.fn()} />);
 
     fireEvent.change(screen.getByLabelText('故事设想'), {
       target: { value: 'A map eats its explorers.' },
     });
-    fireEvent.change(screen.getByLabelText('目标字数'), {
+    fireEvent.change(screen.getByLabelText('每章字数'), {
       target: { value: '0' },
     });
 

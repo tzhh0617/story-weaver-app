@@ -1,7 +1,8 @@
 export type OutlineGenerationInput = {
   bookId: string;
   idea: string;
-  targetWords: number;
+  targetChapters: number;
+  wordsPerChapter: number;
   modelId?: string;
 };
 

@@ -19,7 +19,7 @@ export function registerBookHandlers() {
     ipcChannels.bookCreate,
     async (
       _event,
-      payload: { idea: string; targetWords: number }
+      payload: { idea: string; targetChapters: number; wordsPerChapter: number }
     ) => bookService.createBook(payload)
   );
   ipcMain.handle(

@@ -12,7 +12,8 @@ export type BookRecord = {
   title: string;
   idea: string;
   status: BookStatus;
-  targetWords: number;
+  targetChapters: number;
+  wordsPerChapter: number;
   createdAt: string;
   updatedAt: string;
 };

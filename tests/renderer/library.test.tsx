@@ -36,7 +36,8 @@ describe('Library', () => {
             title: '北境遗城',
             idea: '旧王朝复苏，双主角在寒地边境争夺最后的王权。',
             status: 'writing',
-            targetWords: 500000,
+            targetChapters: 500,
+            wordsPerChapter: 2500,
             updatedAt: '2026-04-28T12:00:00.000Z',
             createdAt: '2026-04-28T10:00:00.000Z',
             progress: 76,
@@ -60,9 +61,57 @@ describe('Library', () => {
     expect(
       screen.getByText('旧王朝复苏，双主角在寒地边境争夺最后的王权。')
     ).toBeInTheDocument();
-    expect(screen.getByText('50 万字目标')).toBeInTheDocument();
+    expect(screen.getByText('500 章目标')).toBeInTheDocument();
+    expect(screen.getByText('2500 字/章')).toBeInTheDocument();
     expect(screen.getByText('38 / 50 章')).toBeInTheDocument();
     expect(screen.getAllByText('写作中').length).toBeGreaterThan(0);
+  });
+
+  it('groups shelf controls, search, stats, and book cards inside one workspace card', () => {
+    render(
+      <Library
+        books={[
+          {
+            id: 'book-1',
+            title: '北境遗城',
+            idea: '旧王朝复苏，双主角在寒地边境争夺最后的王权。',
+            status: 'writing',
+            targetChapters: 500,
+            wordsPerChapter: 2500,
+            updatedAt: '2026-04-28T12:00:00.000Z',
+            createdAt: '2026-04-28T10:00:00.000Z',
+          },
+        ]}
+        scheduler={{
+          runningBookIds: ['book-1'],
+          queuedBookIds: [],
+          pausedBookIds: [],
+          concurrencyLimit: 3,
+        }}
+        onSelectBook={vi.fn()}
+        onCreateBook={vi.fn()}
+        onStartAll={vi.fn()}
+        onPauseAll={vi.fn()}
+      />
+    );
+
+    const workspaceCard = screen.getByTestId('library-workspace-card');
+
+    expect(workspaceCard.className).toContain('rounded-[1.35rem]');
+    const toolbar = screen.getByTestId('library-toolbar');
+    const actions = screen.getByTestId('library-actions');
+
+    expect(actions.className).toContain('sm:ml-auto');
+    expect(actions).toContainElement(
+      screen.getByRole('button', { name: '新建作品' })
+    );
+    expect(toolbar).toContainElement(screen.getByLabelText('按标题搜索作品'));
+    expect(toolbar).toContainElement(actions);
+    expect(workspaceCard).toContainElement(toolbar);
+    expect(workspaceCard).toContainElement(screen.getByText('完成'));
+    expect(workspaceCard).toContainElement(
+      screen.getByRole('button', { name: '北境遗城' })
+    );
   });
 
   it('shows an empty-state message when there are no books yet', () => {
@@ -108,7 +157,8 @@ describe('Library', () => {
             title: 'Book 1',
             idea: 'A buried archive wakes up.',
             status: 'building_outline',
-            targetWords: 500000,
+            targetChapters: 500,
+            wordsPerChapter: 2500,
             updatedAt: '2026-04-28T12:00:00.000Z',
             createdAt: '2026-04-28T10:00:00.000Z',
           },
@@ -117,7 +167,8 @@ describe('Library', () => {
             title: 'Book 2',
             idea: 'A lantern remembers every storm.',
             status: 'paused',
-            targetWords: 500000,
+            targetChapters: 500,
+            wordsPerChapter: 2500,
             updatedAt: '2026-04-28T12:00:00.000Z',
             createdAt: '2026-04-28T10:00:00.000Z',
           },
@@ -138,7 +189,7 @@ describe('Library', () => {
     expect(screen.getByRole('button', { name: '全部暂停' })).toBeEnabled();
   });
 
-  it('supports search without exposing temporary filter controls', () => {
+  it('searches by title only with a compact input', () => {
     render(
       <Library
         books={[
@@ -147,7 +198,8 @@ describe('Library', () => {
             title: '北境遗城',
             idea: '旧王朝复苏。',
             status: 'writing',
-            targetWords: 500000,
+            targetChapters: 500,
+            wordsPerChapter: 2500,
             updatedAt: '2026-04-28T12:00:00.000Z',
             createdAt: '2026-04-28T10:00:00.000Z',
           },
@@ -156,7 +208,8 @@ describe('Library', () => {
             title: '南海灯塔',
             idea: '灯塔记录每一场风暴。',
             status: 'paused',
-            targetWords: 300000,
+            targetChapters: 500,
+            wordsPerChapter: 2500,
             updatedAt: '2026-04-28T12:00:00.000Z',
             createdAt: '2026-04-28T10:00:00.000Z',
           },
@@ -176,7 +229,23 @@ describe('Library', () => {
     expect(screen.queryByRole('button', { name: '全部状态' })).toBeNull();
     expect(screen.queryByRole('button', { name: '最近更新' })).toBeNull();
 
-    fireEvent.change(screen.getByLabelText('搜索作品'), {
+    const searchInput = screen.getByLabelText('按标题搜索作品');
+
+    expect(searchInput).toHaveAttribute('placeholder', '按标题搜索');
+    expect(searchInput.className).toContain('h-9');
+    expect(searchInput.className).toContain('sm:max-w-64');
+
+    fireEvent.change(searchInput, {
+      target: { value: '旧王朝' },
+    });
+
+    expect(screen.queryByRole('button', { name: '北境遗城' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '南海灯塔' })).toBeNull();
+    expect(
+      screen.getByText('换一个标题关键词试试。搜索仅匹配作品标题。')
+    ).toBeInTheDocument();
+
+    fireEvent.change(searchInput, {
       target: { value: '灯塔' },
     });
 

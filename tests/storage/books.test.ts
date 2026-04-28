@@ -11,7 +11,8 @@ describe('book repository', () => {
       id: 'book-1',
       title: 'Book 1',
       idea: 'A city remembers every promise.',
-      targetWords: 500000,
+      targetChapters: 500,
+      wordsPerChapter: 2500,
     });
 
     expect(repo.list()[0]?.id).toBe('book-1');

@@ -22,7 +22,8 @@ describe('createAiOutlineService', () => {
     const result = await service.generateFromIdea({
       bookId: 'book-1',
       idea: 'The moon taxes miracles.',
-      targetWords: 300000,
+      targetChapters: 500,
+      wordsPerChapter: 2500,
       modelId: 'openai:gpt-4o-mini',
     });
 

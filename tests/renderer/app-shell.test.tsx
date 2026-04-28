@@ -145,7 +145,7 @@ describe('App shell', () => {
     render(<App />);
 
     expect(
-      await screen.findByPlaceholderText('搜索作品、设定或状态')
+      await screen.findByPlaceholderText('按标题搜索')
     ).toBeInTheDocument();
     expect(screen.queryByText('AI Long-Form Fiction Studio')).toBeNull();
 
@@ -172,7 +172,8 @@ describe('App shell', () => {
         title: 'First Book',
         idea: 'First idea',
         status: 'writing',
-        targetWords: 500000,
+        targetChapters: 500,
+        wordsPerChapter: 2500,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
@@ -181,7 +182,8 @@ describe('App shell', () => {
         title: 'Second Book',
         idea: 'Second idea',
         status: 'paused',
-        targetWords: 500000,
+        targetChapters: 500,
+        wordsPerChapter: 2500,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
@@ -234,7 +236,8 @@ describe('App shell', () => {
         title: 'First Book',
         idea: 'First idea',
         status: 'writing',
-        targetWords: 500000,
+        targetChapters: 500,
+        wordsPerChapter: 2500,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
@@ -243,7 +246,8 @@ describe('App shell', () => {
         title: 'Second Book',
         idea: 'Second idea',
         status: 'paused',
-        targetWords: 500000,
+        targetChapters: 500,
+        wordsPerChapter: 2500,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
@@ -303,7 +307,8 @@ describe('App shell', () => {
         title: 'Existing Book',
         idea: 'An old archive wakes up.',
         status: 'creating',
-        targetWords: 500000,
+        targetChapters: 500,
+        wordsPerChapter: 2500,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
@@ -328,7 +333,8 @@ describe('App shell', () => {
         case 'book:create': {
           const input = payload as {
             idea: string;
-            targetWords: number;
+            targetChapters: number;
+            wordsPerChapter: number;
           };
 
           books.push({
@@ -336,7 +342,8 @@ describe('App shell', () => {
             title: input.idea,
             idea: input.idea,
             status: 'creating',
-            targetWords: input.targetWords,
+            targetChapters: input.targetChapters,
+            wordsPerChapter: input.wordsPerChapter,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           });
@@ -365,7 +372,8 @@ describe('App shell', () => {
     await waitFor(() => {
       expect(invoke).toHaveBeenCalledWith('book:create', {
         idea: 'A map eats its explorers.',
-        targetWords: 500000,
+        targetChapters: 500,
+        wordsPerChapter: 2500,
       });
       expect(invoke).toHaveBeenCalledWith('book:start', {
         bookId: 'book-2',
@@ -385,7 +393,8 @@ describe('App shell', () => {
       title: string;
       idea: string;
       status: string;
-      targetWords: number;
+      targetChapters: number;
+      wordsPerChapter: number;
       createdAt: string;
       updatedAt: string;
     }> = [];
@@ -399,7 +408,8 @@ describe('App shell', () => {
         case 'book:create': {
           const input = payload as {
             idea: string;
-            targetWords: number;
+            targetChapters: number;
+            wordsPerChapter: number;
           };
 
           books.push({
@@ -407,7 +417,8 @@ describe('App shell', () => {
             title: input.idea,
             idea: input.idea,
             status: 'creating',
-            targetWords: input.targetWords,
+            targetChapters: input.targetChapters,
+            wordsPerChapter: input.wordsPerChapter,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           });
@@ -443,7 +454,8 @@ describe('App shell', () => {
     await waitFor(() => {
       expect(invoke).toHaveBeenCalledWith('book:create', {
         idea: 'A lighthouse writes back.',
-        targetWords: 500000,
+        targetChapters: 500,
+        wordsPerChapter: 2500,
       });
       expect(invoke).toHaveBeenCalledWith('book:start', {
         bookId: 'book-9',
@@ -498,7 +510,8 @@ describe('App shell', () => {
         title: 'Existing Book',
         idea: 'An old archive wakes up.',
         status: 'writing',
-        targetWords: 500000,
+        targetChapters: 500,
+        wordsPerChapter: 2500,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
@@ -566,7 +579,8 @@ describe('App shell', () => {
         idea: 'An old archive wakes up.',
         status: 'building_outline',
         modelId: 'openai:gpt-4o-mini',
-        targetWords: 500000,
+        targetChapters: 500,
+        wordsPerChapter: 2500,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
@@ -621,7 +635,8 @@ describe('App shell', () => {
         idea: 'An old archive wakes up.',
         status: 'writing',
         modelId: 'openai:gpt-4o-mini',
-        targetWords: 500000,
+        targetChapters: 500,
+        wordsPerChapter: 2500,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
@@ -679,7 +694,8 @@ describe('App shell', () => {
         idea: 'An old archive wakes up.',
         status: 'building_outline',
         modelId: 'openai:gpt-4o-mini',
-        targetWords: 500000,
+        targetChapters: 500,
+        wordsPerChapter: 2500,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
@@ -835,7 +851,8 @@ describe('App shell', () => {
         idea: 'An old archive wakes up.',
         status: 'completed',
         modelId: 'openai:gpt-4o-mini',
-        targetWords: 500000,
+        targetChapters: 500,
+        wordsPerChapter: 2500,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
@@ -924,7 +941,8 @@ describe('App shell', () => {
         idea: 'An old archive wakes up.',
         status: 'writing',
         modelId: 'openai:gpt-4o-mini',
-        targetWords: 500000,
+        targetChapters: 500,
+        wordsPerChapter: 2500,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
@@ -1000,7 +1018,8 @@ describe('App shell', () => {
         idea: 'An old archive wakes up.',
         status: 'paused',
         modelId: 'openai:gpt-4o-mini',
-        targetWords: 500000,
+        targetChapters: 500,
+        wordsPerChapter: 2500,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
@@ -1143,7 +1162,8 @@ describe('App shell', () => {
         idea: 'An old archive wakes up.',
         status: 'completed',
         modelId: 'openai:gpt-4o-mini',
-        targetWords: 500000,
+        targetChapters: 500,
+        wordsPerChapter: 2500,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
@@ -1285,7 +1305,8 @@ describe('App shell', () => {
         idea: 'An old archive wakes up.',
         status: 'building_outline',
         modelId: 'openai:gpt-4o-mini',
-        targetWords: 500000,
+        targetChapters: 500,
+        wordsPerChapter: 2500,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
@@ -1466,7 +1487,8 @@ describe('App shell', () => {
         idea: 'An old archive wakes up.',
         status: 'building_outline',
         modelId: 'openai:gpt-4o-mini',
-        targetWords: 500000,
+        targetChapters: 500,
+        wordsPerChapter: 2500,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
@@ -1853,7 +1875,8 @@ describe('App shell', () => {
     await waitFor(() => {
       expect(invoke).toHaveBeenCalledWith('book:create', {
         idea: 'A map eats its explorers.',
-        targetWords: 500000,
+        targetChapters: 500,
+        wordsPerChapter: 2500,
       });
     });
   });

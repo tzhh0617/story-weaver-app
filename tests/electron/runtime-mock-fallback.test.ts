@@ -58,7 +58,8 @@ describe('runtime mock fallback', () => {
 
     const bookId = services.bookService.createBook({
       idea: '一个被宗门逐出的少年，意外继承了会吞噬因果的古镜。',
-      targetWords: 500000,
+      targetChapters: 500,
+      wordsPerChapter: 2500,
     });
 
     await services.bookService.startBook(bookId);
@@ -93,7 +94,8 @@ describe('runtime mock fallback', () => {
 
     const bookId = services.bookService.createBook({
       idea: '债务审理局的一名底层调查员，发现自己欠下的不是钱，而是命。',
-      targetWords: 300000,
+      targetChapters: 500,
+      wordsPerChapter: 2500,
     });
 
     await expect(services.bookService.startBook(bookId)).rejects.toThrow('bad key');
@@ -143,7 +145,8 @@ describe('runtime mock fallback', () => {
 
     const bookId = services.bookService.createBook({
       idea: '债务审理局的一名底层调查员，发现自己欠下的不是钱，而是命。',
-      targetWords: 400000,
+      targetChapters: 500,
+      wordsPerChapter: 2500,
     });
 
     await services.bookService.startBook(bookId);

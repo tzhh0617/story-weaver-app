@@ -175,7 +175,8 @@ export function getRuntimeServices() {
     async generateFromIdea(input: {
       bookId: string;
       idea: string;
-      targetWords: number;
+      targetChapters: number;
+      wordsPerChapter: number;
       modelId: string;
     }) {
       const runtimeMode = getRuntimeModelMode(modelConfigs.list());

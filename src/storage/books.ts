@@ -3,7 +3,7 @@ import type { BookRecord } from '../shared/contracts.js';
 
 type NewBookInput = Pick<
   BookRecord,
-  'id' | 'title' | 'idea' | 'targetWords'
+  'id' | 'title' | 'idea' | 'targetChapters' | 'wordsPerChapter'
 >;
 
 export function createBookRepository(db: SqliteDatabase) {
@@ -19,7 +19,8 @@ export function createBookRepository(db: SqliteDatabase) {
             idea,
             status,
             model_id,
-            target_words,
+            target_chapters,
+            words_per_chapter,
             created_at,
             updated_at
           )
@@ -29,7 +30,8 @@ export function createBookRepository(db: SqliteDatabase) {
             @idea,
             'creating',
             '',
-            @targetWords,
+            @targetChapters,
+            @wordsPerChapter,
             @createdAt,
             @updatedAt
           )
@@ -51,7 +53,8 @@ export function createBookRepository(db: SqliteDatabase) {
               title,
               idea,
               status,
-              target_words AS targetWords,
+              target_chapters AS targetChapters,
+              words_per_chapter AS wordsPerChapter,
               created_at AS createdAt,
               updated_at AS updatedAt
             FROM books
@@ -70,7 +73,8 @@ export function createBookRepository(db: SqliteDatabase) {
               title,
               idea,
               status,
-              target_words AS targetWords,
+              target_chapters AS targetChapters,
+              words_per_chapter AS wordsPerChapter,
               created_at AS createdAt,
               updated_at AS updatedAt
             FROM books

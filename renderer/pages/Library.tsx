@@ -1,3 +1,4 @@
+import { Search } from 'lucide-react';
 import { useState } from 'react';
 import type { SchedulerStatus } from '../../src/shared/contracts';
 import BookCard from '../components/BookCard';
@@ -11,14 +12,14 @@ import {
   pageIntroPanelClassName,
   pageIntroTitleClassName,
 } from '../components/ui/card';
-import { getStatusLabel } from '../status-labels';
 
 type LibraryBook = {
   id: string;
   title: string;
   idea: string;
   status: string;
-  targetWords: number;
+  targetChapters: number;
+  wordsPerChapter: number;
   createdAt: string;
   updatedAt: string;
   progress?: number;
@@ -58,15 +59,7 @@ export default function Library({
   const normalizedSearchQuery = searchQuery.trim().toLowerCase();
   const visibleBooks = normalizedSearchQuery
     ? books.filter((book) =>
-        [
-          book.title,
-          book.idea,
-          book.status,
-          getStatusLabel(book.status),
-        ]
-          .join(' ')
-          .toLowerCase()
-          .includes(normalizedSearchQuery)
+        book.title.toLowerCase().includes(normalizedSearchQuery)
       )
     : books;
 
@@ -79,31 +72,46 @@ export default function Library({
           像整理一排正在写作的书脊一样管理作品：先看状态、进度和最近更新时间，再进入单本作品继续深写。
         </p>
       </header>
-      <div className={`grid gap-5 px-5 py-5 ${layoutCardClassName}`}>
-        <div className="flex flex-wrap gap-3">
-          <Button type="button" onClick={onCreateBook}>
-            新建作品
-          </Button>
-          <Button type="button" onClick={onStartAll} disabled={!hasRunnableBooks}>
-            全部开始
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={onPauseAll}
-            disabled={!hasPausableBooks}
+      <div
+        data-testid="library-workspace-card"
+        className={`grid gap-5 px-5 py-5 ${layoutCardClassName}`}
+      >
+        <div
+          data-testid="library-toolbar"
+          className="flex flex-wrap items-center gap-3"
+        >
+          <div className="relative w-full sm:max-w-64">
+            <Search
+              aria-hidden="true"
+              className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+            />
+            <Input
+              aria-label="按标题搜索作品"
+              placeholder="按标题搜索"
+              className="h-9 min-w-0 pl-8 sm:max-w-64"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+            />
+          </div>
+          <div
+            data-testid="library-actions"
+            className="flex flex-wrap items-center gap-3 sm:ml-auto"
           >
-            全部暂停
-          </Button>
-        </div>
-        <div className="grid gap-3 rounded-lg border border-border/70 bg-background/65 p-3">
-          <Input
-            aria-label="搜索作品"
-            placeholder="搜索作品、设定或状态"
-            className="min-w-0"
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-          />
+            <Button type="button" onClick={onCreateBook}>
+              新建作品
+            </Button>
+            <Button type="button" onClick={onStartAll} disabled={!hasRunnableBooks}>
+              全部开始
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={onPauseAll}
+              disabled={!hasPausableBooks}
+            >
+              全部暂停
+            </Button>
+          </div>
         </div>
         <dl className="grid grid-cols-2 gap-2 border-t border-border/70 pt-4 sm:grid-cols-4">
           {shelfStats.map((item) => (
@@ -120,42 +128,43 @@ export default function Library({
             </div>
           ))}
         </dl>
-      </div>
 
-      <div className="grid gap-5 xl:grid-cols-2 2xl:grid-cols-3">
-        {visibleBooks.length ? (
-          visibleBooks.map((book) => (
-            <BookCard
-              key={book.id}
-              id={book.id}
-              title={book.title}
-              idea={book.idea}
-              status={book.status}
-              progress={book.progress ?? 0}
-              targetWords={book.targetWords}
-              updatedAt={book.updatedAt}
-              completedChapters={book.completedChapters}
-              totalChapters={book.totalChapters}
-              onView={onSelectBook}
-            />
-          ))
-        ) : books.length ? (
-          <div className="xl:col-span-2 2xl:col-span-3">
-            <EmptyState
-              title="没有匹配作品"
-              description="换一个关键词试试。搜索会匹配作品标题、简介和状态。"
-            />
-          </div>
-        ) : (
-          <div className="xl:col-span-2 2xl:col-span-3">
-            <EmptyState
-              title="暂无作品"
-              description="这排书架还空着。创建第一本作品后，它会以书卡形式出现在这里，并显示章节进度、写作状态和最近更新。"
-              actionLabel="新建第一本作品"
-              onAction={onCreateBook}
-            />
-          </div>
-        )}
+        <div className="grid gap-5 border-t border-border/70 pt-5 xl:grid-cols-2 2xl:grid-cols-3">
+          {visibleBooks.length ? (
+            visibleBooks.map((book) => (
+              <BookCard
+                key={book.id}
+                id={book.id}
+                title={book.title}
+                idea={book.idea}
+                status={book.status}
+                progress={book.progress ?? 0}
+                targetChapters={book.targetChapters}
+                wordsPerChapter={book.wordsPerChapter}
+                updatedAt={book.updatedAt}
+                completedChapters={book.completedChapters}
+                totalChapters={book.totalChapters}
+                onView={onSelectBook}
+              />
+            ))
+          ) : books.length ? (
+            <div className="xl:col-span-2 2xl:col-span-3">
+              <EmptyState
+                title="没有匹配作品"
+                description="换一个标题关键词试试。搜索仅匹配作品标题。"
+              />
+            </div>
+          ) : (
+            <div className="xl:col-span-2 2xl:col-span-3">
+              <EmptyState
+                title="暂无作品"
+                description="这排书架还空着。创建第一本作品后，它会以书卡形式出现在这里，并显示章节进度、写作状态和最近更新。"
+                actionLabel="新建第一本作品"
+                onAction={onCreateBook}
+              />
+            </div>
+          )}
+        </div>
       </div>
     </section>
   );

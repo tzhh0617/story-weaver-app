@@ -17,7 +17,8 @@ describe('mock story services', () => {
     const outline = await services.outlineService.generateFromIdea({
       bookId: 'book-1',
       idea: '债务审理局的一名底层调查员，发现自己欠下的不是钱，而是命。',
-      targetWords: 400000,
+      targetChapters: 500,
+      wordsPerChapter: 2500,
     });
 
     expect(services.chapterWriter).toBeTruthy();
@@ -34,7 +35,8 @@ describe('mock story services', () => {
     const result = await service.generateFromIdea({
       bookId: 'book-1',
       idea: '一个被宗门逐出的少年，意外继承了会吞噬因果的古镜。',
-      targetWords: 500000,
+      targetChapters: 500,
+      wordsPerChapter: 2500,
     });
 
     expect(result.worldSetting).toMatch(/[一-龥]/);
@@ -55,7 +57,8 @@ describe('mock story services', () => {
     const result = await service.generateFromIdea({
       bookId: 'book-2',
       idea: '债务审理局的一名底层调查员，发现自己欠下的不是钱，而是命。',
-      targetWords: 400000,
+      targetChapters: 500,
+      wordsPerChapter: 2500,
     });
 
     expect(result.worldSetting).toContain('都市压迫感与爽点并行');

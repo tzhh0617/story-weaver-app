@@ -61,7 +61,7 @@ export function createAiOutlineService(deps: {
       const volumeOutlineText = (
         await deps.generateText({
           model,
-          prompt: buildVolumeOutlinePrompt(masterOutline),
+          prompt: buildVolumeOutlinePrompt(masterOutline, input),
         })
       ).text;
 
@@ -76,7 +76,7 @@ export function createAiOutlineService(deps: {
             const chapterText = (
               await deps.generateText({
                 model,
-                prompt: buildChapterOutlinePrompt(volumeOutline, index + 1),
+                prompt: buildChapterOutlinePrompt(volumeOutline, index + 1, input),
               })
             ).text;
 

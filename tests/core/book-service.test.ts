@@ -45,7 +45,8 @@ describe('createBookService', () => {
 
     const bookId = service.createBook({
       idea: 'A city remembers every promise.',
-      targetWords: 500000,
+      targetChapters: 500,
+      wordsPerChapter: 2500,
     });
 
     const books = service.listBooks();
@@ -55,7 +56,8 @@ describe('createBookService', () => {
     expect(books[0]).toMatchObject({
       id: bookId,
       idea: 'A city remembers every promise.',
-      targetWords: 500000,
+      targetChapters: 500,
+      wordsPerChapter: 2500,
       status: 'creating',
     });
   });
@@ -108,7 +110,8 @@ describe('createBookService', () => {
 
     const bookId = service.createBook({
       idea: 'The moon taxes miracles.',
-      targetWords: 300000,
+      targetChapters: 500,
+      wordsPerChapter: 2500,
     });
 
     await service.startBook(bookId);
@@ -168,7 +171,8 @@ describe('createBookService', () => {
     const bookId = service.createBook({
       idea: 'The moon taxes miracles.',
       modelId: 'openai:gpt-4o-mini',
-      targetWords: 300000,
+      targetChapters: 500,
+      wordsPerChapter: 2500,
     });
 
     await service.startBook(bookId);
@@ -256,7 +260,8 @@ describe('createBookService', () => {
     const bookId = service.createBook({
       idea: 'The moon taxes miracles.',
       modelId: 'openai:gpt-4o-mini',
-      targetWords: 300000,
+      targetChapters: 500,
+      wordsPerChapter: 2500,
     });
 
     await service.startBook(bookId);
@@ -381,7 +386,8 @@ describe('createBookService', () => {
     const bookId = service.createBook({
       idea: 'The moon taxes miracles.',
       modelId: 'openai:gpt-4o-mini',
-      targetWords: 300000,
+      targetChapters: 500,
+      wordsPerChapter: 2500,
     });
 
     await service.startBook(bookId);
@@ -476,7 +482,8 @@ describe('createBookService', () => {
     const bookId = service.createBook({
       idea: 'The moon taxes miracles.',
       modelId: 'openai:gpt-4o-mini',
-      targetWords: 300000,
+      targetChapters: 500,
+      wordsPerChapter: 2500,
     });
 
     await service.startBook(bookId);
@@ -547,7 +554,8 @@ describe('createBookService', () => {
     const bookId = service.createBook({
       idea: 'The moon taxes miracles.',
       modelId: 'openai:gpt-4o-mini',
-      targetWords: 300000,
+      targetChapters: 500,
+      wordsPerChapter: 2500,
     });
 
     await service.startBook(bookId);
@@ -682,7 +690,8 @@ describe('createBookService', () => {
     const bookId = service.createBook({
       idea: 'The moon taxes miracles.',
       modelId: 'openai:gpt-4o-mini',
-      targetWords: 300000,
+      targetChapters: 500,
+      wordsPerChapter: 2500,
     });
 
     await service.startBook(bookId);
@@ -824,7 +833,8 @@ describe('createBookService', () => {
     const bookId = service.createBook({
       idea: 'The moon taxes miracles.',
       modelId: 'openai:gpt-4o-mini',
-      targetWords: 300000,
+      targetChapters: 500,
+      wordsPerChapter: 2500,
     });
 
     await service.startBook(bookId);
@@ -902,7 +912,8 @@ describe('createBookService', () => {
     const bookId = service.createBook({
       idea: 'The moon taxes miracles.',
       modelId: 'openai:gpt-4o-mini',
-      targetWords: 300000,
+      targetChapters: 500,
+      wordsPerChapter: 2500,
     });
 
     await service.startBook(bookId);
@@ -1029,7 +1040,8 @@ describe('createBookService', () => {
     const bookId = service.createBook({
       idea: 'The moon taxes miracles.',
       modelId: 'openai:gpt-4o-mini',
-      targetWords: 300000,
+      targetChapters: 500,
+      wordsPerChapter: 2500,
     });
 
     await service.startBook(bookId);
@@ -1133,7 +1145,8 @@ describe('createBookService', () => {
     const bookId = service.createBook({
       idea: 'The moon taxes miracles.',
       modelId: 'openai:gpt-4o-mini',
-      targetWords: 300000,
+      targetChapters: 500,
+      wordsPerChapter: 2500,
     });
 
     await service.startBook(bookId);
@@ -1186,7 +1199,8 @@ describe('createBookService', () => {
     const bookId = service.createBook({
       idea: 'The moon taxes miracles.',
       modelId: 'openai:gpt-4o-mini',
-      targetWords: 300000,
+      targetChapters: 500,
+      wordsPerChapter: 2500,
     });
 
     await service.startBook(bookId);

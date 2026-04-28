@@ -111,7 +111,8 @@ export function createMockOutlineService() {
           `关键场域：${firstLocation}、${secondLocation}。`,
         ].join('\n'),
         masterOutline: [
-          `目标字数：${input.targetWords}`,
+          `目标章节数：${input.targetChapters}`,
+          `每章字数：${input.wordsPerChapter}`,
           `主线：${protagonist}从最低谷起势，追查旧案真相并重塑自身命运。`,
           '分卷结构：开局受辱、追查真相、势力碰撞、代价揭露、规则改写。',
           `核心冲突：${genre.conflict}`,
