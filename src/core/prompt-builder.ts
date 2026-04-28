@@ -42,6 +42,20 @@ export function buildWorldPrompt(
   ].join('\n');
 }
 
+export function buildTitlePrompt(
+  input: Pick<
+    OutlineGenerationInput,
+    'idea' | 'targetChapters' | 'wordsPerChapter'
+  >
+) {
+  return [
+    'Name this long-form Chinese web novel.',
+    `User idea: ${input.idea}`,
+    ...buildLengthConstraintLines(input),
+    'Return only one concise Chinese book title, without quotes or explanation.',
+  ].join('\n');
+}
+
 export function buildMasterOutlinePrompt(
   worldSetting: string,
   input: Pick<

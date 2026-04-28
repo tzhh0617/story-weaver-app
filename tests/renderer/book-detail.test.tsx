@@ -138,6 +138,41 @@ describe('BookDetail', () => {
     expect(await screen.findByText('暂无人物状态')).toBeInTheDocument();
   });
 
+  it('uses phase-aware empty states while generated material is still arriving', async () => {
+    const { rerender } = render(
+      <BookDetail
+        book={{ title: '新作品', status: 'creating', wordCount: 0 }}
+        progress={{ phase: 'naming_title' }}
+      />
+    );
+
+    expect(await screen.findByText('正在生成书名...')).toBeInTheDocument();
+
+    rerender(
+      <BookDetail
+        book={{ title: '新作品', status: 'building_world', wordCount: 0 }}
+        progress={{ phase: 'building_world' }}
+      />
+    );
+    fireEvent.click(screen.getByRole('tab', { name: '大纲' }));
+
+    expect(await screen.findByText('正在生成世界观...')).toBeInTheDocument();
+
+    rerender(
+      <BookDetail
+        book={{ title: '月税奇谈', status: 'building_outline', wordCount: 0 }}
+        progress={{ phase: 'planning_chapters' }}
+        context={{
+          worldSetting: 'World rules',
+          outline: 'Master outline',
+        }}
+      />
+    );
+    fireEvent.click(screen.getByRole('tab', { name: '章节' }));
+
+    expect(await screen.findByText('正在规划章节...')).toBeInTheDocument();
+  });
+
   it('disables actions that are not valid for the current book state', () => {
     render(
       <BookDetail

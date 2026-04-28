@@ -94,6 +94,16 @@ export function createBookRepository(db: SqliteDatabase) {
       ).run(status, new Date().toISOString(), bookId);
     },
 
+    updateTitle(bookId: string, title: string) {
+      db.prepare(
+        `
+          UPDATE books
+          SET title = ?, updated_at = ?
+          WHERE id = ?
+        `
+      ).run(title, new Date().toISOString(), bookId);
+    },
+
     saveContext(input: {
       bookId: string;
       worldSetting: string;

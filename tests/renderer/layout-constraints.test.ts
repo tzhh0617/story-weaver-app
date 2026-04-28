@@ -3,6 +3,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const rendererRoot = path.resolve(__dirname, '../../renderer');
+const projectRoot = path.resolve(rendererRoot, '..');
 const arbitraryPixelMaxWidthPattern = /max-w-\[\d+px\]/;
 
 function listRendererSourceFiles(directory: string): string[] {
@@ -64,6 +65,48 @@ describe('renderer layout constraints', () => {
     expect(appSource).toContain('h-svh overflow-y-auto');
     expect(appSource).not.toContain('min-h-screen w-full p-5');
     expect(sidebarSource).toContain('h-svh shrink-0');
+  });
+
+  it('uses explicit var() syntax for sidebar width utilities', () => {
+    const sidebarSource = fs.readFileSync(
+      path.join(rendererRoot, 'components/ui/sidebar.tsx'),
+      'utf8'
+    );
+
+    expect(sidebarSource).not.toContain('w-[--sidebar-width]');
+    expect(sidebarSource).not.toContain('w-[--sidebar-width-icon]');
+    expect(sidebarSource).toContain('w-[var(--sidebar-width)]');
+    expect(sidebarSource).toContain('w-[var(--sidebar-width-icon)]');
+  });
+
+  it('lets the app background fill the hidden desktop titlebar area', () => {
+    const appSource = fs.readFileSync(path.join(rendererRoot, 'App.tsx'), 'utf8');
+    const cssSource = fs.readFileSync(path.join(rendererRoot, 'index.css'), 'utf8');
+    const electronMainSource = fs.readFileSync(
+      path.join(projectRoot, 'electron/main.ts'),
+      'utf8'
+    );
+
+    expect(electronMainSource).toContain("titleBarStyle: 'hiddenInset'");
+    expect(electronMainSource).toContain('trafficLightPosition');
+    expect(electronMainSource).toContain("backgroundColor: '#efe6d5'");
+    expect(appSource).toContain('app-titlebar-drag-region');
+    expect(appSource).toContain('app-content-scrollport');
+    expect(cssSource).toContain('.app-titlebar-drag-region');
+    expect(cssSource).toContain('-webkit-app-region: drag');
+    expect(cssSource).toContain('--app-titlebar-height');
+  });
+
+  it('keeps the hidden titlebar fill visually transparent outside the sidebar', () => {
+    const cssSource = fs.readFileSync(path.join(rendererRoot, 'index.css'), 'utf8');
+    const titlebarRule =
+      cssSource.match(/\.app-titlebar-drag-region \{[\s\S]*?\n  \}/)?.[0] ?? '';
+
+    expect(titlebarRule).toContain('background-color: transparent');
+    expect(titlebarRule).toContain('var(--sidebar) 0 var(--sidebar-width)');
+    expect(titlebarRule).not.toContain('box-shadow');
+    expect(titlebarRule).not.toContain('var(--paper-background-image)');
+    expect(titlebarRule).not.toContain('background-attachment');
   });
 
   it('defines the shared shadcn theme tokens used by overlay and form primitives', () => {

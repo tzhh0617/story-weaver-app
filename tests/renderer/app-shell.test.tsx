@@ -339,7 +339,7 @@ describe('App shell', () => {
 
           books.push({
             id: 'book-2',
-            title: input.idea,
+            title: '新作品',
             idea: input.idea,
             status: 'creating',
             targetChapters: input.targetChapters,
@@ -350,7 +350,29 @@ describe('App shell', () => {
           return 'book-2';
         }
         case 'book:start':
+          books[1] = {
+            ...books[1],
+            title: 'A map eats its explorers.',
+            status: 'building_outline',
+            updatedAt: new Date().toISOString(),
+          };
           return undefined;
+        case 'book:detail': {
+          const { bookId } = payload as { bookId: string };
+          const book = books.find((item) => item.id === bookId) ?? books[0];
+
+          return {
+            book,
+            context: null,
+            latestScene: null,
+            characterStates: [],
+            plotThreads: [],
+            chapters: [],
+            progress: {
+              phase: book?.status ?? 'creating',
+            },
+          };
+        }
         default:
           return null;
       }
@@ -381,13 +403,17 @@ describe('App shell', () => {
     });
 
     expect(
-      await screen.findByRole('button', {
-        name: 'A map eats its explorers.',
-      })
+      await screen.findByRole('heading', { name: 'A map eats its explorers.' })
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '作品' }));
+
+    expect(
+      await screen.findByRole('button', { name: 'A map eats its explorers.' })
     ).toBeInTheDocument();
   });
 
-  it('returns to 作品 and selects the newly created book', async () => {
+  it('keeps 作品 active and opens the newly created book detail', async () => {
     const books: Array<{
       id: string;
       title: string;
@@ -414,7 +440,7 @@ describe('App shell', () => {
 
           books.push({
             id: 'book-9',
-            title: input.idea,
+            title: '新作品',
             idea: input.idea,
             status: 'creating',
             targetChapters: input.targetChapters,
@@ -425,6 +451,12 @@ describe('App shell', () => {
           return 'book-9';
         }
         case 'book:start':
+          books[0] = {
+            ...books[0],
+            title: 'A lighthouse writes back.',
+            status: 'building_outline',
+            updatedAt: new Date().toISOString(),
+          };
           return undefined;
         case 'book:detail':
           return {
@@ -470,8 +502,173 @@ describe('App shell', () => {
       'true'
     );
     expect(
-      await screen.findByRole('button', { name: 'A lighthouse writes back.' })
+      await screen.findByRole('heading', { name: 'A lighthouse writes back.' })
     ).toBeInTheDocument();
+  });
+
+  it('opens the new book detail before outline generation finishes', async () => {
+    const books: Array<{
+      id: string;
+      title: string;
+      idea: string;
+      status: string;
+      targetChapters: number;
+      wordsPerChapter: number;
+      createdAt: string;
+      updatedAt: string;
+    }> = [];
+    let resolveStart: (() => void) | null = null;
+    const startPromise = new Promise<void>((resolve) => {
+      resolveStart = resolve;
+    });
+
+    const { invoke } = installIpcMock(async (channel, payload) => {
+      switch (channel) {
+        case 'book:list':
+          return copy(books);
+        case 'model:list':
+          return [];
+        case 'book:create': {
+          const input = payload as {
+            idea: string;
+            targetChapters: number;
+            wordsPerChapter: number;
+          };
+
+          books.push({
+            id: 'book-fast-visible',
+            title: '新作品',
+            idea: input.idea,
+            status: 'creating',
+            targetChapters: input.targetChapters,
+            wordsPerChapter: input.wordsPerChapter,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          });
+          return 'book-fast-visible';
+        }
+        case 'book:start':
+          await startPromise;
+          books[0] = {
+            ...books[0],
+            status: 'building_outline',
+            updatedAt: new Date().toISOString(),
+          };
+          return undefined;
+        case 'book:detail': {
+          const { bookId } = payload as { bookId: string };
+          const book = books.find((item) => item.id === bookId) ?? books[0];
+
+          return {
+            book,
+            context: null,
+            latestScene: null,
+            characterStates: [],
+            plotThreads: [],
+            chapters: [],
+            progress: {
+              phase: book?.status ?? 'creating',
+            },
+          };
+        }
+        default:
+          return null;
+      }
+    });
+
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole('button', { name: '新建作品' }));
+    fireEvent.change(screen.getByLabelText('故事设想'), {
+      target: { value: 'A clockwork island wakes.' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '开始写作' }));
+
+    expect(
+      await screen.findByRole('heading', { name: '新作品' })
+    ).toBeInTheDocument();
+    expect(screen.getByText('创建中 · 0 字')).toBeInTheDocument();
+    expect(invoke).toHaveBeenCalledWith('book:start', {
+      bookId: 'book-fast-visible',
+    });
+
+    const startResolver = resolveStart as null | (() => void);
+    startResolver?.();
+  });
+
+  it('keeps the new book detail open when the list refresh is briefly stale', async () => {
+    let resolveStart: (() => void) | null = null;
+    const createdBook = {
+      id: 'book-stale-list',
+      title: '新作品',
+      idea: 'A library hides a second moon.',
+      status: 'creating',
+      targetChapters: 500,
+      wordsPerChapter: 2500,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const { invoke } = installIpcMock(async (channel, payload) => {
+      switch (channel) {
+        case 'book:list':
+          return [];
+        case 'model:list':
+          return [];
+        case 'book:create':
+          return createdBook.id;
+        case 'book:start':
+          await new Promise<void>((resolve) => {
+            resolveStart = resolve;
+          });
+          return undefined;
+        case 'book:detail': {
+          const { bookId } = payload as { bookId: string };
+          if (bookId !== createdBook.id) {
+            return null;
+          }
+
+          return {
+            book: createdBook,
+            context: null,
+            latestScene: null,
+            characterStates: [],
+            plotThreads: [],
+            chapters: [],
+            progress: {
+              phase: createdBook.status,
+            },
+          };
+        }
+        default:
+          return null;
+      }
+    });
+
+    render(<App />);
+
+    await openNewBookView();
+
+    fireEvent.change(screen.getByLabelText('故事设想'), {
+      target: { value: createdBook.idea },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '开始写作' }));
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith('book:detail', {
+        bookId: createdBook.id,
+      });
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(
+      screen.getByRole('heading', { name: '新作品' })
+    ).toBeInTheDocument();
+    expect(screen.queryByText('暂无作品')).not.toBeInTheDocument();
+
+    const startResolver = resolveStart as null | (() => void);
+    startResolver?.();
   });
 
   it('updates the library summary from scheduler progress events', async () => {
@@ -501,6 +698,79 @@ describe('App shell', () => {
     expect(await screen.findByText('排队')).toBeInTheDocument();
     expect(await screen.findByText('已暂停')).toBeInTheDocument();
     expect(screen.getAllByText('1')).toHaveLength(3);
+  });
+
+  it('refreshes the selected book detail when progress pings for the same running book', async () => {
+    const books = [
+      {
+        id: 'book-1',
+        title: '新作品',
+        idea: 'The moon taxes miracles.',
+        status: 'building_world',
+        targetChapters: 500,
+        wordsPerChapter: 2500,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    ];
+
+    const { emitProgress } = installIpcMock(async (channel, payload) => {
+      switch (channel) {
+        case 'book:list':
+          return copy(books);
+        case 'model:list':
+          return [];
+        case 'book:detail': {
+          const { bookId } = payload as { bookId: string };
+          const book = books.find((item) => item.id === bookId) ?? books[0];
+
+          return {
+            book,
+            context: null,
+            latestScene: null,
+            characterStates: [],
+            plotThreads: [],
+            chapters: [],
+            progress: {
+              phase: book.status,
+            },
+          };
+        }
+        default:
+          return null;
+      }
+    });
+
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole('button', { name: '新作品' }));
+    expect(await screen.findByRole('heading', { name: '新作品' })).toBeInTheDocument();
+
+    emitProgress({
+      runningBookIds: ['book-1'],
+      queuedBookIds: [],
+      pausedBookIds: [],
+      concurrencyLimit: null,
+    });
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: '新作品' })).toBeInTheDocument();
+    });
+
+    books[0] = {
+      ...books[0],
+      title: '月税奇谈',
+      updatedAt: new Date().toISOString(),
+    };
+    emitProgress({
+      runningBookIds: ['book-1'],
+      queuedBookIds: [],
+      pausedBookIds: [],
+      concurrencyLimit: null,
+    });
+
+    expect(
+      await screen.findByRole('heading', { name: '月税奇谈' })
+    ).toBeInTheDocument();
   });
 
   it('renders chapter completion progress in the library list', async () => {
@@ -1997,11 +2267,21 @@ describe('App shell', () => {
 
   it('shows a progress banner while starting a new book', async () => {
     let resolveStart: (() => void) | null = null;
+    const books: Array<{
+      id: string;
+      title: string;
+      idea: string;
+      status: string;
+      targetChapters: number;
+      wordsPerChapter: number;
+      createdAt: string;
+      updatedAt: string;
+    }> = [];
 
     installIpcMock(async (channel, payload) => {
       switch (channel) {
         case 'book:list':
-          return [];
+          return copy(books);
         case 'model:list':
           return [
             {
@@ -2013,13 +2293,42 @@ describe('App shell', () => {
               config: {},
             },
           ];
-        case 'book:create':
+        case 'book:create': {
+          const input = payload as {
+            idea: string;
+            targetChapters: number;
+            wordsPerChapter: number;
+          };
+
+          books.push({
+            id: 'book-1',
+            title: '新作品',
+            idea: input.idea,
+            status: 'creating',
+            targetChapters: input.targetChapters,
+            wordsPerChapter: input.wordsPerChapter,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          });
           return 'book-1';
+        }
         case 'book:start':
           await new Promise<void>((resolve) => {
             resolveStart = resolve;
           });
           return undefined;
+        case 'book:detail':
+          return {
+            book: books[0],
+            context: null,
+            latestScene: null,
+            characterStates: [],
+            plotThreads: [],
+            chapters: [],
+            progress: {
+              phase: books[0]?.status ?? 'creating',
+            },
+          };
         default:
           return null;
       }
@@ -2034,7 +2343,15 @@ describe('App shell', () => {
     });
     fireEvent.click(screen.getByText('开始写作'));
 
-    expect(await screen.findByText('正在生成大纲...')).toBeInTheDocument();
+    expect(
+      await screen.findByText('书本已创建，正在生成书名...')
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('书本已创建，正在生成书名和大纲...')
+    ).not.toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: '新作品' })
+    ).toBeInTheDocument();
 
     const startResolver = resolveStart as null | (() => void);
     startResolver?.();

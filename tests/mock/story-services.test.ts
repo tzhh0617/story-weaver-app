@@ -51,6 +51,33 @@ describe('mock story services', () => {
     expect(result.chapterOutlines[0]?.title).toMatch(/[一-龥]/);
   });
 
+  it('emits mock outline pieces as soon as each piece is available', async () => {
+    const service = createMockOutlineService();
+    const events: string[] = [];
+
+    const result = await service.generateFromIdea({
+      bookId: 'book-1',
+      idea: '一个被宗门逐出的少年，意外继承了会吞噬因果的古镜。',
+      targetChapters: 500,
+      wordsPerChapter: 2500,
+      onWorldSetting: (worldSetting) => {
+        events.push(`world:${worldSetting.includes('题材基调')}`);
+      },
+      onMasterOutline: (masterOutline) => {
+        events.push(`outline:${masterOutline.includes('主线')}`);
+      },
+      onChapterOutlines: (chapterOutlines) => {
+        events.push(`chapters:${chapterOutlines.length}`);
+      },
+    });
+
+    expect(events).toEqual([
+      'world:true',
+      'outline:true',
+      `chapters:${result.chapterOutlines.length}`,
+    ]);
+  });
+
   it('switches to an urban-power style pack when the idea matches that genre', async () => {
     const service = createMockOutlineService();
 

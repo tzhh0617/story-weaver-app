@@ -66,6 +66,8 @@ describe('runtime mock fallback', () => {
     await services.bookService.writeNextChapter(bookId);
 
     const detail = services.bookService.getBookDetail(bookId);
+    expect(detail?.book.title).not.toBe('新作品');
+    expect(detail?.book.title).toMatch(/[一-龥]/);
     expect(detail?.context?.worldSetting).toMatch(/[一-龥]/);
     expect(detail?.chapters[0]?.content).toMatch(/[一-龥]/);
     expect(detail?.chapters[0]?.content).toContain('逐出山门');

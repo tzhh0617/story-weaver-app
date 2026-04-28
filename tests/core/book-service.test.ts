@@ -55,6 +55,7 @@ describe('createBookService', () => {
     expect(books).toHaveLength(1);
     expect(books[0]).toMatchObject({
       id: bookId,
+      title: '新作品',
       idea: 'A city remembers every promise.',
       targetChapters: 500,
       wordsPerChapter: 2500,
@@ -65,6 +66,7 @@ describe('createBookService', () => {
   it('returns book detail with persisted context and chapter outlines after start', async () => {
     const db = createDatabase(':memory:');
     const resolveModelId = vi.fn().mockReturnValue('openai:gpt-4o-mini');
+    const onBookUpdated = vi.fn();
     const service = createBookService({
       books: createBookRepository(db),
       chapters: createChapterRepository(db),
@@ -73,6 +75,7 @@ describe('createBookService', () => {
       sceneRecords: createSceneRecordRepository(db),
       progress: createProgressRepository(db),
       outlineService: {
+        generateTitleFromIdea: vi.fn().mockResolvedValue('月税奇谈'),
         generateFromIdea: vi.fn().mockResolvedValue({
           worldSetting: 'World rules',
           masterOutline: 'Master outline',
@@ -106,6 +109,7 @@ describe('createBookService', () => {
         extractScene: vi.fn().mockResolvedValue(null),
       },
       resolveModelId,
+      onBookUpdated,
     });
 
     const bookId = service.createBook({
@@ -118,6 +122,8 @@ describe('createBookService', () => {
     const detail = service.getBookDetail(bookId);
 
     expect(resolveModelId).toHaveBeenCalled();
+    expect(onBookUpdated).toHaveBeenCalledWith(bookId);
+    expect(detail?.book.title).toBe('月税奇谈');
     expect(detail?.book.status).toBe('building_outline');
     expect(detail?.context?.worldSetting).toBe('World rules');
     expect(detail?.chapters).toEqual([
@@ -129,6 +135,220 @@ describe('createBookService', () => {
       }),
     ]);
     expect(detail?.progress?.phase).toBe('building_outline');
+  });
+
+  it('marks the book as generating a title before asking the title model', async () => {
+    const db = createDatabase(':memory:');
+    let service!: ReturnType<typeof createBookService>;
+    let bookId = '';
+
+    service = createBookService({
+      books: createBookRepository(db),
+      chapters: createChapterRepository(db),
+      characters: createCharacterRepository(db),
+      plotThreads: createPlotThreadRepository(db),
+      sceneRecords: createSceneRecordRepository(db),
+      progress: createProgressRepository(db),
+      outlineService: {
+        generateTitleFromIdea: vi.fn(async () => {
+          expect(service.getBookDetail(bookId)?.progress?.phase).toBe(
+            'naming_title'
+          );
+          return '月税奇谈';
+        }),
+        generateFromIdea: vi.fn().mockResolvedValue({
+          worldSetting: 'World rules',
+          masterOutline: 'Master outline',
+          volumeOutlines: [],
+          chapterOutlines: [],
+        }),
+      },
+      chapterWriter: {
+        writeChapter: vi.fn(),
+      },
+      summaryGenerator: {
+        summarizeChapter: vi.fn(),
+      },
+      plotThreadExtractor: {
+        extractThreads: vi.fn().mockResolvedValue({
+          openedThreads: [],
+          resolvedThreadIds: [],
+        }),
+      },
+      characterStateExtractor: {
+        extractStates: vi.fn().mockResolvedValue([]),
+      },
+      sceneRecordExtractor: {
+        extractScene: vi.fn().mockResolvedValue(null),
+      },
+    });
+
+    bookId = service.createBook({
+      idea: 'The moon taxes miracles.',
+      targetChapters: 500,
+      wordsPerChapter: 2500,
+    });
+
+    await service.startBook(bookId);
+  });
+
+  it('persists world setting and master outline while outline generation is still running', async () => {
+    const db = createDatabase(':memory:');
+    const resolveModelId = vi.fn().mockReturnValue('openai:gpt-4o-mini');
+    const onBookUpdated = vi.fn();
+    let service!: ReturnType<typeof createBookService>;
+    let bookId = '';
+
+    service = createBookService({
+      books: createBookRepository(db),
+      chapters: createChapterRepository(db),
+      characters: createCharacterRepository(db),
+      plotThreads: createPlotThreadRepository(db),
+      sceneRecords: createSceneRecordRepository(db),
+      progress: createProgressRepository(db),
+      outlineService: {
+        generateFromIdea: vi.fn(async (input) => {
+          input.onWorldSetting?.('Early world rules');
+
+          expect(service.getBookDetail(bookId)?.context).toMatchObject({
+            worldSetting: 'Early world rules',
+            outline: '',
+          });
+          expect(service.getBookDetail(bookId)?.progress?.phase).toBe(
+            'building_outline'
+          );
+          expect(onBookUpdated).toHaveBeenCalledWith(bookId);
+
+          input.onMasterOutline?.('Early master outline');
+
+          expect(service.getBookDetail(bookId)?.context).toMatchObject({
+            worldSetting: 'Early world rules',
+            outline: 'Early master outline',
+          });
+          expect(service.getBookDetail(bookId)?.progress?.phase).toBe(
+            'planning_chapters'
+          );
+
+          return {
+            worldSetting: 'Early world rules',
+            masterOutline: 'Early master outline',
+            volumeOutlines: [],
+            chapterOutlines: [],
+          };
+        }),
+      },
+      chapterWriter: {
+        writeChapter: vi.fn(),
+      },
+      summaryGenerator: {
+        summarizeChapter: vi.fn(),
+      },
+      plotThreadExtractor: {
+        extractThreads: vi.fn().mockResolvedValue({
+          openedThreads: [],
+          resolvedThreadIds: [],
+        }),
+      },
+      characterStateExtractor: {
+        extractStates: vi.fn().mockResolvedValue([]),
+      },
+      sceneRecordExtractor: {
+        extractScene: vi.fn().mockResolvedValue(null),
+      },
+      resolveModelId,
+      onBookUpdated,
+    });
+
+    bookId = service.createBook({
+      idea: 'The moon taxes miracles.',
+      targetChapters: 500,
+      wordsPerChapter: 2500,
+    });
+
+    await service.startBook(bookId);
+
+    expect(onBookUpdated).toHaveBeenCalledTimes(5);
+  });
+
+  it('persists chapter outlines while outline generation is still running', async () => {
+    const db = createDatabase(':memory:');
+    const resolveModelId = vi.fn().mockReturnValue('openai:gpt-4o-mini');
+    const onBookUpdated = vi.fn();
+    let service!: ReturnType<typeof createBookService>;
+    let bookId = '';
+
+    service = createBookService({
+      books: createBookRepository(db),
+      chapters: createChapterRepository(db),
+      characters: createCharacterRepository(db),
+      plotThreads: createPlotThreadRepository(db),
+      sceneRecords: createSceneRecordRepository(db),
+      progress: createProgressRepository(db),
+      outlineService: {
+        generateFromIdea: vi.fn(async (input) => {
+          input.onChapterOutlines?.([
+            {
+              volumeIndex: 1,
+              chapterIndex: 1,
+              title: '早来的第一章',
+              outline: 'Opening conflict',
+            },
+          ]);
+
+          expect(service.getBookDetail(bookId)?.chapters).toEqual([
+            expect.objectContaining({
+              volumeIndex: 1,
+              chapterIndex: 1,
+              title: '早来的第一章',
+              outline: 'Opening conflict',
+            }),
+          ]);
+          expect(onBookUpdated).toHaveBeenCalledWith(bookId);
+
+          return {
+            worldSetting: 'World rules',
+            masterOutline: 'Master outline',
+            volumeOutlines: ['Volume 1'],
+            chapterOutlines: [
+              {
+                volumeIndex: 1,
+                chapterIndex: 1,
+                title: '早来的第一章',
+                outline: 'Opening conflict',
+              },
+            ],
+          };
+        }),
+      },
+      chapterWriter: {
+        writeChapter: vi.fn(),
+      },
+      summaryGenerator: {
+        summarizeChapter: vi.fn(),
+      },
+      plotThreadExtractor: {
+        extractThreads: vi.fn().mockResolvedValue({
+          openedThreads: [],
+          resolvedThreadIds: [],
+        }),
+      },
+      characterStateExtractor: {
+        extractStates: vi.fn().mockResolvedValue([]),
+      },
+      sceneRecordExtractor: {
+        extractScene: vi.fn().mockResolvedValue(null),
+      },
+      resolveModelId,
+      onBookUpdated,
+    });
+
+    bookId = service.createBook({
+      idea: 'The moon taxes miracles.',
+      targetChapters: 500,
+      wordsPerChapter: 2500,
+    });
+
+    await service.startBook(bookId);
   });
 
   it('pauses a started book and persists the paused phase', async () => {

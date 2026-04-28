@@ -136,15 +136,21 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    void loadBooks();
-  }, [
-    progress.runningBookIds.join(','),
-    progress.queuedBookIds.join(','),
-    progress.pausedBookIds.join(','),
-  ]);
+    void (async () => {
+      await loadBooks();
+
+      if (selectedBookId) {
+        await loadBookDetail(selectedBookId, { openView: false });
+      }
+    })();
+  }, [progress, selectedBookId]);
 
   useEffect(() => {
     if (!books.length) {
+      if (currentView === 'book-detail' && selectedBookDetail) {
+        return;
+      }
+
       setSelectedBookId(null);
       setSelectedBookDetail(null);
       if (currentView === 'book-detail') {
@@ -158,7 +164,7 @@ export default function App() {
     }
 
     void loadBookDetail(books[0].id, { openView: false });
-  }, [books, currentView, selectedBookId]);
+  }, [books, currentView, selectedBookDetail, selectedBookId]);
 
   function showBanner(tone: BannerTone, message: string) {
     flushSync(() => {
@@ -228,11 +234,12 @@ export default function App() {
     <SidebarProvider
       defaultOpen
       style={sidebarProviderStyle}
-      className="app-paper-background h-svh overflow-hidden"
+      className="app-paper-background relative h-svh overflow-hidden"
     >
+      <div aria-hidden="true" className="app-titlebar-drag-region" />
       <AppSidebar currentView={currentView} onSelectView={setCurrentView} />
       <SidebarInset className="app-paper-background min-w-0 flex-1 overflow-hidden">
-        <main className="h-svh overflow-y-auto w-full p-5">
+        <main className="app-content-scrollport h-svh overflow-y-auto w-full px-5 pb-5 pt-[calc(var(--app-titlebar-height)+1.25rem)]">
           <div className="grid w-full content-start gap-5">
           {banner ? <Alert tone={banner.tone}>{banner.message}</Alert> : null}
           {currentView === 'library' ? (
@@ -399,19 +406,42 @@ export default function App() {
                   flushSync(() => {
                     setBanner({
                       tone: 'info',
-                      message: '正在生成大纲...',
+                      message: '正在创建作品...',
                     });
                   });
                   const bookId = await ipc.invoke<string>(
                     ipcChannels.bookCreate,
                     input
                   );
-                  await ipc.invoke(ipcChannels.bookStart, { bookId });
                   await loadBooks();
-                  setCurrentView('library');
+                  await loadBookDetail(bookId, { openView: true });
                   flushSync(() => {
-                    setBanner(null);
+                    setBanner({
+                      tone: 'info',
+                      message: '书本已创建，正在生成书名...',
+                    });
                   });
+
+                  void (async () => {
+                    try {
+                      await ipc.invoke(ipcChannels.bookStart, { bookId });
+                      await loadBooks();
+                      await loadBookDetail(bookId, { openView: false });
+                      flushSync(() => {
+                        setBanner(null);
+                      });
+                    } catch (error) {
+                      flushSync(() => {
+                        setBanner({
+                          tone: 'error',
+                          message:
+                            error instanceof Error
+                              ? error.message
+                              : 'Failed to start book',
+                        });
+                      });
+                    }
+                  })();
                 } catch (error) {
                   flushSync(() => {
                     setBanner({

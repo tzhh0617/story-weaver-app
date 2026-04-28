@@ -1,4 +1,5 @@
 import {
+  buildTitlePrompt,
   buildChapterOutlinePrompt,
   buildMasterOutlinePrompt,
   buildVolumeOutlinePrompt,
@@ -31,18 +32,38 @@ function parseChapterOutlineLines(
     });
 }
 
+function normalizeGeneratedTitle(text: string) {
+  return text
+    .trim()
+    .split('\n')[0]
+    .replace(/^["'“”‘’《]+|["'“”‘’》]+$/g, '')
+    .trim();
+}
+
 export function createOutlineService({ generateText }: { generateText: GenerateText }) {
   return {
+    async generateTitleFromIdea(input: OutlineGenerationInput): Promise<string> {
+      return normalizeGeneratedTitle(
+        (
+          await generateText({
+            prompt: buildTitlePrompt(input),
+          })
+        ).text
+      );
+    },
+
     async generateFromIdea(
       input: OutlineGenerationInput
     ): Promise<OutlineBundle> {
       const worldSetting = (await generateText({
         prompt: buildWorldPrompt(input),
       })).text;
+      input.onWorldSetting?.(worldSetting);
 
       const masterOutline = (await generateText({
         prompt: buildMasterOutlinePrompt(worldSetting, input),
       })).text;
+      input.onMasterOutline?.(masterOutline);
 
       const volumeOutlineText = (await generateText({
         prompt: buildVolumeOutlinePrompt(masterOutline, input),
@@ -60,7 +81,10 @@ export function createOutlineService({ generateText }: { generateText: GenerateT
               prompt: buildChapterOutlinePrompt(volumeOutline, index + 1, input),
             })).text;
 
-            return parseChapterOutlineLines(chapterText, index + 1);
+            const chapterOutlines = parseChapterOutlineLines(chapterText, index + 1);
+            input.onChapterOutlines?.(chapterOutlines);
+
+            return chapterOutlines;
           })
         )
       ).flat();

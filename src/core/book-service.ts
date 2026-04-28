@@ -3,9 +3,10 @@ import type { BookStatus } from '../shared/contracts.js';
 import { DEFAULT_MOCK_MODEL_ID } from '../models/runtime-mode.js';
 import { buildStoredChapterContext } from './consistency.js';
 import { buildChapterDraftPrompt } from './prompt-builder.js';
-import type { OutlineBundle } from './types.js';
+import type { OutlineBundle, OutlineGenerationInput } from './types.js';
 
 const CHAPTER_CONTEXT_MAX_CHARACTERS = 6000;
+const INITIAL_BOOK_TITLE = '新作品';
 
 function deriveTitleFromIdea(idea: string) {
   const cleaned = idea.trim().replace(/\s+/g, ' ');
@@ -46,6 +47,37 @@ type ChapterUpdate = {
 
 function hasUsableChapterUpdate(update: ChapterUpdate) {
   return update.summary.trim().length > 0;
+}
+
+function saveChapterOutlines(
+  deps: {
+    chapters: {
+      upsertOutline: (input: {
+        bookId: string;
+        volumeIndex: number;
+        chapterIndex: number;
+        title: string;
+        outline: string;
+      }) => void;
+    };
+    onBookUpdated?: (bookId: string) => void;
+  },
+  bookId: string,
+  chapterOutlines: OutlineBundle['chapterOutlines']
+) {
+  for (const chapter of chapterOutlines) {
+    deps.chapters.upsertOutline({
+      bookId,
+      volumeIndex: chapter.volumeIndex,
+      chapterIndex: chapter.chapterIndex,
+      title: chapter.title,
+      outline: chapter.outline,
+    });
+  }
+
+  if (chapterOutlines.length) {
+    deps.onBookUpdated?.(bookId);
+  }
 }
 
 async function extractChapterUpdate(input: {
@@ -136,6 +168,7 @@ export function createBookService(deps: {
         }
       | undefined;
     updateStatus: (bookId: string, status: BookStatus) => void;
+    updateTitle: (bookId: string, title: string) => void;
     delete: (bookId: string) => void;
     saveContext: (input: {
       bookId: string;
@@ -269,13 +302,12 @@ export function createBookService(deps: {
     deleteByBook: (bookId: string) => void;
   };
   outlineService: {
-    generateFromIdea: (input: {
-      bookId: string;
-      idea: string;
-      targetChapters: number;
-      wordsPerChapter: number;
-      modelId: string;
-    }) => Promise<OutlineBundle>;
+    generateTitleFromIdea?: (
+      input: OutlineGenerationInput & { modelId: string }
+    ) => Promise<string>;
+    generateFromIdea: (
+      input: OutlineGenerationInput & { modelId: string }
+    ) => Promise<OutlineBundle>;
   };
   chapterWriter: {
     writeChapter: (input: {
@@ -348,6 +380,7 @@ export function createBookService(deps: {
     }) => Promise<ChapterUpdate>;
   };
   resolveModelId?: () => string;
+  onBookUpdated?: (bookId: string) => void;
 }) {
   const resolveModelId = deps.resolveModelId ?? (() => DEFAULT_MOCK_MODEL_ID);
 
@@ -362,7 +395,7 @@ export function createBookService(deps: {
 
       deps.books.create({
         id,
-        title: deriveTitleFromIdea(input.idea),
+        title: INITIAL_BOOK_TITLE,
         idea: input.idea,
         targetChapters: input.targetChapters,
         wordsPerChapter: input.wordsPerChapter,
@@ -401,14 +434,80 @@ export function createBookService(deps: {
       }
 
       deps.books.updateStatus(bookId, 'building_world');
+      const modelId = resolveModelId();
+
+      if (deps.outlineService.generateTitleFromIdea) {
+        deps.progress.updatePhase(bookId, 'naming_title');
+        deps.onBookUpdated?.(bookId);
+
+        const generatedTitle = (
+          await deps.outlineService.generateTitleFromIdea({
+            bookId,
+            idea: book.idea,
+            targetChapters: book.targetChapters,
+            wordsPerChapter: book.wordsPerChapter,
+            modelId,
+          })
+        ).trim();
+
+        if (!deps.books.getById(bookId)) {
+          return;
+        }
+
+        deps.books.updateTitle(
+          bookId,
+          generatedTitle || deriveTitleFromIdea(book.idea)
+        );
+        deps.onBookUpdated?.(bookId);
+      }
+
       deps.progress.updatePhase(bookId, 'building_world');
+      deps.onBookUpdated?.(bookId);
 
       const outlineBundle = await deps.outlineService.generateFromIdea({
         bookId,
         idea: book.idea,
         targetChapters: book.targetChapters,
         wordsPerChapter: book.wordsPerChapter,
-        modelId: resolveModelId(),
+        modelId,
+        onWorldSetting: (worldSetting) => {
+          if (!deps.books.getById(bookId)) {
+            return;
+          }
+
+          deps.progress.updatePhase(bookId, 'building_outline');
+          deps.onBookUpdated?.(bookId);
+
+          deps.books.saveContext({
+            bookId,
+            worldSetting,
+            outline: '',
+          });
+          deps.onBookUpdated?.(bookId);
+        },
+        onMasterOutline: (masterOutline) => {
+          const currentContext = deps.books.getContext(bookId);
+          if (!deps.books.getById(bookId) || !currentContext) {
+            return;
+          }
+
+          deps.progress.updatePhase(bookId, 'planning_chapters');
+          deps.onBookUpdated?.(bookId);
+
+          deps.books.saveContext({
+            bookId,
+            worldSetting: currentContext.worldSetting,
+            outline: masterOutline,
+          });
+          deps.onBookUpdated?.(bookId);
+        },
+        onChapterOutlines: (chapterOutlines) => {
+          if (!deps.books.getById(bookId)) {
+            return;
+          }
+
+          saveChapterOutlines(deps, bookId, chapterOutlines);
+        },
       });
 
       if (!deps.books.getById(bookId)) {
@@ -421,15 +520,7 @@ export function createBookService(deps: {
         outline: outlineBundle.masterOutline,
       });
 
-      for (const chapter of outlineBundle.chapterOutlines) {
-        deps.chapters.upsertOutline({
-          bookId,
-          volumeIndex: chapter.volumeIndex,
-          chapterIndex: chapter.chapterIndex,
-          title: chapter.title,
-          outline: chapter.outline,
-        });
-      }
+      saveChapterOutlines(deps, bookId, outlineBundle.chapterOutlines);
 
       deps.books.updateStatus(bookId, 'building_outline');
       deps.progress.updatePhase(bookId, 'building_outline');

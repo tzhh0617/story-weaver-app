@@ -14,7 +14,11 @@ describe('book repository', () => {
       targetChapters: 500,
       wordsPerChapter: 2500,
     });
+    repo.updateTitle('book-1', 'Promise Archive');
 
-    expect(repo.list()[0]?.id).toBe('book-1');
+    expect(repo.list()[0]).toMatchObject({
+      id: 'book-1',
+      title: 'Promise Archive',
+    });
   });
 });

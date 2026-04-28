@@ -4,6 +4,9 @@ export type OutlineGenerationInput = {
   targetChapters: number;
   wordsPerChapter: number;
   modelId?: string;
+  onWorldSetting?: (worldSetting: string) => void;
+  onMasterOutline?: (masterOutline: string) => void;
+  onChapterOutlines?: (chapterOutlines: ChapterOutline[]) => void;
 };
 
 export type ChapterOutline = {

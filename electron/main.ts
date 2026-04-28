@@ -13,6 +13,10 @@ async function createWindow() {
   const mainWindow = new BrowserWindow({
     width: 1440,
     height: 960,
+    title: 'Story Weaver',
+    titleBarStyle: 'hiddenInset',
+    trafficLightPosition: { x: 14, y: 13 },
+    backgroundColor: '#efe6d5',
     icon: windowIcon,
     webPreferences: {
       preload: path.join(app.getAppPath(), 'dist-electron/electron/preload.js'),

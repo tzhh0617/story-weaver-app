@@ -8,4 +8,20 @@ describe('StatusBadge', () => {
 
     expect(screen.getByText('已完成')).toHaveClass('inline-flex');
   });
+
+  it('renders a label for the title generation phase', () => {
+    render(<StatusBadge status="naming_title" />);
+
+    expect(screen.getByText('生成书名')).toHaveClass(
+      'text-muted-foreground'
+    );
+  });
+
+  it('renders a label for the chapter planning phase', () => {
+    render(<StatusBadge status="planning_chapters" />);
+
+    expect(screen.getByText('规划章节')).toHaveClass(
+      'text-muted-foreground'
+    );
+  });
 });

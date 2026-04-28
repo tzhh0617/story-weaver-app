@@ -9,6 +9,7 @@ describe('createAiOutlineService', () => {
     };
     const generateText = vi
       .fn()
+      .mockResolvedValueOnce({ text: '月税奇谈' })
       .mockResolvedValueOnce({ text: 'world' })
       .mockResolvedValueOnce({ text: 'outline' })
       .mockResolvedValueOnce({ text: 'Volume 1' })
@@ -18,20 +19,37 @@ describe('createAiOutlineService', () => {
       registry: registry as never,
       generateText: generateText as never,
     });
+    const onChapterOutlines = vi.fn();
 
-    const result = await service.generateFromIdea({
+    const title = await service.generateTitleFromIdea({
       bookId: 'book-1',
       idea: 'The moon taxes miracles.',
       targetChapters: 500,
       wordsPerChapter: 2500,
       modelId: 'openai:gpt-4o-mini',
     });
+    const result = await service.generateFromIdea({
+      bookId: 'book-1',
+      idea: 'The moon taxes miracles.',
+      targetChapters: 500,
+      wordsPerChapter: 2500,
+      modelId: 'openai:gpt-4o-mini',
+      onChapterOutlines,
+    });
 
     expect(registry.languageModel).toHaveBeenCalledWith('openai:gpt-4o-mini');
+    expect(title).toBe('月税奇谈');
     expect(generateText).toHaveBeenCalledWith(
       expect.objectContaining({ model: fakeModel })
     );
     expect(result.chapterOutlines).toEqual([
+      expect.objectContaining({
+        volumeIndex: 1,
+        chapterIndex: 1,
+        title: 'Chapter 1',
+      }),
+    ]);
+    expect(onChapterOutlines).toHaveBeenCalledWith([
       expect.objectContaining({
         volumeIndex: 1,
         chapterIndex: 1,

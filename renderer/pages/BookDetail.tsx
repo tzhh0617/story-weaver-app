@@ -16,6 +16,50 @@ import { getStatusLabel } from '../status-labels';
 
 type DetailTab = 'chapters' | 'outline' | 'characters' | 'threads';
 
+function getEmptyChapterMessage(phase: string) {
+  if (phase === 'naming_title') {
+    return '正在生成书名...';
+  }
+
+  if (phase === 'creating') {
+    return '正在创建书本...';
+  }
+
+  if (phase === 'building_world') {
+    return '正在生成世界观...';
+  }
+
+  if (phase === 'building_outline' || phase === 'planning_chapters') {
+    return '正在规划章节...';
+  }
+
+  return '暂无章节内容';
+}
+
+function getEmptyOutlineMessage(phase: string) {
+  if (phase === 'naming_title') {
+    return '正在生成书名...';
+  }
+
+  if (phase === 'creating') {
+    return '正在创建书本...';
+  }
+
+  if (phase === 'building_world') {
+    return '正在生成世界观...';
+  }
+
+  if (phase === 'building_outline') {
+    return '正在生成大纲...';
+  }
+
+  if (phase === 'planning_chapters') {
+    return '正在规划章节...';
+  }
+
+  return '暂无大纲信息';
+}
+
 function DetailSection({
   title,
   children,
@@ -242,7 +286,7 @@ export default function BookDetail({
                     <ChapterList chapters={renderedChapters} />
                   ) : null}
                   {!renderedChapters.length ? (
-                    <DetailEmpty message="暂无章节内容" />
+                    <DetailEmpty message={getEmptyChapterMessage(currentPhase)} />
                   ) : null}
                   {latestContent ? (
                     <DetailSection title="正文预览">
@@ -271,7 +315,7 @@ export default function BookDetail({
               {!hasOutlineContent ? (
                 <DetailEmpty
                   testId="book-detail-empty-outline"
-                  message="暂无大纲信息"
+                  message={getEmptyOutlineMessage(currentPhase)}
                 />
               ) : null}
             </TabsContent>

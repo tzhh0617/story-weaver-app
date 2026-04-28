@@ -38,7 +38,7 @@ export function AppSidebar({
   return (
     <Sidebar
       collapsible="none"
-      className="relative h-svh shrink-0 border-r border-sidebar-border bg-[linear-gradient(90deg,hsl(32_24%_13%/0.36)_1px,transparent_1px),linear-gradient(180deg,hsl(35_30%_22%),hsl(31_34%_13%))] bg-[length:18px_18px,auto] shadow-[inset_-1px_0_0_hsl(42_38%_91%/0.08),inset_0_1px_0_hsl(42_38%_91%/0.06)]"
+      className="relative h-svh shrink-0 border-r border-sidebar-border bg-[linear-gradient(90deg,hsl(32_24%_13%/0.36)_1px,transparent_1px),linear-gradient(180deg,hsl(35_30%_22%),hsl(31_34%_13%))] bg-[length:18px_18px,auto] pt-[var(--app-titlebar-height)] shadow-[inset_-1px_0_0_hsl(42_38%_91%/0.08),inset_0_1px_0_hsl(42_38%_91%/0.06)]"
     >
       <div
         aria-hidden="true"

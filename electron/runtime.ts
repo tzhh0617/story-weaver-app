@@ -11,6 +11,7 @@ import {
   createAiSummaryGenerator,
 } from '../src/core/ai-post-chapter.js';
 import { createBookService } from '../src/core/book-service.js';
+import type { OutlineGenerationInput } from '../src/core/types.js';
 import { createNovelEngine } from '../src/core/engine.js';
 import { createModelTestService } from '../src/core/model-test.js';
 import { createScheduler } from '../src/core/scheduler.js';
@@ -172,13 +173,29 @@ export function getRuntimeServices() {
     }) => void
   >();
   const outlineService = {
-    async generateFromIdea(input: {
-      bookId: string;
-      idea: string;
-      targetChapters: number;
-      wordsPerChapter: number;
-      modelId: string;
-    }) {
+    async generateTitleFromIdea(
+      input: OutlineGenerationInput & { modelId: string }
+    ) {
+      const runtimeMode = getRuntimeModelMode(modelConfigs.list());
+      if (runtimeMode.kind === 'mock') {
+        return mockServices.outlineService.generateTitleFromIdea(input);
+      }
+
+      const registry = createRuntimeRegistry(runtimeMode.availableConfigs);
+      return createAiOutlineService({
+        registry: registry as {
+          languageModel: (modelId: string) => unknown;
+        },
+        generateText: generateText as (input: {
+          model: unknown;
+          prompt: string;
+        }) => Promise<{ text: string }>,
+      }).generateTitleFromIdea(input);
+    },
+
+    async generateFromIdea(
+      input: OutlineGenerationInput & { modelId: string }
+    ) {
       const runtimeMode = getRuntimeModelMode(modelConfigs.list());
       if (runtimeMode.kind === 'mock') {
         return mockServices.outlineService.generateFromIdea(input);
@@ -412,6 +429,9 @@ export function getRuntimeServices() {
     resolveModelId: () => {
       const runtimeMode = getRuntimeModelMode(modelConfigs.list());
       return runtimeMode.resolveModelId();
+    },
+    onBookUpdated: () => {
+      emitSchedulerStatus();
     },
   });
 

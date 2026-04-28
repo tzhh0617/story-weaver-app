@@ -1,4 +1,5 @@
 import {
+  buildTitlePrompt,
   buildChapterOutlinePrompt,
   buildMasterOutlinePrompt,
   buildVolumeOutlinePrompt,
@@ -29,6 +30,14 @@ function parseChapterOutlineLines(
     });
 }
 
+function normalizeGeneratedTitle(text: string) {
+  return text
+    .trim()
+    .split('\n')[0]
+    .replace(/^["'“”‘’《]+|["'“”‘’》]+$/g, '')
+    .trim();
+}
+
 export function createAiOutlineService(deps: {
   registry: {
     languageModel: (modelId: string) => unknown;
@@ -39,6 +48,21 @@ export function createAiOutlineService(deps: {
   }) => Promise<{ text: string }>;
 }) {
   return {
+    async generateTitleFromIdea(
+      input: OutlineGenerationInput & { modelId: string }
+    ): Promise<string> {
+      const model = deps.registry.languageModel(input.modelId);
+
+      return normalizeGeneratedTitle(
+        (
+          await deps.generateText({
+            model,
+            prompt: buildTitlePrompt(input),
+          })
+        ).text
+      );
+    },
+
     async generateFromIdea(
       input: OutlineGenerationInput & { modelId: string }
     ): Promise<OutlineBundle> {
@@ -50,6 +74,7 @@ export function createAiOutlineService(deps: {
           prompt: buildWorldPrompt(input),
         })
       ).text;
+      input.onWorldSetting?.(worldSetting);
 
       const masterOutline = (
         await deps.generateText({
@@ -57,6 +82,7 @@ export function createAiOutlineService(deps: {
           prompt: buildMasterOutlinePrompt(worldSetting, input),
         })
       ).text;
+      input.onMasterOutline?.(masterOutline);
 
       const volumeOutlineText = (
         await deps.generateText({
@@ -80,7 +106,10 @@ export function createAiOutlineService(deps: {
               })
             ).text;
 
-            return parseChapterOutlineLines(chapterText, index + 1);
+            const chapterOutlines = parseChapterOutlineLines(chapterText, index + 1);
+            input.onChapterOutlines?.(chapterOutlines);
+
+            return chapterOutlines;
           })
         )
       ).flat();

@@ -89,8 +89,26 @@ function buildHookEnding(genre: ChineseWebNovelGenre, seedText: string) {
   return pickFromArray(genre.hookPhrases, `${seedText}:hook`);
 }
 
+function buildMockTitle(genre: ChineseWebNovelGenre, idea: string) {
+  if (genre.id === 'urban-ability') {
+    return pickFromArray(
+      ['旧城封账人', '夜市债命档案', '债务审理局'],
+      `${idea}:title`
+    );
+  }
+
+  return pickFromArray(
+    ['逐出山门后我执掌因果', '古镜吞因果', '山门旧案'],
+    `${idea}:title`
+  );
+}
+
 export function createMockOutlineService() {
   return {
+    async generateTitleFromIdea(input: OutlineGenerationInput): Promise<string> {
+      return buildMockTitle(pickGenre(input.idea), input.idea);
+    },
+
     async generateFromIdea(
       input: OutlineGenerationInput
     ): Promise<OutlineBundle> {
@@ -101,54 +119,63 @@ export function createMockOutlineService() {
       const firstLocation = pickFromArray(genre.locations, `${input.idea}:location:1`);
       const secondLocation = pickFromArray(genre.locations, `${input.idea}:location:2`);
       const isUrbanGenre = genre.id === 'urban-ability';
+      const worldSetting = [
+        `题材基调：${genre.tone}`,
+        `故事核心：${input.idea}`,
+        `主角锚点：${protagonist}被卷入${firstFaction}与${secondFaction}共同掩埋的旧案。`,
+        `世界规则：力量越强，越要付出与自身因果相关的代价。`,
+        `关键场域：${firstLocation}、${secondLocation}。`,
+      ].join('\n');
+      input.onWorldSetting?.(worldSetting);
+
+      const masterOutline = [
+        `目标章节数：${input.targetChapters}`,
+        `每章字数：${input.wordsPerChapter}`,
+        `主线：${protagonist}从最低谷起势，追查旧案真相并重塑自身命运。`,
+        '分卷结构：开局受辱、追查真相、势力碰撞、代价揭露、规则改写。',
+        `核心冲突：${genre.conflict}`,
+      ].join('\n');
+      input.onMasterOutline?.(masterOutline);
+
+      const volumeOutlines = isUrbanGenre
+        ? ['第一卷：旧城欠账', '第二卷：档案回潮']
+        : ['第一卷：山门尽头', '第二卷：旧案浮灯'];
+      const chapterOutlines = isUrbanGenre
+        ? [
+            {
+              volumeIndex: 1,
+              chapterIndex: 1,
+              title: '夜市旧账',
+              outline: `${protagonist}在${firstLocation}追查一份失踪档案，却发现自己已经被${firstFaction}列入清算名单。`,
+            },
+            {
+              volumeIndex: 1,
+              chapterIndex: 2,
+              title: '封账名单',
+              outline: `${protagonist}试图核对债务记录时，发现${secondFaction}正在掩埋一条会把整座旧城拖下水的清算链条。`,
+            },
+          ]
+        : [
+            {
+              volumeIndex: 1,
+              chapterIndex: 1,
+              title: '逐出山门',
+              outline: `${protagonist}在众目睽睽之下失去身份，却在${firstLocation}中触碰到改变命运的禁物。`,
+            },
+            {
+              volumeIndex: 1,
+              chapterIndex: 2,
+              title: '古镜低鸣',
+              outline: `${protagonist}第一次验证禁物力量，同时意识到${firstFaction}掩埋了与师门旧案有关的真相。`,
+            },
+          ];
+      input.onChapterOutlines?.(chapterOutlines);
 
       return {
-        worldSetting: [
-          `题材基调：${genre.tone}`,
-          `故事核心：${input.idea}`,
-          `主角锚点：${protagonist}被卷入${firstFaction}与${secondFaction}共同掩埋的旧案。`,
-          `世界规则：力量越强，越要付出与自身因果相关的代价。`,
-          `关键场域：${firstLocation}、${secondLocation}。`,
-        ].join('\n'),
-        masterOutline: [
-          `目标章节数：${input.targetChapters}`,
-          `每章字数：${input.wordsPerChapter}`,
-          `主线：${protagonist}从最低谷起势，追查旧案真相并重塑自身命运。`,
-          '分卷结构：开局受辱、追查真相、势力碰撞、代价揭露、规则改写。',
-          `核心冲突：${genre.conflict}`,
-        ].join('\n'),
-        volumeOutlines: isUrbanGenre
-          ? ['第一卷：旧城欠账', '第二卷：档案回潮']
-          : ['第一卷：山门尽头', '第二卷：旧案浮灯'],
-        chapterOutlines: isUrbanGenre
-          ? [
-              {
-                volumeIndex: 1,
-                chapterIndex: 1,
-                title: '夜市旧账',
-                outline: `${protagonist}在${firstLocation}追查一份失踪档案，却发现自己已经被${firstFaction}列入清算名单。`,
-              },
-              {
-                volumeIndex: 1,
-                chapterIndex: 2,
-                title: '封账名单',
-                outline: `${protagonist}试图核对债务记录时，发现${secondFaction}正在掩埋一条会把整座旧城拖下水的清算链条。`,
-              },
-            ]
-          : [
-              {
-                volumeIndex: 1,
-                chapterIndex: 1,
-                title: '逐出山门',
-                outline: `${protagonist}在众目睽睽之下失去身份，却在${firstLocation}中触碰到改变命运的禁物。`,
-              },
-              {
-                volumeIndex: 1,
-                chapterIndex: 2,
-                title: '古镜低鸣',
-                outline: `${protagonist}第一次验证禁物力量，同时意识到${firstFaction}掩埋了与师门旧案有关的真相。`,
-              },
-            ],
+        worldSetting,
+        masterOutline,
+        volumeOutlines,
+        chapterOutlines,
       };
     },
   };
