@@ -210,7 +210,8 @@ describe('renderer layout constraints', () => {
     expect(librarySource).toContain('pageIntroPanelClassName');
     expect(settingsSource).toContain('pageIntroPanelClassName');
     expect(newBookSource).toContain('pageIntroPanelClassName');
-    expect(bookDetailSource).toContain('pageIntroPanelClassName');
+    expect(bookDetailSource).toContain('book-detail-topbar');
+    expect(bookDetailSource).not.toContain('pageIntroPanelClassName');
   });
 
   it('does not clamp the new-book workspace to a centered max width', () => {

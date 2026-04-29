@@ -62,7 +62,7 @@ describe('Library', () => {
       screen.getByText('旧王朝复苏，双主角在寒地边境争夺最后的王权。')
     ).toBeInTheDocument();
     expect(screen.getByText('500 章目标')).toBeInTheDocument();
-    expect(screen.getByText('2500 字/章')).toBeInTheDocument();
+    expect(screen.getByText('2.5 千字/章')).toBeInTheDocument();
     expect(screen.getByText('38 / 50 章')).toBeInTheDocument();
     expect(screen.getAllByText('写作中').length).toBeGreaterThan(0);
   });

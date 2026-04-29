@@ -161,19 +161,24 @@ export default function Settings({
               />
               <span>短章节自动审查重做</span>
             </label>
-            <Button
-              type="button"
-              disabled={!canSaveSettings}
-              className="w-fit"
-              onClick={() =>
-                onSaveSetting({
-                  concurrencyLimit: parsedConcurrencyValue,
-                  shortChapterReviewEnabled: shortChapterReviewValue,
-                })
-              }
+            <div
+              data-testid="settings-actions"
+              className="flex justify-end"
             >
-              保存设置
-            </Button>
+              <Button
+                type="button"
+                disabled={!canSaveSettings}
+                className="w-fit"
+                onClick={() =>
+                  onSaveSetting({
+                    concurrencyLimit: parsedConcurrencyValue,
+                    shortChapterReviewEnabled: shortChapterReviewValue,
+                  })
+                }
+              >
+                保存设置
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>

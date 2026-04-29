@@ -84,6 +84,8 @@ type RuntimeServices = {
 
 let runtimeServices: RuntimeServices | null = null;
 const DEFAULT_MOCK_RUNTIME_DELAY_MS = 1000;
+const DEFAULT_MOCK_STREAM_TOKENS_PER_SECOND = 200;
+const MOCK_STREAM_CHUNK_TOKENS = 40;
 
 function parseMockRuntimeDelayMs(value: string | undefined) {
   if (value === undefined) {
@@ -96,6 +98,73 @@ function parseMockRuntimeDelayMs(value: string | undefined) {
   }
 
   return parsed;
+}
+
+function parseMockStreamTokensPerSecond(value: string | undefined) {
+  if (value === undefined) {
+    return DEFAULT_MOCK_STREAM_TOKENS_PER_SECOND;
+  }
+
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return DEFAULT_MOCK_STREAM_TOKENS_PER_SECOND;
+  }
+
+  return parsed;
+}
+
+function countMockStreamTokens(text: string) {
+  let count = 0;
+
+  for (const character of text) {
+    if (!/\s/u.test(character)) {
+      count += 1;
+    }
+  }
+
+  return count;
+}
+
+function splitMockStreamChunks(text: string, maxTokens: number) {
+  const chunks: string[] = [];
+  let chunk = '';
+  let tokenCount = 0;
+
+  for (const character of text) {
+    chunk += character;
+    if (!/\s/u.test(character)) {
+      tokenCount += 1;
+    }
+
+    if (tokenCount >= maxTokens) {
+      chunks.push(chunk);
+      chunk = '';
+      tokenCount = 0;
+    }
+  }
+
+  if (chunk) {
+    chunks.push(chunk);
+  }
+
+  return chunks;
+}
+
+async function streamMockChapterContent(
+  content: string,
+  onChunk: (chunk: string) => void
+) {
+  const tokensPerSecond = parseMockStreamTokensPerSecond(
+    process.env.STORY_WEAVER_MOCK_STREAM_TOKENS_PER_SECOND
+  );
+  const chunks = splitMockStreamChunks(content, MOCK_STREAM_CHUNK_TOKENS);
+
+  for (const chunk of chunks) {
+    const chunkTokens = countMockStreamTokens(chunk);
+    const delayMs = Math.max(1, (chunkTokens / tokensPerSecond) * 1000);
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+    onChunk(chunk);
+  }
 }
 
 async function waitForMockRuntimeDelay() {
@@ -276,9 +345,7 @@ export function getRuntimeServices() {
           const result = await mockServices.chapterWriter.writeChapter(input);
 
           if (input.onChunk) {
-            for (let index = 0; index < result.content.length; index += 80) {
-              input.onChunk(result.content.slice(index, index + 80));
-            }
+            await streamMockChapterContent(result.content, input.onChunk);
           }
 
           return result;

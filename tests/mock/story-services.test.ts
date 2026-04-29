@@ -142,7 +142,7 @@ describe('mock story services', () => {
     });
 
     expect(result.content).toMatch(/[一-龥]/);
-    expect(result.content.length).toBeGreaterThan(120);
+    expect(countStoryCharacters(result.content)).toBeGreaterThanOrEqual(3000);
     expect(result.content).toContain('逐出山门');
     expect(result.content).toMatch(/然而|就在这时|可偏偏/);
   });

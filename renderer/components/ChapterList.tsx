@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { formatChapterWordCount } from '../word-count-format';
 
 const chapterStatusLabels: Record<'done' | 'writing' | 'queued', string> = {
   done: '已完成',
@@ -16,24 +17,38 @@ function getChapterVisualMeta(chapter: {
   wordCount: number;
   status: 'done' | 'writing' | 'queued';
 }) {
+  const wordCountText = formatChapterWordCount(chapter.wordCount);
+
   if (chapter.status === 'done') {
-    return `${chapter.wordCount} 字`;
+    return wordCountText;
   }
 
   const statusLabel = chapterVisualStatusLabels[chapter.status];
 
   if (chapter.wordCount > 0) {
     if (chapter.status === 'queued') {
-      return `${chapter.wordCount} 字`;
+      return wordCountText;
     }
 
-    return `${chapter.wordCount} 字 · ${statusLabel}`;
+    return `${wordCountText} · ${statusLabel}`;
   }
 
   return statusLabel;
 }
 
 const AUTO_REVEAL_IDLE_DELAY_MS = 5000;
+
+function scrollChapterButtonIntoView(button: HTMLButtonElement | null) {
+  if (typeof button?.scrollIntoView !== 'function') {
+    return;
+  }
+
+  button.scrollIntoView({
+    block: 'center',
+    inline: 'nearest',
+    behavior: 'smooth',
+  });
+}
 
 export default function ChapterList({
   chapters,
@@ -54,13 +69,15 @@ export default function ChapterList({
   onSelectChapter?: (chapterId: string) => void;
 }) {
   const activeChapterButtonRef = useRef<HTMLButtonElement | null>(null);
+  const selectedChapterButtonRef = useRef<HTMLButtonElement | null>(null);
   const autoRevealTimerRef = useRef<number | null>(null);
   const lastManualScrollAtRef = useRef(0);
-  const activeWritingChapter = chapters.find(
-    (chapter) => chapter.id === activeChapterId && chapter.status === 'writing'
+  const activeChapter = chapters.find((chapter) => chapter.id === activeChapterId);
+  const selectedChapter = chapters.find(
+    (chapter) => chapter.id === selectedChapterId
   );
   const shouldAutoRevealActiveChapter =
-    Boolean(activeWritingChapter) &&
+    Boolean(activeChapter) &&
     (!selectedChapterId || selectedChapterId === activeChapterId);
 
   function clearAutoRevealTimer() {
@@ -85,12 +102,32 @@ export default function ChapterList({
         return;
       }
 
-      activeChapterButtonRef.current?.scrollIntoView({
-        block: 'nearest',
-        inline: 'nearest',
-        behavior: 'smooth',
-      });
+      scrollChapterButtonIntoView(activeChapterButtonRef.current);
     }, delayMs);
+  }
+
+  function revealActiveChapterWhenIdle() {
+    const quietForMs = Date.now() - lastManualScrollAtRef.current;
+
+    if (lastManualScrollAtRef.current && quietForMs < AUTO_REVEAL_IDLE_DELAY_MS) {
+      scheduleActiveChapterReveal(AUTO_REVEAL_IDLE_DELAY_MS - quietForMs);
+      return;
+    }
+
+    scrollChapterButtonIntoView(activeChapterButtonRef.current);
+  }
+
+  function revealActiveChapter() {
+    revealActiveChapterWhenIdle();
+  }
+
+  function revealSelectedChapter() {
+    if (selectedChapter?.id === activeChapter?.id) {
+      revealActiveChapterWhenIdle();
+      return;
+    }
+
+    scrollChapterButtonIntoView(selectedChapterButtonRef.current);
   }
 
   function markManualListScroll() {
@@ -99,11 +136,20 @@ export default function ChapterList({
   }
 
   useEffect(() => {
-    lastManualScrollAtRef.current = 0;
-    scheduleActiveChapterReveal();
+    if (selectedChapter) {
+      revealSelectedChapter();
+    }
+  }, [selectedChapter?.id]);
+
+  useEffect(() => {
+    clearAutoRevealTimer();
+
+    if (shouldAutoRevealActiveChapter) {
+      revealActiveChapter();
+    }
 
     return clearAutoRevealTimer;
-  }, [activeWritingChapter?.id, selectedChapterId, shouldAutoRevealActiveChapter]);
+  }, [activeChapter?.id, selectedChapterId, shouldAutoRevealActiveChapter]);
 
   return (
     <ul
@@ -120,6 +166,7 @@ export default function ChapterList({
           previousChapter?.volumeIndex !== chapter.volumeIndex;
         const chapterNumber = `第 ${chapter.chapterIndex ?? index + 1} 章`;
         const statusLabel = chapterStatusLabels[chapter.status];
+        const wordCountLabel = formatChapterWordCount(chapter.wordCount);
         const visualMeta = getChapterVisualMeta(chapter);
         const buttonStateClassName = isActive
           ? 'bg-transparent text-primary'
@@ -141,13 +188,17 @@ export default function ChapterList({
               </div>
             ) : null}
             <button
-              ref={
-                isActive && chapter.status === 'writing'
-                  ? activeChapterButtonRef
-                  : undefined
-              }
+              ref={(button) => {
+                if (isActive) {
+                  activeChapterButtonRef.current = button;
+                }
+
+                if (isSelected) {
+                  selectedChapterButtonRef.current = button;
+                }
+              }}
               type="button"
-              aria-label={`${chapterNumber} · ${chapter.title} ${chapter.wordCount} 字 ${statusLabel}`}
+              aria-label={`${chapterNumber} · ${chapter.title} ${wordCountLabel} ${statusLabel}`}
               aria-current={isActive ? 'step' : undefined}
               aria-pressed={isSelected}
               data-selected={isSelected ? 'true' : 'false'}

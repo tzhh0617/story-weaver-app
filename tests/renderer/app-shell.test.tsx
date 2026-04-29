@@ -259,7 +259,7 @@ describe('App shell', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Second Book' }));
 
     expect(
-      await screen.findByRole('heading', { name: 'Second Book' })
+      await screen.findByRole('heading', { name: /^Second Book（/ })
     ).toBeInTheDocument();
   });
 
@@ -374,7 +374,7 @@ describe('App shell', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Second Book' }));
 
     expect(
-      await screen.findByRole('heading', { name: 'Second Book' })
+      await screen.findByRole('heading', { name: /^Second Book（/ })
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: '作品' }));
@@ -382,7 +382,7 @@ describe('App shell', () => {
     expect(
       await screen.findByRole('button', { name: 'Second Book' })
     ).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: 'Second Book' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: /^Second Book（/ })).toBeNull();
   });
 
   it('loads books from IPC and refreshes the library after creating one', async () => {
@@ -488,7 +488,9 @@ describe('App shell', () => {
     });
 
     expect(
-      await screen.findByRole('heading', { name: 'A map eats its explorers.' })
+      await screen.findByRole('heading', {
+        name: /^A map eats its explorers\.（/,
+      })
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: '作品' }));
@@ -587,7 +589,9 @@ describe('App shell', () => {
       'true'
     );
     expect(
-      await screen.findByRole('heading', { name: 'A lighthouse writes back.' })
+      await screen.findByRole('heading', {
+        name: /^A lighthouse writes back\.（/,
+      })
     ).toBeInTheDocument();
   });
 
@@ -670,9 +674,8 @@ describe('App shell', () => {
     fireEvent.click(screen.getByRole('button', { name: '开始写作' }));
 
     expect(
-      await screen.findByRole('heading', { name: '新作品' })
+      await screen.findByRole('heading', { name: /^新作品（创建中 · 0 万字）/ })
     ).toBeInTheDocument();
-    expect(screen.getByText('创建中 · 0 字')).toBeInTheDocument();
     expect(invoke).toHaveBeenCalledWith('book:start', {
       bookId: 'book-fast-visible',
     });
@@ -754,7 +757,7 @@ describe('App shell', () => {
     await Promise.resolve();
 
     expect(
-      screen.getByRole('heading', { name: '新作品' })
+      screen.getByRole('heading', { name: /^新作品（/ })
     ).toBeInTheDocument();
     expect(screen.queryByText('暂无作品')).not.toBeInTheDocument();
 
@@ -770,7 +773,7 @@ describe('App shell', () => {
     await Promise.resolve();
 
     expect(
-      screen.getByRole('heading', { name: '新作品' })
+      screen.getByRole('heading', { name: /^新作品（/ })
     ).toBeInTheDocument();
     expect(screen.queryByText('暂无作品')).not.toBeInTheDocument();
   });
@@ -848,7 +851,9 @@ describe('App shell', () => {
     render(<App />);
 
     fireEvent.click(await screen.findByRole('button', { name: '新作品' }));
-    expect(await screen.findByRole('heading', { name: '新作品' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: /^新作品（/ })
+    ).toBeInTheDocument();
 
     emitProgress({
       runningBookIds: ['book-1'],
@@ -857,7 +862,7 @@ describe('App shell', () => {
       concurrencyLimit: null,
     });
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: '新作品' })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: /^新作品（/ })).toBeInTheDocument();
     });
 
     books[0] = {
@@ -873,7 +878,7 @@ describe('App shell', () => {
     });
 
     expect(
-      await screen.findByRole('heading', { name: '月税奇谈' })
+      await screen.findByRole('heading', { name: /^月税奇谈（/ })
     ).toBeInTheDocument();
   });
 
@@ -1200,7 +1205,7 @@ describe('App shell', () => {
 
     await selectBook('Existing Book');
     expect(
-      await screen.findByRole('heading', { name: 'Existing Book' })
+      await screen.findByRole('heading', { name: /^Existing Book（/ })
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('tab', { name: '大纲' }));
@@ -1214,7 +1219,11 @@ describe('App shell', () => {
       });
     });
 
-    expect(await screen.findByText('已暂停 · 0 字')).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', {
+        name: /^Existing Book（已暂停 · 0 万字）/,
+      })
+    ).toBeInTheDocument();
   });
 
   it('exports the selected book as txt from book detail', async () => {
@@ -1273,6 +1282,7 @@ describe('App shell', () => {
       },
     };
 
+    const exportDeferred: { resolve?: (value: string) => void } = {};
     const { invoke } = installIpcMock(async (channel) => {
       switch (channel) {
         case 'book:list':
@@ -1282,7 +1292,9 @@ describe('App shell', () => {
         case 'book:detail':
           return copy(detail);
         case 'book:export':
-          return '/tmp/story-weaver/exports/Existing Book.txt';
+          return new Promise<string>((resolve) => {
+            exportDeferred.resolve = resolve;
+          });
         default:
           return null;
       }
@@ -1293,12 +1305,16 @@ describe('App shell', () => {
     await selectBook('Existing Book');
     fireEvent.click(await screen.findByText('导出 TXT'));
 
+    expect(screen.queryByText('正在导出 TXT...')).toBeNull();
+
     await waitFor(() => {
       expect(invoke).toHaveBeenCalledWith('book:export', {
         bookId: 'book-1',
         format: 'txt',
       });
     });
+
+    exportDeferred.resolve?.('/tmp/story-weaver/exports/Existing Book.txt');
 
     expect(
       await screen.findByText(
@@ -1372,6 +1388,8 @@ describe('App shell', () => {
 
     await selectBook('Existing Book');
     fireEvent.click(await screen.findByText('删除作品'));
+
+    expect(screen.queryByText('正在删除作品...')).toBeNull();
 
     await waitFor(() => {
       expect(invoke).toHaveBeenCalledWith('book:delete', {
@@ -1519,13 +1537,19 @@ describe('App shell', () => {
     await selectBook('Existing Book');
     fireEvent.click(await screen.findByText('恢复写作'));
 
+    expect(screen.queryByText('正在恢复写作...')).toBeNull();
+
     await waitFor(() => {
       expect(invoke).toHaveBeenCalledWith('book:resume', {
         bookId: 'book-1',
       });
     });
 
-    expect(await screen.findByText('已完成 · 1300 字')).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', {
+        name: /^Existing Book（已完成 · 0.1 万字）/,
+      })
+    ).toBeInTheDocument();
   });
 
   it('restarts a book from book detail', async () => {
@@ -1659,6 +1683,8 @@ describe('App shell', () => {
     await selectBook('Existing Book');
     fireEvent.click(await screen.findByText('重新开始'));
 
+    expect(screen.queryByText('正在重新开始写作...')).toBeNull();
+
     await waitFor(() => {
       expect(invoke).toHaveBeenCalledWith('book:restart', {
         bookId: 'book-1',
@@ -1670,7 +1696,7 @@ describe('App shell', () => {
     expect((await screen.findAllByText(/Debt Court/)).length).toBeGreaterThan(0);
   });
 
-  it('writes the next chapter from book detail and shows the generated content', async () => {
+  it('does not expose the duplicate write-next action in book detail topbar', async () => {
     const books = [
       {
         id: 'book-1',
@@ -1832,26 +1858,14 @@ describe('App shell', () => {
     render(<App />);
 
     await selectBook('Existing Book');
-    fireEvent.click(await screen.findByText('写下一章'));
 
-    await waitFor(() => {
-      expect(invoke).toHaveBeenCalledWith('book:writeNext', {
-        bookId: 'book-1',
-      });
+    expect(screen.queryByRole('button', { name: '写下一章' })).toBeNull();
+    expect(invoke).not.toHaveBeenCalledWith('book:writeNext', {
+      bookId: 'book-1',
     });
-
-    expect(await screen.findByText('Generated chapter content')).toBeInTheDocument();
-    expect(await screen.findByText('Generated chapter summary')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('tab', { name: '伏笔' }));
-    expect(
-      await screen.findByText(/A hidden debt resurfaces later/)
-    ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('tab', { name: '人物' }));
-    expect((await screen.findAllByText(/Lin Mo/)).length).toBeGreaterThan(0);
-    expect((await screen.findAllByText(/Rain Market/)).length).toBeGreaterThan(0);
   });
 
-  it('writes all remaining chapters from book detail', async () => {
+  it('does not expose the duplicate write-all action in book detail topbar', async () => {
     const books = [
       {
         id: 'book-1',
@@ -2029,20 +2043,11 @@ describe('App shell', () => {
     render(<App />);
 
     await selectBook('Existing Book');
-    fireEvent.click(await screen.findByText('连续写作'));
 
-    await waitFor(() => {
-      expect(invoke).toHaveBeenCalledWith('book:writeAll', {
-        bookId: 'book-1',
-      });
+    expect(screen.queryByRole('button', { name: '连续写作' })).toBeNull();
+    expect(invoke).not.toHaveBeenCalledWith('book:writeAll', {
+      bookId: 'book-1',
     });
-
-    expect(await screen.findByText('Generated chapter 1')).toBeInTheDocument();
-    expect(await screen.findByText('已完成 · 2100 字')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('tab', { name: '伏笔' }));
-    expect(await screen.findByText(/Debt clue/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('tab', { name: '人物' }));
-    expect((await screen.findAllByText(/Debt Court/)).length).toBeGreaterThan(0);
   });
 
   it('loads the saved model config from IPC into the single model form', async () => {
@@ -2329,7 +2334,11 @@ describe('App shell', () => {
     expect(await screen.findByText('API key invalid')).toBeInTheDocument();
   });
 
-  it('shows a success banner when model testing succeeds', async () => {
+  it('shows model testing feedback in toasts instead of the page banner', async () => {
+    const modelTestDeferred: {
+      resolve?: (value: { ok: boolean; latency: number; error: string | null }) => void;
+    } = {};
+
     installIpcMock(async (channel, payload) => {
       switch (channel) {
         case 'book:list':
@@ -2339,11 +2348,9 @@ describe('App shell', () => {
         case 'model:save':
           return payload ?? null;
         case 'model:test':
-          return {
-            ok: true,
-            latency: 42,
-            error: null,
-          };
+          return new Promise((resolve) => {
+            modelTestDeferred.resolve = resolve;
+          });
         default:
           return null;
       }
@@ -2362,8 +2369,16 @@ describe('App shell', () => {
     });
     fireEvent.click(screen.getByText('测试连接'));
 
-    expect(await screen.findByText('连接成功（42ms）')).toBeInTheDocument();
-    expect(await screen.findByRole('alert')).toHaveTextContent('连接成功（42ms）');
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      '正在测试模型连接...'
+    );
+    modelTestDeferred.resolve?.({
+      ok: true,
+      latency: 42,
+      error: null,
+    });
+    expect(await screen.findByRole('status')).toHaveTextContent('连接成功（42ms）');
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 
   it('shows a progress banner while starting a new book', async () => {
@@ -2451,7 +2466,7 @@ describe('App shell', () => {
       screen.queryByText('书本已创建，正在生成书名和大纲...')
     ).not.toBeInTheDocument();
     expect(
-      await screen.findByRole('heading', { name: '新作品' })
+      await screen.findByRole('heading', { name: /^新作品（/ })
     ).toBeInTheDocument();
 
     const startResolver = resolveStart as null | (() => void);
@@ -2521,7 +2536,7 @@ describe('App shell', () => {
     render(<App />);
     await selectBook('Stream Book');
     expect(
-      await screen.findByRole('heading', { name: 'Stream Book' })
+      await screen.findByRole('heading', { name: /^Stream Book（/ })
     ).toBeInTheDocument();
 
     ipc.emitBookGeneration({
@@ -2544,7 +2559,7 @@ describe('App shell', () => {
     });
     expect(
       await screen.findByRole('button', {
-        name: /第 2 章 · Chapter 2 0 字 写作中/,
+        name: /第 2 章 · Chapter 2 0 千字 写作中/,
       })
     ).toBeInTheDocument();
     ipc.emitBookGeneration({
@@ -2564,10 +2579,10 @@ describe('App shell', () => {
       delta: '\n流式第二段',
     });
 
-    expect(await screen.findByText('实时输出')).toBeInTheDocument();
-    expect(screen.getByText('正在写第 2 章')).toBeInTheDocument();
+    expect(screen.queryByText('实时输出')).toBeNull();
+    expect(screen.getByLabelText('进度面板')).toHaveTextContent('正在写第 2 章');
     expect(
-      screen.getByText(
+      await screen.findByText(
         (_content, element) =>
           element?.tagName === 'P' &&
           element.textContent === '流式第一段\n流式第二段'
@@ -2629,7 +2644,7 @@ describe('App shell', () => {
     render(<App />);
     await selectBook('Stable Stream Book');
     expect(
-      await screen.findByRole('heading', { name: 'Stable Stream Book' })
+      await screen.findByRole('heading', { name: /^Stable Stream Book（/ })
     ).toBeInTheDocument();
 
     const subscriptionCountAfterSelection = ipc.onBookGeneration.mock.calls.length;
@@ -2651,7 +2666,13 @@ describe('App shell', () => {
       delta: '第二段',
     });
 
-    expect(await screen.findByText('实时输出')).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        (_content, element) =>
+          element?.tagName === 'P' && element.textContent === '第一段第二段'
+      )
+    ).toBeInTheDocument();
+    expect(screen.queryByText('实时输出')).toBeNull();
     await waitFor(() => {
       expect(ipc.onBookGeneration).toHaveBeenCalledTimes(
         subscriptionCountAfterSelection
@@ -2713,7 +2734,7 @@ describe('App shell', () => {
     render(<App />);
     await selectBook('Rewrite Book');
     expect(
-      await screen.findByRole('heading', { name: 'Rewrite Book' })
+      await screen.findByRole('heading', { name: /^Rewrite Book（/ })
     ).toBeInTheDocument();
 
     ipc.emitBookGeneration({
@@ -2742,10 +2763,10 @@ describe('App shell', () => {
       delta: '正文',
     });
 
-    expect(await screen.findByText('实时输出')).toBeInTheDocument();
+    expect(screen.queryByText('实时输出')).toBeNull();
     expect(screen.queryByText('短稿')).toBeNull();
     expect(
-      screen.getByText(
+      await screen.findByText(
         (_content, element) =>
           element?.tagName === 'P' && element.textContent === '完整重写正文'
       )

@@ -16,12 +16,20 @@ async function loadRuntimeServices(input: {
   tempHome: string;
   generateTextImpl: ReturnType<typeof vi.fn>;
   mockDelayMs?: number;
+  mockStreamTokensPerSecond?: number | null;
 }) {
   vi.resetModules();
   if (input.mockDelayMs === undefined) {
     delete process.env.STORY_WEAVER_MOCK_DELAY_MS;
   } else {
     process.env.STORY_WEAVER_MOCK_DELAY_MS = String(input.mockDelayMs);
+  }
+  if (input.mockStreamTokensPerSecond === null) {
+    delete process.env.STORY_WEAVER_MOCK_STREAM_TOKENS_PER_SECOND;
+  } else {
+    process.env.STORY_WEAVER_MOCK_STREAM_TOKENS_PER_SECOND = String(
+      input.mockStreamTokensPerSecond ?? 300_000
+    );
   }
   vi.doMock('node:os', () => ({
     default: {
@@ -71,6 +79,7 @@ describe('runtime mock fallback', () => {
     vi.doUnmock('node:os');
     vi.doUnmock('ai');
     delete process.env.STORY_WEAVER_MOCK_DELAY_MS;
+    delete process.env.STORY_WEAVER_MOCK_STREAM_TOKENS_PER_SECOND;
     vi.useRealTimers();
     fs.rmSync(tempHome, { recursive: true, force: true });
   });
@@ -277,7 +286,7 @@ describe('runtime mock fallback', () => {
     expect(generateText).not.toHaveBeenCalled();
   });
 
-  it('delays mock chapter output by about one second when no model is configured', async () => {
+  it('streams mock chapter output at about 200 tokens per second when no model is configured', async () => {
     vi.useFakeTimers();
     const generateText = vi.fn().mockResolvedValue({
       text: 'should not be used',
@@ -285,6 +294,7 @@ describe('runtime mock fallback', () => {
     const services = await loadRuntimeServices({
       tempHome,
       generateTextImpl: generateText,
+      mockStreamTokensPerSecond: null,
     });
 
     const bookId = services.bookService.createBook({
@@ -292,19 +302,32 @@ describe('runtime mock fallback', () => {
       targetChapters: 1,
       wordsPerChapter: 90,
     });
+    const events: unknown[] = [];
+    const unsubscribe = services.subscribeBookGeneration((event) => {
+      if (event.type === 'chapter-stream') {
+        events.push(event);
+      }
+    });
 
     const startPromise = services.bookService.startBook(bookId);
     await vi.advanceTimersByTimeAsync(2000);
     await startPromise;
     const writePromise = services.bookService.writeNextChapter(bookId);
 
-    await vi.advanceTimersByTimeAsync(999);
+    await vi.advanceTimersByTimeAsync(14_500);
     await expect(Promise.race([writePromise, Promise.resolve('pending')])).resolves.toBe(
       'pending'
     );
+    expect(events.length).toBeGreaterThan(1);
 
-    await vi.advanceTimersByTimeAsync(1);
+    await vi.advanceTimersByTimeAsync(3000);
     await writePromise;
+    unsubscribe();
+    const detail = services.bookService.getBookDetail(bookId);
+
+    expect(countStoryCharacters(detail?.chapters[0]?.content ?? '')).toBeGreaterThanOrEqual(
+      3000
+    );
     expect(generateText).not.toHaveBeenCalled();
   });
 });

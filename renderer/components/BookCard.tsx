@@ -1,5 +1,6 @@
 import ProgressBar from './ProgressBar';
 import StatusBadge from './StatusBadge';
+import { formatChapterWordCount } from '../word-count-format';
 
 export default function BookCard({
   id,
@@ -31,7 +32,7 @@ export default function BookCard({
       ? `${completedChapters ?? 0} / ${totalChapters} 章`
       : '章节待生成';
   const targetText = `${targetChapters} 章目标`;
-  const chapterLengthText = `${wordsPerChapter} 字/章`;
+  const chapterLengthText = `${formatChapterWordCount(wordsPerChapter)}/章`;
   const updatedDate = new Date(updatedAt);
   const updatedText = Number.isNaN(updatedDate.getTime())
     ? '最近更新待同步'

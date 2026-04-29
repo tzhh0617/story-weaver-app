@@ -26,14 +26,14 @@ describe('ChapterList', () => {
     );
 
     expect(
-      screen.getByRole('button', { name: '第 1 章 · Chapter 1 1200 字 已完成' })
+      screen.getByRole('button', { name: '第 1 章 · Chapter 1 1.2 千字 已完成' })
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: '第 2 章 · Chapter 2 0 字 待写作' })
+      screen.getByRole('button', { name: '第 2 章 · Chapter 2 0 千字 待写作' })
     ).toBeInTheDocument();
     expect(screen.getByText('Chapter 1')).toBeInTheDocument();
-    expect(screen.getByText('1200 字')).toBeInTheDocument();
-    expect(screen.queryByText('0 字')).toBeNull();
+    expect(screen.getByText('1.2 千字')).toBeInTheDocument();
+    expect(screen.queryByText('0 千字')).toBeNull();
     expect(screen.queryByText('已完成')).toBeNull();
     expect(screen.queryByText('待写作')).toBeNull();
     expect(screen.getByText('待写')).toBeInTheDocument();
@@ -67,6 +67,9 @@ describe('ChapterList', () => {
   });
 
   it('marks the selected chapter as pressed with a visible selected treatment', () => {
+    const originalScrollIntoView = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = vi.fn();
+
     render(
       <ChapterList
         selectedChapterId="2"
@@ -87,28 +90,32 @@ describe('ChapterList', () => {
       />
     );
 
-    expect(screen.getByRole('button', { name: /Chapter 1/ })).toHaveAttribute(
-      'aria-pressed',
-      'false'
-    );
-    expect(screen.getByRole('button', { name: /Chapter 2/ })).toHaveAttribute(
-      'aria-pressed',
-      'true'
-    );
-    const selectedChapterButton = screen.getByRole('button', { name: /Chapter 2/ });
-    const selectedInkWash = selectedChapterButton.querySelector('[data-ink-wash]');
+    try {
+      expect(screen.getByRole('button', { name: /Chapter 1/ })).toHaveAttribute(
+        'aria-pressed',
+        'false'
+      );
+      expect(screen.getByRole('button', { name: /Chapter 2/ })).toHaveAttribute(
+        'aria-pressed',
+        'true'
+      );
+      const selectedChapterButton = screen.getByRole('button', { name: /Chapter 2/ });
+      const selectedInkWash = selectedChapterButton.querySelector('[data-ink-wash]');
 
-    expect(selectedChapterButton.className).toContain('group/chapter-row');
-    expect(selectedChapterButton.className).toContain('bg-transparent');
-    expect(selectedChapterButton.className).not.toContain('bg-muted/55');
-    expect(selectedChapterButton.className).not.toContain('bg-primary/[0.035]');
-    expect(selectedChapterButton.className).not.toContain('ring-1');
-    expect(selectedChapterButton.querySelector('[data-selection-marker]')).toBeNull();
-    expect(selectedInkWash).toBeInTheDocument();
-    expect(selectedInkWash?.className).toContain('chapter-ink-wash');
-    expect(selectedInkWash?.className).toContain('opacity-90');
-    expect(selectedInkWash?.className).not.toContain('repeating-linear-gradient');
-    expect(selectedChapterButton.querySelector('[data-ink-bristles]')).toBeNull();
+      expect(selectedChapterButton.className).toContain('group/chapter-row');
+      expect(selectedChapterButton.className).toContain('bg-transparent');
+      expect(selectedChapterButton.className).not.toContain('bg-muted/55');
+      expect(selectedChapterButton.className).not.toContain('bg-primary/[0.035]');
+      expect(selectedChapterButton.className).not.toContain('ring-1');
+      expect(selectedChapterButton.querySelector('[data-selection-marker]')).toBeNull();
+      expect(selectedInkWash).toBeInTheDocument();
+      expect(selectedInkWash?.className).toContain('chapter-ink-wash');
+      expect(selectedInkWash?.className).toContain('opacity-90');
+      expect(selectedInkWash?.className).not.toContain('repeating-linear-gradient');
+      expect(selectedChapterButton.querySelector('[data-ink-bristles]')).toBeNull();
+    } finally {
+      Element.prototype.scrollIntoView = originalScrollIntoView;
+    }
   });
 
   it('shows a brush-shadow hover treatment without block backgrounds', () => {
@@ -225,7 +232,7 @@ describe('ChapterList', () => {
 
     const chapterButton = screen.getByRole('button', { name: /A very long/ });
     const chapterNumber = screen.getByText('第 1 章');
-    const compactMeta = screen.getByText('1200 字 · 写作中');
+    const compactMeta = screen.getByText('1.2 千字 · 写作中');
 
     expect(chapterButton.className).toContain('rounded-sm');
     expect(chapterButton.className).toContain('shadow-none');
@@ -261,9 +268,9 @@ describe('ChapterList', () => {
       />
     );
 
-    expect(screen.getByRole('button', { name: /1800 字 待写作/ })).toBeInTheDocument();
-    expect(screen.getByText('1800 字')).toBeInTheDocument();
-    expect(screen.queryByText('1800 字 · 待写')).toBeNull();
+    expect(screen.getByRole('button', { name: /1.8 千字 待写作/ })).toBeInTheDocument();
+    expect(screen.getByText('1.8 千字')).toBeInTheDocument();
+    expect(screen.queryByText('1.8 千字 · 待写')).toBeNull();
   });
 
   it('keeps large chapter numbers on one line without a fixed number column', () => {
@@ -333,7 +340,7 @@ describe('ChapterList', () => {
     expect(screen.queryByText('第 2.1 章')).toBeNull();
   });
 
-  it('auto-scrolls the current writing chapter into view after five quiet seconds', () => {
+  it('auto-scrolls the current writing chapter into view immediately', () => {
     const originalScrollIntoView = Element.prototype.scrollIntoView;
     const scrollIntoView = vi.fn();
     Element.prototype.scrollIntoView = scrollIntoView;
@@ -360,16 +367,8 @@ describe('ChapterList', () => {
         />
       );
 
-      act(() => {
-        vi.advanceTimersByTime(4999);
-      });
-      expect(scrollIntoView).not.toHaveBeenCalled();
-
-      act(() => {
-        vi.advanceTimersByTime(1);
-      });
       expect(scrollIntoView).toHaveBeenCalledWith({
-        block: 'nearest',
+        block: 'center',
         inline: 'nearest',
         behavior: 'smooth',
       });
@@ -379,7 +378,7 @@ describe('ChapterList', () => {
     }
   });
 
-  it('waits until five seconds after manual list scrolling before auto-scrolling', () => {
+  it('waits until five seconds after manual list scrolling before auto-scrolling back', () => {
     const originalScrollIntoView = Element.prototype.scrollIntoView;
     const scrollIntoView = vi.fn();
     Element.prototype.scrollIntoView = scrollIntoView;
@@ -405,6 +404,9 @@ describe('ChapterList', () => {
           ]}
         />
       );
+
+      expect(scrollIntoView).toHaveBeenCalledTimes(1);
+      scrollIntoView.mockClear();
 
       act(() => {
         vi.advanceTimersByTime(4000);
@@ -419,6 +421,79 @@ describe('ChapterList', () => {
         vi.advanceTimersByTime(1);
       });
       expect(scrollIntoView).toHaveBeenCalledTimes(1);
+    } finally {
+      Element.prototype.scrollIntoView = originalScrollIntoView;
+      vi.useRealTimers();
+    }
+  });
+
+  it('delays revealing a newly active selected chapter when the list was just manually scrolled', () => {
+    const originalScrollIntoView = Element.prototype.scrollIntoView;
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    vi.useFakeTimers();
+
+    try {
+      const chapters = [
+        {
+          id: '1',
+          title: 'Chapter 1',
+          wordCount: 1200,
+          status: 'done' as const,
+        },
+        {
+          id: '2',
+          title: 'Chapter 2',
+          wordCount: 1200,
+          status: 'done' as const,
+        },
+        {
+          id: '3',
+          title: 'Chapter 3',
+          wordCount: 0,
+          status: 'writing' as const,
+        },
+      ];
+
+      const { rerender } = render(
+        <ChapterList
+          activeChapterId="2"
+          selectedChapterId="2"
+          chapters={chapters}
+        />
+      );
+
+      expect(scrollIntoView).toHaveBeenCalledTimes(2);
+      scrollIntoView.mockClear();
+
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+      fireEvent.wheel(screen.getByRole('list'));
+
+      rerender(
+        <ChapterList
+          activeChapterId="3"
+          selectedChapterId="3"
+          chapters={chapters}
+        />
+      );
+
+      expect(scrollIntoView).not.toHaveBeenCalled();
+
+      act(() => {
+        vi.advanceTimersByTime(4999);
+      });
+      expect(scrollIntoView).not.toHaveBeenCalled();
+
+      act(() => {
+        vi.advanceTimersByTime(1);
+      });
+      expect(scrollIntoView).toHaveBeenCalledWith({
+        block: 'center',
+        inline: 'nearest',
+        behavior: 'smooth',
+      });
     } finally {
       Element.prototype.scrollIntoView = originalScrollIntoView;
       vi.useRealTimers();
@@ -452,6 +527,9 @@ describe('ChapterList', () => {
           ]}
         />
       );
+
+      expect(scrollIntoView).toHaveBeenCalledTimes(1);
+      scrollIntoView.mockClear();
 
       act(() => {
         vi.advanceTimersByTime(5000);

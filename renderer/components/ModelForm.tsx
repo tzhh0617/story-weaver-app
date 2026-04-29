@@ -20,6 +20,17 @@ import {
 const supportedProviders = ['openai', 'anthropic'] as const;
 type SupportedProvider = (typeof supportedProviders)[number];
 
+function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  return (
+    'then' in value &&
+    typeof value.then === 'function'
+  );
+}
+
 function getSupportedProvider(provider?: string | null): SupportedProvider {
   return (
     supportedProviders.find(
@@ -42,7 +53,7 @@ export default function ModelForm({
     apiKey: string;
     baseUrl: string;
     config: Record<string, unknown>;
-  }) => void;
+  }) => void | Promise<void>;
   onTest: (input: {
     id: string;
     provider: string;
@@ -50,7 +61,7 @@ export default function ModelForm({
     apiKey: string;
     baseUrl: string;
     config: Record<string, unknown>;
-  }) => void;
+  }) => void | Promise<void>;
   selectedModel?: {
     provider: string;
     modelName: string;
@@ -70,6 +81,7 @@ export default function ModelForm({
   const [config, setConfig] = useState<Record<string, unknown>>(
     selectedModel?.config ?? {}
   );
+  const [isSavePending, setIsSavePending] = useState(false);
 
   useEffect(() => {
     if (!selectedModel) {
@@ -112,7 +124,19 @@ export default function ModelForm({
       }
       onSubmit={(event) => {
         event.preventDefault();
-        onSave(currentConfig);
+        if (isSavePending) {
+          return;
+        }
+
+        const result = onSave(currentConfig);
+
+        if (isPromiseLike(result)) {
+          setIsSavePending(true);
+          void Promise.resolve(result).then(
+            () => setIsSavePending(false),
+            () => setIsSavePending(false)
+          );
+        }
       }}
     >
       {!isInline ? (
@@ -169,11 +193,11 @@ export default function ModelForm({
           </Select>
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="model-form-name">Model Name</Label>
+          <Label htmlFor="model-form-base-url">Base URL</Label>
           <Input
-            id="model-form-name"
-            value={modelName}
-            onChange={(event) => setModelName(event.target.value)}
+            id="model-form-base-url"
+            value={baseUrl}
+            onChange={(event) => setBaseUrl(event.target.value)}
           />
         </div>
         <div className="grid gap-2">
@@ -186,26 +210,31 @@ export default function ModelForm({
           />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="model-form-base-url">Base URL</Label>
+          <Label htmlFor="model-form-name">Model Name</Label>
           <Input
-            id="model-form-base-url"
-            value={baseUrl}
-            onChange={(event) => setBaseUrl(event.target.value)}
+            id="model-form-name"
+            value={modelName}
+            onChange={(event) => setModelName(event.target.value)}
           />
         </div>
-        <div className="flex flex-wrap gap-3">
-          <Button type="submit" disabled={!canSubmitModel}>
-            保存模型
-          </Button>
+        <div
+          data-testid="model-form-actions"
+          className="flex flex-wrap justify-end gap-3"
+        >
           <Button
             type="button"
             variant="secondary"
             disabled={!canSubmitModel}
-            onClick={() => {
-              onTest(currentConfig);
-            }}
+            onClick={() => onTest(currentConfig)}
           >
             测试连接
+          </Button>
+          <Button
+            type="submit"
+            disabled={!canSubmitModel || isSavePending}
+            loading={isSavePending}
+          >
+            保存模型
           </Button>
         </div>
       </CardContent>

@@ -19,6 +19,17 @@ import { Textarea } from '../components/ui/textarea';
 
 const targetChapterOptions = [500, 800, 1000, 1500, 2000] as const;
 
+function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  return (
+    'then' in value &&
+    typeof value.then === 'function'
+  );
+}
+
 export default function NewBook({
   onCreate,
 }: {
@@ -26,11 +37,12 @@ export default function NewBook({
     idea: string;
     targetChapters: number;
     wordsPerChapter: number;
-  }) => void;
+  }) => void | Promise<void>;
 }) {
   const [idea, setIdea] = useState('');
   const [targetChapters, setTargetChapters] = useState(500);
   const [wordsPerChapter, setWordsPerChapter] = useState(2500);
+  const [isCreatePending, setIsCreatePending] = useState(false);
   const hasValidTargetChapters =
     Number.isInteger(targetChapters) &&
     targetChapterOptions.includes(
@@ -64,7 +76,19 @@ export default function NewBook({
               return;
             }
 
-            onCreate({ idea, targetChapters, wordsPerChapter });
+            if (isCreatePending) {
+              return;
+            }
+
+            const result = onCreate({ idea, targetChapters, wordsPerChapter });
+
+            if (isPromiseLike(result)) {
+              setIsCreatePending(true);
+              void Promise.resolve(result).then(
+                () => setIsCreatePending(false),
+                () => setIsCreatePending(false)
+              );
+            }
           }}
         >
           <CardHeader
@@ -117,7 +141,12 @@ export default function NewBook({
                 }
               />
             </div>
-            <Button type="submit" disabled={!canSubmit} className="w-fit">
+            <Button
+              type="submit"
+              disabled={!canSubmit || isCreatePending}
+              loading={isCreatePending}
+              className="w-fit"
+            >
               开始写作
             </Button>
           </CardContent>

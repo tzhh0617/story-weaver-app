@@ -35,6 +35,7 @@ const sidebarProviderStyle = {
 } as CSSProperties;
 
 type BannerTone = 'error' | 'success' | 'info';
+type ToastTone = BannerTone;
 
 export default function App() {
   const ipc = useIpc();
@@ -62,6 +63,12 @@ export default function App() {
     tone: BannerTone;
     message: string;
   } | null>(null);
+  const [toast, setToast] = useState<{
+    id: number;
+    tone: ToastTone;
+    message: string;
+  } | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [currentView, setCurrentView] = useState<AppView>('library');
   const [selectedBookId, setSelectedBookId] = useState<string | null>(null);
   const selectedBookIdRef = useRef<string | null>(null);
@@ -172,6 +179,12 @@ export default function App() {
     void loadBooks();
     void loadModels();
     void loadSettings();
+
+    return () => {
+      if (toastTimerRef.current) {
+        clearTimeout(toastTimerRef.current);
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -312,6 +325,25 @@ export default function App() {
     });
   }
 
+  function showToast(tone: ToastTone, message: string) {
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+    }
+
+    flushSync(() => {
+      setToast({
+        id: Date.now(),
+        tone,
+        message,
+      });
+    });
+
+    toastTimerRef.current = setTimeout(() => {
+      setToast(null);
+      toastTimerRef.current = null;
+    }, 3600);
+  }
+
   function getRenderedChapterStatus(chapter: BookDetailData['chapters'][number]) {
     if (chapter.content) {
       return 'done' as const;
@@ -332,6 +364,16 @@ export default function App() {
 
     return 'queued' as const;
   }
+
+  const toastClassName = toast
+    ? {
+        info: 'border-primary/30 bg-background text-foreground shadow-[0_18px_45px_rgba(36,28,18,0.18)]',
+        success:
+          'border-emerald-500/30 bg-background text-foreground shadow-[0_18px_45px_rgba(36,28,18,0.18)]',
+        error:
+          'border-destructive/40 bg-background text-destructive shadow-[0_18px_45px_rgba(36,28,18,0.18)]',
+      }[toast.tone]
+    : '';
 
   async function runSelectedBookAction({
     startMessage,
@@ -398,6 +440,15 @@ export default function App() {
     >
       <div aria-hidden="true" className="app-titlebar-drag-region" />
       <AppSidebar currentView={currentView} onSelectView={setCurrentView} />
+      {toast ? (
+        <div
+          role={toast.tone === 'error' ? 'alert' : 'status'}
+          aria-live={toast.tone === 'error' ? 'assertive' : 'polite'}
+          className={`fixed right-5 top-[calc(var(--app-titlebar-height)+1rem)] z-50 max-w-sm rounded-lg border px-4 py-3 text-sm font-medium ${toastClassName}`}
+        >
+          {toast.message}
+        </div>
+      ) : null}
       <SidebarInset className="app-paper-background min-w-0 flex-1 overflow-hidden">
         <main
           data-testid="app-content-scrollport"
@@ -500,14 +551,14 @@ export default function App() {
               onBackToLibrary={() => setCurrentView('library')}
               onResume={async () => {
                 await runSelectedBookAction({
-                  startMessage: '正在恢复写作...',
+                  startMessage: null,
                   errorMessage: 'Failed to resume book',
                   channel: ipcChannels.bookResume,
                 });
               }}
               onRestart={async () => {
                 await runSelectedBookAction({
-                  startMessage: '正在重新开始写作...',
+                  startMessage: null,
                   errorMessage: 'Failed to restart book',
                   channel: ipcChannels.bookRestart,
                 });
@@ -532,27 +583,12 @@ export default function App() {
                   channel: ipcChannels.bookPause,
                 });
               }}
-              onWriteNext={async () => {
-                await runSelectedBookAction({
-                  startMessage: '正在生成章节正文...',
-                  errorMessage: 'Failed to write next chapter',
-                  channel: ipcChannels.bookWriteNext,
-                });
-              }}
-              onWriteAll={async () => {
-                await runSelectedBookAction({
-                  startMessage: '正在连续生成章节正文...',
-                  errorMessage: 'Failed to continue writing',
-                  channel: ipcChannels.bookWriteAll,
-                });
-              }}
               onExport={async (format: BookExportFormat) => {
                 if (!selectedBookId) {
                   return;
                 }
 
                 try {
-                  showBanner('info', `正在导出 ${format.toUpperCase()}...`);
                   const filePath = await ipc.invoke<string>(ipcChannels.bookExport, {
                     bookId: selectedBookId,
                     format,
@@ -567,7 +603,7 @@ export default function App() {
               }}
               onDelete={async () => {
                 await runSelectedBookAction({
-                  startMessage: '正在删除作品...',
+                  startMessage: null,
                   errorMessage: 'Failed to delete book',
                   channel: ipcChannels.bookDelete,
                   successMessage: '作品已删除',
@@ -650,12 +686,8 @@ export default function App() {
               }}
               onTestModel={async (input) => {
                 try {
-                  flushSync(() => {
-                    setBanner({
-                      tone: 'info',
-                      message: '正在测试模型连接...',
-                    });
-                  });
+                  clearBanner();
+                  showToast('info', '正在测试模型连接...');
                   await ipc.invoke(ipcChannels.modelSave, input);
                   const result = await ipc.invoke<{
                     ok: boolean;
@@ -666,28 +698,15 @@ export default function App() {
                   });
 
                   if (!result.ok) {
-                    flushSync(() => {
-                      setBanner({
-                        tone: 'error',
-                        message: result.error ?? 'Model test failed',
-                      });
-                    });
+                    showToast('error', result.error ?? 'Model test failed');
                   } else {
-                    flushSync(() => {
-                      setBanner({
-                        tone: 'success',
-                        message: `连接成功（${result.latency}ms）`,
-                      });
-                    });
+                    showToast('success', `连接成功（${result.latency}ms）`);
                   }
                 } catch (error) {
-                  flushSync(() => {
-                    setBanner({
-                      tone: 'error',
-                      message:
-                        error instanceof Error ? error.message : 'Model test failed',
-                    });
-                  });
+                  showToast(
+                    'error',
+                    error instanceof Error ? error.message : 'Model test failed'
+                  );
                 }
                 await loadModels();
               }}

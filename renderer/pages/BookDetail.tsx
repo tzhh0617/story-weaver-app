@@ -1,9 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   Download,
-  ListChecks,
   Pause,
-  PenLine,
   Play,
   RotateCcw,
   Trash2,
@@ -13,16 +11,13 @@ import ChapterList from '../components/ChapterList';
 import {
   layoutCardClassName,
   layoutCardSectionClassName,
-  pageIntroDescriptionClassName,
-  pageIntroEyebrowClassName,
-  pageIntroPanelClassName,
-  pageIntroTitleClassName,
 } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import ProgressBar from '../components/ProgressBar';
 import { ScrollArea } from '../components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { getStatusLabel } from '../status-labels';
+import { formatTotalWordCount } from '../word-count-format';
 
 type ContextTab = 'outline' | 'characters' | 'threads';
 
@@ -67,10 +62,6 @@ function getEmptyOutlineMessage(phase: string) {
   return '暂无大纲信息';
 }
 
-function countReadableCharacters(content: string) {
-  return Array.from(content.replace(/\s/g, '')).length;
-}
-
 function DetailSection({
   title,
   children,
@@ -80,33 +71,25 @@ function DetailSection({
 }) {
   return (
     <section className={layoutCardSectionClassName}>
-      <div className="mb-4 border-b border-border/70 pb-3">
-        <h3 className="text-lg font-semibold tracking-tight">{title}</h3>
+      <div className="mb-3">
+        <h3 className="text-base font-semibold tracking-tight">{title}</h3>
       </div>
       <div className="text-sm leading-7 text-muted-foreground">{children}</div>
     </section>
   );
 }
 
-function GenerationProgressPanel({
+function BookProgressPanel({
   phase,
   stepLabel,
-  currentVolume,
-  currentChapter,
   completedChapters,
   totalChapters,
 }: {
   phase: string;
   stepLabel?: string | null;
-  currentVolume?: number | null;
-  currentChapter?: number | null;
   completedChapters: number;
   totalChapters: number;
 }) {
-  const chapterLabel =
-    currentVolume && currentChapter
-      ? `第 ${currentVolume}.${currentChapter} 章`
-      : '暂无当前章节';
   const chapterProgressLabel = totalChapters
     ? `已完成 ${completedChapters} / ${totalChapters} 章`
     : '章节规划生成后会显示总进度';
@@ -115,12 +98,19 @@ function GenerationProgressPanel({
     : 0;
 
   return (
-    <DetailSection title="当前步骤">
-      <div className="grid gap-2">
+    <section
+      aria-label="进度面板"
+      className={`${layoutCardClassName} grid min-h-0 grid-rows-[auto_minmax(0,1fr)] overflow-hidden`}
+    >
+      <header className="border-b border-border/60 px-5 py-3">
+        <h2 className="text-sm font-semibold tracking-tight text-foreground">
+          进度
+        </h2>
+      </header>
+      <div className="grid gap-3 px-5 py-4 text-sm leading-6 text-muted-foreground">
         <p className="font-medium text-foreground">
           {stepLabel || getStatusLabel(phase)}
         </p>
-        <p>{chapterLabel}</p>
         <p>{chapterProgressLabel}</p>
         {totalChapters ? (
           <div className="grid gap-2 pt-1">
@@ -131,42 +121,7 @@ function GenerationProgressPanel({
           </div>
         ) : null}
       </div>
-    </DetailSection>
-  );
-}
-
-function LiveOutputPanel({
-  liveOutput,
-  chapterLabel,
-}: {
-  liveOutput?: {
-    volumeIndex: number;
-    chapterIndex: number;
-    title: string;
-    content: string;
-  } | null;
-  chapterLabel?: string | null;
-}) {
-  if (!liveOutput?.content) {
-    return null;
-  }
-
-  const renderedChapterLabel =
-    chapterLabel ?? `第 ${liveOutput.volumeIndex}.${liveOutput.chapterIndex} 章`;
-  const readableCharacters = countReadableCharacters(liveOutput.content);
-
-  return (
-    <DetailSection title="实时输出">
-      <div className="grid gap-3">
-        <p className="font-medium text-foreground">
-          {`正在输出 ${liveOutput.title}`}
-        </p>
-        <p className="text-xs font-medium text-muted-foreground">
-          {`${renderedChapterLabel} · 已接收 ${readableCharacters} 字`}
-        </p>
-        <p className="whitespace-pre-wrap">{liveOutput.content}</p>
-      </div>
-    </DetailSection>
+    </section>
   );
 }
 
@@ -192,29 +147,6 @@ function ChapterOverview({
   );
 }
 
-function SelectedChapterMeta({
-  chapter,
-}: {
-  chapter: {
-    volumeIndex?: number;
-    chapterIndex?: number;
-    displayIndex?: number;
-    title: string;
-  };
-}) {
-  const chapterLabel = chapter.displayIndex
-    ? `第 ${chapter.displayIndex} 章`
-    : '未编号章节';
-
-  return (
-    <div className="rounded-lg border border-border/75 bg-muted/25 px-4 py-3 text-sm text-muted-foreground">
-      <p className="font-medium text-foreground">
-        {`当前查看：${chapterLabel} · ${chapter.title}`}
-      </p>
-    </div>
-  );
-}
-
 function DetailEmpty({
   message,
   testId,
@@ -225,7 +157,7 @@ function DetailEmpty({
   return (
     <div
       data-testid={testId}
-      className="rounded-[1.15rem] border border-dashed border-border/80 bg-muted/30 p-5 text-sm text-muted-foreground"
+      className="border-l-2 border-dashed border-border/80 bg-muted/20 px-4 py-3 text-sm text-muted-foreground"
     >
       <p>{message}</p>
     </div>
@@ -245,8 +177,6 @@ export default function BookDetail({
   onPause,
   onResume,
   onRestart,
-  onWriteNext,
-  onWriteAll,
   onExport,
   onDelete,
 }: {
@@ -307,8 +237,6 @@ export default function BookDetail({
   onPause?: () => void;
   onResume?: () => void;
   onRestart?: () => void;
-  onWriteNext?: () => void;
-  onWriteAll?: () => void;
   onExport?: (format: BookExportFormat) => void;
   onDelete?: () => void;
 }) {
@@ -338,24 +266,19 @@ export default function BookDetail({
     activeChapterId ?? renderedChapters[0]?.id ?? null
   );
   const shouldAutoFollowActiveChapterRef = useRef(true);
+  const liveOutputEndRef = useRef<HTMLDivElement | null>(null);
   const hasOutlineContent = Boolean(context?.worldSetting || context?.outline);
   const currentPhase = progress?.phase ?? book.status;
+  const totalWordCountText = formatTotalWordCount(book.wordCount);
   const completedChapters = renderedChapters.filter(
     (chapter) => chapter.status === 'done'
   ).length;
   const totalChapters = renderedChapters.length;
-  const hasRemainingChapters = Boolean(
-    chapters?.some((chapter) => chapter.status !== 'done')
-  );
   const hasGeneratedContent = Boolean(
     chapters?.some((chapter) => chapter.content && chapter.content.trim().length > 0)
   );
   const canPause = currentPhase !== 'paused' && currentPhase !== 'completed';
   const canResume = currentPhase === 'paused';
-  const canWrite =
-    hasRemainingChapters &&
-    currentPhase !== 'paused' &&
-    currentPhase !== 'completed';
   const selectedChapter =
     renderedChapters.find((chapter) => chapter.id === selectedChapterId) ??
     renderedChapters[0] ??
@@ -369,18 +292,6 @@ export default function BookDetail({
   const selectedContent = selectedHasLiveOutput
     ? null
     : selectedChapter?.content;
-  const selectedSummary = selectedChapter?.summary;
-  const selectedOutline = selectedChapter?.outline;
-  const liveOutputChapterLabel = liveOutput
-    ? renderedChapters.find(
-        (chapter) =>
-          chapter.volumeIndex === liveOutput.volumeIndex &&
-          chapter.chapterIndex === liveOutput.chapterIndex
-      )?.displayIndex
-    : null;
-  const canReturnToActiveChapter = Boolean(
-    activeChapterId && selectedChapterId !== activeChapterId
-  );
   useEffect(() => {
     if (activeChapterId) {
       if (shouldAutoFollowActiveChapterRef.current) {
@@ -401,62 +312,68 @@ export default function BookDetail({
     });
   }, [activeChapterId, renderedChapters]);
 
+  useEffect(() => {
+    if (!selectedHasLiveOutput || !liveOutput?.content) {
+      return;
+    }
+
+    if (typeof liveOutputEndRef.current?.scrollIntoView !== 'function') {
+      return;
+    }
+
+    liveOutputEndRef.current.scrollIntoView({
+      block: 'end',
+      inline: 'nearest',
+      behavior: 'smooth',
+    });
+  }, [liveOutput?.content, selectedHasLiveOutput]);
+
   return (
     <section
       data-testid="book-detail-workbench"
-      className="grid h-full min-h-0 flex-1 grid-rows-[auto_auto_minmax(0,1fr)] gap-4 overflow-hidden"
+      className="grid h-full min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] gap-4 overflow-hidden"
     >
       <header
-        data-testid="book-detail-intro-panel"
-        className={`${pageIntroPanelClassName} px-5 py-4`}
+        data-testid="book-detail-topbar"
+        className="grid gap-4 border-b border-border/60 bg-background/35 px-1 pb-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end"
       >
-        <div className="grid gap-2">
+        <div className="min-w-0">
           {onBackToLibrary ? (
             <button
               type="button"
-              className="w-fit text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground transition-colors hover:text-foreground"
+              className="mb-2 w-fit text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground transition-colors hover:text-foreground"
               onClick={onBackToLibrary}
             >
               返回作品库
             </button>
           ) : null}
-          <p className={pageIntroEyebrowClassName}>Manuscript Workspace</p>
-          <h1 className={`${pageIntroTitleClassName} text-2xl`}>
-            {book.title}
+          <h1
+            data-testid="book-detail-title"
+            aria-label={`${book.title}（${getStatusLabel(progress?.phase ?? book.status)} · ${totalWordCountText}）`}
+            className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-1 break-words text-2xl font-semibold leading-tight tracking-tight"
+          >
+            <span className="min-w-0">{book.title}</span>
+            <span className="text-xl font-medium text-muted-foreground">
+              {`（${getStatusLabel(progress?.phase ?? book.status)} · ${totalWordCountText}）`}
+            </span>
           </h1>
-          <p className={`${pageIntroDescriptionClassName} mt-1`}>
-            {`${getStatusLabel(progress?.phase ?? book.status)} · ${book.wordCount} 字`}
-          </p>
         </div>
-      </header>
-
-      <div
-        data-testid="book-detail-header"
-        className={`grid gap-4 px-5 py-4 ${layoutCardClassName}`}
-      >
-        <div className="flex flex-wrap gap-3">
-          <Button type="button" variant="secondary" onClick={onPause} disabled={!canPause}>
+        <div className="flex flex-wrap gap-2 xl:max-w-[52rem] xl:justify-end">
+          <Button type="button" size="sm" variant="secondary" onClick={onPause} disabled={!canPause}>
             <Pause aria-hidden="true" />
             暂停
           </Button>
-          <Button type="button" onClick={onResume} disabled={!canResume}>
+          <Button type="button" size="sm" onClick={onResume} disabled={!canResume}>
             <Play aria-hidden="true" />
             恢复写作
           </Button>
-          <Button type="button" variant="outline" onClick={onRestart}>
+          <Button type="button" size="sm" variant="outline" onClick={onRestart}>
             <RotateCcw aria-hidden="true" />
             重新开始
           </Button>
-          <Button type="button" variant="outline" onClick={onWriteNext} disabled={!canWrite}>
-            <PenLine aria-hidden="true" />
-            写下一章
-          </Button>
-          <Button type="button" variant="outline" onClick={onWriteAll} disabled={!canWrite}>
-            <ListChecks aria-hidden="true" />
-            连续写作
-          </Button>
           <Button
             type="button"
+            size="sm"
             variant="secondary"
             onClick={() => onExport?.('txt')}
             disabled={!hasGeneratedContent}
@@ -464,21 +381,12 @@ export default function BookDetail({
             <Download aria-hidden="true" />
             导出 TXT
           </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => onExport?.('md')}
-            disabled={!hasGeneratedContent}
-          >
-            <Download aria-hidden="true" />
-            导出 MD
-          </Button>
-          <Button type="button" variant="destructive" onClick={onDelete}>
+          <Button type="button" size="sm" variant="destructive" onClick={onDelete}>
             <Trash2 aria-hidden="true" />
             删除作品
           </Button>
         </div>
-      </div>
+      </header>
 
       <div className="grid min-h-0 gap-5 overflow-hidden xl:grid-cols-[18rem_minmax(0,1fr)_21rem]">
         <section
@@ -517,186 +425,154 @@ export default function BookDetail({
           className={`${layoutCardClassName} grid min-h-0 grid-rows-[auto_minmax(0,1fr)] overflow-hidden`}
         >
           <header className="border-b border-border/60 px-5 py-3">
-            <div className="grid gap-1">
-              <h2 className="text-sm font-semibold tracking-tight text-foreground">
-                正文
-              </h2>
-              <p className="truncate text-xs text-muted-foreground">
-                {selectedChapter?.title ?? '选择章节后查看正文'}
-              </p>
-            </div>
-          </header>
-          <ScrollArea
-            aria-label="正文滚动区"
-            data-testid="chapter-reading-pane"
-            className="h-full min-h-0 px-4 py-4"
-          >
-            <div className="grid content-start gap-5 pr-2">
-              {canReturnToActiveChapter && activeChapterId ? (
-                <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-muted-foreground">
-                  <span>正在后台追踪当前写作章节。</span>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      shouldAutoFollowActiveChapterRef.current = true;
-                      setSelectedChapterId(activeChapterId);
-                    }}
-                  >
-                    回到实时追踪
-                  </Button>
-                </div>
-              ) : null}
-              <LiveOutputPanel
-                liveOutput={liveOutput}
-                chapterLabel={
-                  liveOutputChapterLabel ? `第 ${liveOutputChapterLabel} 章` : null
-                }
-              />
-              {selectedChapter ? (
-                <SelectedChapterMeta chapter={selectedChapter} />
-              ) : null}
-              {selectedContent ? (
-                <DetailSection
-                  title={selectedHasLiveOutput ? '实时正文预览' : '正文预览'}
-                >
-                  <p className="whitespace-pre-wrap">{selectedContent}</p>
-                </DetailSection>
-              ) : null}
-              {!selectedContent && selectedOutline ? (
-                <DetailSection title="章节大纲">
-                  <p className="whitespace-pre-wrap">{selectedOutline}</p>
-                </DetailSection>
-              ) : null}
-              {selectedSummary ? (
-                <DetailSection title="章节摘要">
-                  <p>{selectedSummary}</p>
-                </DetailSection>
-              ) : null}
-              {!selectedChapter && !liveOutput?.content ? (
-                <DetailEmpty message="选择章节后查看正文" />
-              ) : null}
-            </div>
-          </ScrollArea>
-        </section>
-
-        <aside
-          aria-label="上下文面板"
-          className={`${layoutCardClassName} grid min-h-0 grid-rows-[auto_minmax(0,1fr)] overflow-hidden`}
-        >
-          <header className="border-b border-border/60 px-5 py-3">
             <h2 className="text-sm font-semibold tracking-tight text-foreground">
-              上下文
+              正文
             </h2>
           </header>
-          <ScrollArea aria-label="上下文滚动区" className="h-full min-h-0 px-4 py-4">
-            <div className="grid content-start gap-4 pr-2">
-              <GenerationProgressPanel
-                phase={currentPhase}
-                stepLabel={progress?.stepLabel}
-                currentVolume={progress?.currentVolume}
-                currentChapter={progress?.currentChapter}
-                completedChapters={completedChapters}
-                totalChapters={totalChapters}
-              />
-              {latestScene ? (
-                <DetailSection title="最近场景">
-                  <p>{`${latestScene.location} · ${latestScene.timeInStory}`}</p>
-                  {latestScene.events ? <p>{latestScene.events}</p> : null}
-                </DetailSection>
-              ) : (
-                <DetailEmpty message="暂无场景记录" />
-              )}
-              <Tabs
-                value={contextTab}
-                onValueChange={(value) => setContextTab(value as ContextTab)}
-                className="grid gap-4"
-              >
-                <TabsList className="grid w-full grid-cols-3 rounded-lg border border-border/75 bg-card p-1 shadow-sm">
-                  <TabsTrigger
-                    value="outline"
-                    onClick={() => setContextTab('outline')}
-                  >
-                    大纲
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="characters"
-                    onClick={() => setContextTab('characters')}
-                  >
-                    人物
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="threads"
-                    onClick={() => setContextTab('threads')}
-                  >
-                    伏笔
-                  </TabsTrigger>
-                </TabsList>
-                <TabsContent value="outline" className="mt-0">
-                  <div className="grid content-start gap-4">
-                    {context?.worldSetting ? (
-                      <DetailSection title="世界观">
-                        <p>{context.worldSetting}</p>
-                      </DetailSection>
-                    ) : null}
-                    {context?.outline ? (
-                      <DetailSection title="总纲">
-                        <p>{context.outline}</p>
-                      </DetailSection>
-                    ) : null}
-                    {!hasOutlineContent ? (
-                      <DetailEmpty
-                        testId="book-detail-empty-outline"
-                        message={getEmptyOutlineMessage(currentPhase)}
-                      />
-                    ) : null}
-                  </div>
-                </TabsContent>
-                <TabsContent value="characters" className="mt-0">
-                  <div className="grid content-start gap-4">
-                    {characterStates?.length ? (
-                      <DetailSection title="人物状态">
-                        <ul className="m-0 pl-5">
-                          {characterStates.map((state) => (
-                            <li key={state.characterId}>
-                              {state.characterName}
-                              {state.location ? ` · ${state.location}` : ''}
-                              {state.status ? ` · ${state.status}` : ''}
-                            </li>
-                          ))}
-                        </ul>
-                      </DetailSection>
-                    ) : null}
-                    {!characterStates?.length ? (
-                      <DetailEmpty message="暂无人物状态" />
-                    ) : null}
-                  </div>
-                </TabsContent>
-                <TabsContent value="threads" className="mt-0">
-                  <div className="grid content-start gap-4">
-                    {plotThreads?.length ? (
-                      <DetailSection title="伏笔追踪">
-                        <ul className="m-0 pl-5">
-                          {plotThreads.map((thread) => (
-                            <li key={thread.id}>
-                              {thread.description}
-                              {thread.resolvedAt
-                                ? ` · 已回收（第 ${thread.resolvedAt} 章）`
-                                : ` · 待回收（预计第 ${thread.expectedPayoff ?? '?'} 章）`}
-                            </li>
-                          ))}
-                        </ul>
-                      </DetailSection>
-                    ) : null}
-                    {!plotThreads?.length ? (
-                      <DetailEmpty message="暂无伏笔追踪" />
-                    ) : null}
-                  </div>
-                </TabsContent>
-              </Tabs>
-            </div>
-          </ScrollArea>
-        </aside>
+          <div data-testid="chapter-stream-pane" className="min-h-0">
+            <ScrollArea
+              aria-label="正文滚动区"
+              data-testid="chapter-reading-pane"
+              className="h-full min-h-0 px-4 py-4"
+            >
+              <div className="grid content-start gap-5 pr-2">
+                {selectedHasLiveOutput && liveOutput?.content ? (
+                  <p className="whitespace-pre-wrap text-sm leading-7 text-muted-foreground">
+                    {liveOutput.content}
+                  </p>
+                ) : null}
+                {selectedContent ? (
+                  <p className="whitespace-pre-wrap text-sm leading-7 text-muted-foreground">
+                    {selectedContent}
+                  </p>
+                ) : null}
+                <div ref={liveOutputEndRef} aria-hidden="true" />
+              </div>
+            </ScrollArea>
+          </div>
+        </section>
+
+        <div className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-5 overflow-hidden">
+          <BookProgressPanel
+            phase={currentPhase}
+            stepLabel={progress?.stepLabel}
+            completedChapters={completedChapters}
+            totalChapters={totalChapters}
+          />
+
+          <aside
+            aria-label="上下文面板"
+            className={`${layoutCardClassName} grid min-h-0 grid-rows-[auto_minmax(0,1fr)] overflow-hidden`}
+          >
+            <header className="border-b border-border/60 px-5 py-3">
+              <h2 className="text-sm font-semibold tracking-tight text-foreground">
+                上下文
+              </h2>
+            </header>
+            <ScrollArea aria-label="上下文滚动区" className="h-full min-h-0 px-4 py-4">
+              <div className="grid content-start gap-4 pr-2">
+                {latestScene ? (
+                  <DetailSection title="最近场景">
+                    <p>{`${latestScene.location} · ${latestScene.timeInStory}`}</p>
+                    {latestScene.events ? <p>{latestScene.events}</p> : null}
+                  </DetailSection>
+                ) : (
+                  <DetailEmpty message="暂无场景记录" />
+                )}
+                <Tabs
+                  value={contextTab}
+                  onValueChange={(value) => setContextTab(value as ContextTab)}
+                  className="grid gap-4"
+                >
+                  <TabsList className="grid h-9 w-full grid-cols-3 justify-start rounded-none border-b border-border/60 bg-transparent p-0 shadow-none">
+                    <TabsTrigger
+                      value="outline"
+                      className="rounded-none border-b-2 border-transparent bg-transparent px-2 shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                      onClick={() => setContextTab('outline')}
+                    >
+                      大纲
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="characters"
+                      className="rounded-none border-b-2 border-transparent bg-transparent px-2 shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                      onClick={() => setContextTab('characters')}
+                    >
+                      人物
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="threads"
+                      className="rounded-none border-b-2 border-transparent bg-transparent px-2 shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                      onClick={() => setContextTab('threads')}
+                    >
+                      伏笔
+                    </TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="outline" className="mt-0">
+                    <div className="grid content-start gap-4">
+                      {context?.worldSetting ? (
+                        <DetailSection title="世界观">
+                          <p>{context.worldSetting}</p>
+                        </DetailSection>
+                      ) : null}
+                      {context?.outline ? (
+                        <DetailSection title="总纲">
+                          <p>{context.outline}</p>
+                        </DetailSection>
+                      ) : null}
+                      {!hasOutlineContent ? (
+                        <DetailEmpty
+                          testId="book-detail-empty-outline"
+                          message={getEmptyOutlineMessage(currentPhase)}
+                        />
+                      ) : null}
+                    </div>
+                  </TabsContent>
+                  <TabsContent value="characters" className="mt-0">
+                    <div className="grid content-start gap-4">
+                      {characterStates?.length ? (
+                        <DetailSection title="人物状态">
+                          <ul className="m-0 pl-5">
+                            {characterStates.map((state) => (
+                              <li key={state.characterId}>
+                                {state.characterName}
+                                {state.location ? ` · ${state.location}` : ''}
+                                {state.status ? ` · ${state.status}` : ''}
+                              </li>
+                            ))}
+                          </ul>
+                        </DetailSection>
+                      ) : null}
+                      {!characterStates?.length ? (
+                        <DetailEmpty message="暂无人物状态" />
+                      ) : null}
+                    </div>
+                  </TabsContent>
+                  <TabsContent value="threads" className="mt-0">
+                    <div className="grid content-start gap-4">
+                      {plotThreads?.length ? (
+                        <DetailSection title="伏笔追踪">
+                          <ul className="m-0 pl-5">
+                            {plotThreads.map((thread) => (
+                              <li key={thread.id}>
+                                {thread.description}
+                                {thread.resolvedAt
+                                  ? ` · 已回收（第 ${thread.resolvedAt} 章）`
+                                  : ` · 待回收（预计第 ${thread.expectedPayoff ?? '?'} 章）`}
+                              </li>
+                            ))}
+                          </ul>
+                        </DetailSection>
+                      ) : null}
+                      {!plotThreads?.length ? (
+                        <DetailEmpty message="暂无伏笔追踪" />
+                      ) : null}
+                    </div>
+                  </TabsContent>
+                </Tabs>
+              </div>
+            </ScrollArea>
+          </aside>
+        </div>
       </div>
     </section>
   );

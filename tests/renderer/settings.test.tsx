@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import Settings from '../../renderer/pages/Settings';
 
@@ -45,6 +45,29 @@ describe('Settings', () => {
     expect(providerOptions).toEqual(['openai', 'anthropic']);
   });
 
+  it('shows provider detail fields in reverse order below provider', () => {
+    const { container } = render(
+      <Settings
+        onSaveModel={vi.fn()}
+        onTestModel={vi.fn()}
+        models={[]}
+        concurrencyLimit={null}
+        onSaveSetting={vi.fn()}
+      />
+    );
+
+    const fieldLabels = Array.from(container.querySelectorAll('label')).map(
+      (label) => label.textContent
+    );
+
+    expect(fieldLabels.slice(0, 4)).toEqual([
+      'Provider',
+      'Base URL',
+      'API Key',
+      'Model Name',
+    ]);
+  });
+
   it('arranges setting blocks in a waterfall list', () => {
     render(
       <Settings
@@ -84,6 +107,64 @@ describe('Settings', () => {
       expect(block.className).toContain('ring-1');
       expect(block.className).not.toContain('hover:shadow');
     }
+  });
+
+  it('right-aligns settings actions with the primary action on the right', () => {
+    render(
+      <Settings
+        onSaveModel={vi.fn()}
+        onTestModel={vi.fn()}
+        models={[]}
+        concurrencyLimit={null}
+        onSaveSetting={vi.fn()}
+      />
+    );
+
+    const modelActions = screen.getByTestId('model-form-actions');
+    const settingsActions = screen.getByTestId('settings-actions');
+
+    expect(modelActions).toHaveClass('justify-end');
+    expect(settingsActions).toHaveClass('justify-end');
+    expect(modelActions.lastElementChild).toHaveTextContent('保存模型');
+    expect(settingsActions.lastElementChild).toHaveTextContent('保存设置');
+  });
+
+  it('shows loading while model save is pending', async () => {
+    let resolveSave: () => void = () => undefined;
+    const savePromise = new Promise<void>((resolve) => {
+      resolveSave = resolve;
+    });
+
+    render(
+      <Settings
+        onSaveModel={() => savePromise}
+        onTestModel={vi.fn()}
+        models={[]}
+        concurrencyLimit={null}
+        onSaveSetting={vi.fn()}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText('Model Name'), {
+      target: { value: 'gpt-4o-mini' },
+    });
+    fireEvent.change(screen.getByLabelText('API Key'), {
+      target: { value: 'sk-test' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '保存模型' }));
+
+    expect(screen.getByRole('button', { name: '保存模型' })).toHaveAttribute(
+      'aria-busy',
+      'true'
+    );
+
+    resolveSave();
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: '保存模型' })).not.toHaveAttribute(
+        'aria-busy'
+      );
+    });
   });
 
   it('submits model settings and global settings', async () => {

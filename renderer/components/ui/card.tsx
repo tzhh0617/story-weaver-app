@@ -9,7 +9,7 @@ export const layoutCardHeaderClassName =
   "border-b border-border/60 bg-gradient-to-br from-background via-card to-muted/30"
 
 export const layoutCardSectionClassName =
-  "rounded-[1.15rem] border border-border/65 bg-card/95 px-5 py-5 shadow-[0_10px_24px_rgba(36,28,18,0.05)] ring-1 ring-foreground/[0.025]"
+  "border-b border-border/55 px-1 py-5 last:border-b-0"
 
 export const pageIntroPanelClassName = `${layoutCardClassName} px-5 py-5`
 

@@ -77,6 +77,7 @@ const mockSurnamePattern = Array.from(
     chineseWebNovelPack.genres.flatMap((genre) => [...genre.protagonistSurname])
   )
 ).join('');
+const MOCK_CHAPTER_MIN_CHARACTERS = 3000;
 
 function detectProtagonist(content: string) {
   const match = content.match(
@@ -87,6 +88,65 @@ function detectProtagonist(content: string) {
 
 function buildHookEnding(genre: ChineseWebNovelGenre, seedText: string) {
   return pickFromArray(genre.hookPhrases, `${seedText}:hook`);
+}
+
+function countVisibleCharacters(text: string) {
+  let count = 0;
+
+  for (const character of text) {
+    if (!/\s/u.test(character)) {
+      count += 1;
+    }
+  }
+
+  return count;
+}
+
+function buildExpandedMockChapter(input: {
+  genre: ChineseWebNovelGenre;
+  chapterTitle: string;
+  chapterOutline: string;
+  protagonist: string;
+  location: string;
+  openingImage: string;
+  pressureSource: string;
+  seedText: string;
+}) {
+  const faction = pickFromArray(
+    input.genre.factions,
+    `${input.seedText}:main-faction`
+  );
+  const secondLocation = pickFromArray(
+    input.genre.locations,
+    `${input.seedText}:second-location`
+  );
+  const hookEnding = buildHookEnding(input.genre, input.seedText);
+  const paragraphs = [
+    input.chapterTitle,
+    '',
+    `${input.openingImage}，${input.location}的空气像被${input.pressureSource}一寸寸压紧。${input.protagonist}站在人群尽头，听着那些刻薄的宣判一字一句落下，连指节都攥得发白。`,
+    `${input.chapterOutline}可真正让他心口发冷的，并不是羞辱本身，而是那股从旧物深处缓缓苏醒的回应。`,
+  ];
+  const beats = [
+    `四周的目光像钝刀一样刮过来，有人等着看他跪下，有人已经开始替${faction}计算下一步的好处。${input.protagonist}却把那些声音一层层按进心底，只记住了每个开口者的站位、语气和迟疑。他知道自己现在还不能反击，越是被逼到角落，越要把每一次退让都变成日后翻盘的证据。`,
+    `旧物的回应起初极轻，像水面下的钟声。${input.protagonist}低下眼，看见掌心边缘浮出一道几乎不可察觉的纹路，那纹路顺着血脉游走，把他过去忽略的细节一件件推回眼前。原来这场针对他的逼迫并非临时起意，早在${secondLocation}那次异常之后，就有人把他的名字写进了更深的账册。`,
+    `他想起师长或同伴曾经说过的话，也想起自己为何一路忍到今天。那些话并没有让他变得软弱，反而像暗处埋下的火星，在此刻一点点亮起来。${input.pressureSource}越重，他越清楚自己不能只求脱身；若今日只是逃走，明日同样的网就会落到更多无辜的人身上。`,
+    `人群终于出现裂缝。一个旁观者下意识后退，另一个人仓促按住袖中的传讯符，连负责宣判的人都停顿了半息。${input.protagonist}抓住这半息，抬头望向${faction}所在的方向，声音不高，却足以让周围安静下来。他没有辩解，也没有求饶，只把刚刚看见的破绽逐条说出，每一句都像钉子钉进木板。`,
+    `局势随之失控。有人想冲上来堵住他的嘴，有人急着销毁证物，还有人试图把整件事重新包装成误会。可越混乱，隐藏在背后的手越容易露出来。${input.protagonist}在逼近的脚步声中后退半步，故意让自己看起来仍然狼狈，却把真正的退路留给了那道刚刚苏醒的力量。`,
+    `那力量没有替他解决一切，只给了他一个选择：付出代价，换取一次看清真相的机会。${input.protagonist}没有立刻答应，因为他明白天下没有白来的转机。可当${input.location}深处传来第二声异响，他终于意识到，对方已经不打算给他活路。既然如此，所谓代价也不再只是损失，而是撕开旧局的刀锋。`,
+    `他迈出第一步时，脚下的阴影像被风吹散。那些曾经压得他喘不过气的规矩、账目与罪名，在这一刻露出彼此勾连的缝隙。${faction}并不是唯一的操盘者，${secondLocation}也不是偶然出现的地点，甚至连他被推到众人面前的时间，都像是有人精心算好的节点。`,
+    `然而真正的反击并不在此刻爆发。${input.protagonist}强迫自己收住怒意，只拿回最关键的一点主动权。他要让敌人以为他仍然孤立无援，让他们继续把藏在暗处的人叫出来。只要今晚的风再乱一些，只要那份旧账再多翻开一页，他就能顺着裂缝找到最初落笔的人。`,
+    `于是他把证物攥进掌心，任由锋利边缘割破皮肤。疼痛让他的意识异常清醒，也让那道苏醒的回应变得更加真切。四周的喧哗被拉得很远，他听见自己的心跳，也听见命运在暗处改写轨迹。退路已经断了，可前方第一次出现了可被他亲手撬开的门。`,
+    `等到最后一盏灯影晃动时，${input.protagonist}已经做出了决定。他不会在今晚把所有真相说尽，也不会让敌人看见自己真正握住了什么。他只留下一个足够锋利的疑问，让${faction}不得不追，让旁观者不得不想，让藏在幕后的人不得不提前出手。${hookEnding}`,
+  ];
+
+  let beatIndex = 0;
+  while (countVisibleCharacters(paragraphs.join('\n')) < MOCK_CHAPTER_MIN_CHARACTERS) {
+    paragraphs.push(beats[beatIndex % beats.length]);
+    beatIndex += 1;
+  }
+
+  return paragraphs.join('\n');
 }
 
 function buildMockTitle(genre: ChineseWebNovelGenre, idea: string) {
@@ -230,14 +290,16 @@ export function createMockChapterWriter() {
       const openingImage = pickFromArray(genre.openingImages, `${idea}:opening`);
       const pressureSource = pickFromArray(genre.pressureSources, `${idea}:pressure`);
 
-      const content = [
-        `${chapterTitle}`,
-        '',
-        `${openingImage}，${location}的空气像被${pressureSource}一寸寸压紧。${protagonist}站在人群尽头，听着那些刻薄的宣判一字一句落下，连指节都攥得发白。`,
-        `${chapterOutline}可真正让他心口发冷的，并不是羞辱本身，而是那股从旧物深处缓缓苏醒的回应。`,
-        `他原以为自己已经被逼到绝路，可越是低头，越能听见黑暗里那些迟来的声音。旧案没有结束，仇怨也没有被时间吞掉，反而正借着今晚的风重新逼近。`,
-        `当${protagonist}终于抬头时，他第一次明白，这场祸事从来不只是针对他个人，而是一张早已布好的网。${buildHookEnding(genre, input.prompt)}`,
-      ].join('\n');
+      const content = buildExpandedMockChapter({
+        genre,
+        chapterTitle,
+        chapterOutline,
+        protagonist,
+        location,
+        openingImage,
+        pressureSource,
+        seedText: input.prompt,
+      });
 
       return {
         content,

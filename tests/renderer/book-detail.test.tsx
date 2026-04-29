@@ -1,9 +1,20 @@
-import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { fireEvent, render, screen, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import BookDetail from '../../renderer/pages/BookDetail';
 
 describe('BookDetail', () => {
-  it('renders the detail title inside the shared intro panel', () => {
+  let scrollIntoViewSpy: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    scrollIntoViewSpy = vi.fn();
+    HTMLElement.prototype.scrollIntoView = scrollIntoViewSpy;
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('renders the detail title and actions inside a compact topbar', () => {
     render(
       <BookDetail
         book={{ title: 'Book 1', status: 'writing', wordCount: 12000 }}
@@ -11,11 +22,28 @@ describe('BookDetail', () => {
       />
     );
 
-    expect(screen.getByTestId('book-detail-intro-panel').className).toContain(
-      'rounded-[1.35rem]'
+    const topbar = screen.getByTestId('book-detail-topbar');
+
+    expect(topbar.className).toContain('border-b');
+    expect(topbar.className).not.toContain('rounded-[');
+    expect(topbar.className).not.toContain('shadow');
+    expect(screen.queryByTestId('book-detail-intro-panel')).toBeNull();
+    expect(screen.queryByTestId('book-detail-header')).toBeNull();
+    expect(screen.queryByText('Manuscript Workspace')).toBeNull();
+    expect(
+      screen.getByRole('heading', { name: 'Book 1（写作中 · 1.2 万字）' })
+    ).toBeInTheDocument();
+    expect(screen.getByTestId('book-detail-title').className).toContain(
+      'flex-wrap'
     );
-    expect(screen.getByText('Manuscript Workspace')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Book 1' })).toBeInTheDocument();
+    expect(screen.getByTestId('book-detail-title').className).toContain(
+      'break-words'
+    );
+    expect(screen.getByTestId('book-detail-title').className).not.toContain(
+      'truncate'
+    );
+    expect(screen.queryByText('12000 字')).toBeNull();
+    expect(screen.getByRole('button', { name: '暂停' })).toBeInTheDocument();
   });
 
   it('renders chapters, reading, and context as fixed workbench panels', async () => {
@@ -36,9 +64,12 @@ describe('BookDetail', () => {
       />
     );
 
-    expect(screen.getByText('写作中 · 12000 字')).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Book 1（写作中 · 1.2 万字）' })
+    ).toBeInTheDocument();
     expect(screen.getByLabelText('章节列表标题')).toHaveTextContent('章节');
     expect(screen.getByLabelText('正文面板')).toBeInTheDocument();
+    expect(screen.getByLabelText('进度面板')).toBeInTheDocument();
     expect(screen.getByLabelText('上下文面板')).toBeInTheDocument();
     expect(screen.getByRole('tablist')).toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: '章节' })).toBeNull();
@@ -98,19 +129,19 @@ describe('BookDetail', () => {
       />
     );
 
-    expect(screen.getByText('正文预览')).toBeInTheDocument();
+    expect(screen.getByText('Generated chapter content')).toBeInTheDocument();
     expect(screen.getByText('总纲')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('tab', { name: '大纲' }));
 
     expect(await screen.findByText('总纲')).toBeInTheDocument();
-    expect(screen.getByText('正文预览')).toBeInTheDocument();
+    expect(screen.getByText('Generated chapter content')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('tab', { name: '人物' }));
 
     expect(await screen.findByText('人物状态')).toBeInTheDocument();
     expect(screen.queryByText('总纲')).toBeNull();
-    expect(screen.getByText('正文预览')).toBeInTheDocument();
+    expect(screen.getByText('Generated chapter content')).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: '人物' })).toHaveAttribute(
       'aria-selected',
       'true'
@@ -123,7 +154,7 @@ describe('BookDetail', () => {
     fireEvent.click(screen.getByRole('tab', { name: '伏笔' }));
 
     expect(await screen.findByText('伏笔追踪')).toBeInTheDocument();
-    expect(screen.getByText('正文预览')).toBeInTheDocument();
+    expect(screen.getByText('Generated chapter content')).toBeInTheDocument();
   });
 
   it('shows an empty state when the selected tab has no content yet', async () => {
@@ -199,9 +230,39 @@ describe('BookDetail', () => {
 
     expect(screen.getByRole('button', { name: '暂停' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '恢复写作' })).toBeEnabled();
-    expect(screen.getByRole('button', { name: '写下一章' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: '连续写作' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '导出 TXT' })).toBeEnabled();
+  });
+
+  it('omits duplicate writing and markdown export actions from the topbar', () => {
+    render(
+      <BookDetail
+        book={{ title: 'Book 1', status: 'writing', wordCount: 12000 }}
+        progress={{ phase: 'writing' }}
+        chapters={[
+          {
+            id: '1-1',
+            title: 'Chapter 1',
+            wordCount: 1200,
+            status: 'done',
+            content: 'Generated chapter content',
+          },
+          {
+            id: '1-2',
+            title: 'Chapter 2',
+            wordCount: 0,
+            status: 'queued',
+            content: null,
+          },
+        ]}
+      />
+    );
+
+    const topbar = screen.getByTestId('book-detail-topbar');
+
+    expect(within(topbar).queryByRole('button', { name: '写下一章' })).toBeNull();
+    expect(within(topbar).queryByRole('button', { name: '连续写作' })).toBeNull();
+    expect(within(topbar).queryByRole('button', { name: '导出 MD' })).toBeNull();
+    expect(within(topbar).getByRole('button', { name: '导出 TXT' })).toBeInTheDocument();
   });
 
   it('keeps action labels while adding visual icons to toolbar commands', () => {
@@ -232,10 +293,7 @@ describe('BookDetail', () => {
       '暂停',
       '恢复写作',
       '重新开始',
-      '写下一章',
-      '连续写作',
       '导出 TXT',
-      '导出 MD',
       '删除作品',
     ]) {
       expect(
@@ -263,7 +321,6 @@ describe('BookDetail', () => {
     );
 
     expect(screen.getByRole('button', { name: '导出 TXT' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: '导出 MD' })).toBeDisabled();
   });
 
   it('preserves chapter line breaks in the preview area', async () => {
@@ -337,13 +394,19 @@ describe('BookDetail', () => {
       />
     );
 
-    expect(await screen.findByText('当前步骤')).toBeInTheDocument();
-    expect(screen.getByText('正在写第 2 章')).toBeInTheDocument();
-    expect(screen.getByText('已完成 1 / 3 章')).toBeInTheDocument();
-    expect(screen.getByLabelText('章节进度')).toHaveAttribute(
+    const progressPanel = screen.getByLabelText('进度面板');
+    const readingPanel = screen.getByLabelText('正文面板');
+
+    expect(within(progressPanel).getByText('进度')).toBeInTheDocument();
+    expect(within(progressPanel).getByText('正在写第 2 章')).toBeInTheDocument();
+    expect(within(progressPanel).getByText('已完成 1 / 3 章')).toBeInTheDocument();
+    expect(within(progressPanel).queryByText('第 1.2 章')).toBeNull();
+    expect(within(progressPanel).getByLabelText('章节进度')).toHaveAttribute(
       'aria-valuenow',
       '33'
     );
+    expect(within(readingPanel).queryByText('正在写第 2 章')).toBeNull();
+    expect(within(readingPanel).queryByText('已完成 1 / 3 章')).toBeNull();
     expect(screen.getByLabelText('章节列表标题')).toHaveTextContent('章节');
     expect(screen.getByLabelText('章节列表标题')).toHaveTextContent('1 / 3');
     expect(screen.getByLabelText('章节列表标题')).not.toHaveTextContent('33%');
@@ -360,7 +423,7 @@ describe('BookDetail', () => {
     expect(screen.getByRole('button', { name: /第 3 章 · Chapter 3/ })).toBeInTheDocument();
   });
 
-  it('selects an outline-only chapter and shows its outline as the preview', async () => {
+  it('selects an outline-only chapter and shows an empty manuscript state', async () => {
     render(
       <BookDetail
         book={{ title: 'Book 1', status: 'writing', wordCount: 1200 }}
@@ -392,11 +455,60 @@ describe('BookDetail', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: /第 2 章 · Chapter 2/ }));
 
-    expect(
-      await screen.findByText('当前查看：第 2 章 · Chapter 2')
-    ).toBeInTheDocument();
-    expect(await screen.findByText('章节大纲')).toBeInTheDocument();
-    expect(screen.getByText('Second conflict')).toBeInTheDocument();
+    const readingPanel = screen.getByLabelText('正文面板');
+
+    expect(within(readingPanel).queryByText('当前章节暂无正文')).toBeNull();
+    expect(screen.queryByText('当前查看：第 2 章 · Chapter 2')).toBeNull();
+    expect(screen.queryByText('章节大纲')).toBeNull();
+    expect(screen.queryByText('Second conflict')).toBeNull();
+  });
+
+  it('keeps the reading card focused on manuscript content only', async () => {
+    render(
+      <BookDetail
+        book={{ title: 'Book 1', status: 'writing', wordCount: 1200 }}
+        progress={{
+          phase: 'writing',
+          stepLabel: '正在写第 2 章',
+          currentVolume: 1,
+          currentChapter: 2,
+        }}
+        chapters={[
+          {
+            id: '1-1',
+            volumeIndex: 1,
+            chapterIndex: 1,
+            title: 'Chapter 1',
+            wordCount: 1200,
+            status: 'done',
+            content: '第一章正文',
+            summary: 'Chapter summary',
+          },
+          {
+            id: '1-2',
+            volumeIndex: 1,
+            chapterIndex: 2,
+            title: 'Chapter 2',
+            wordCount: 0,
+            status: 'writing',
+            content: null,
+            outline: 'Second conflict',
+          },
+        ]}
+      />
+    );
+
+    const readingPanel = screen.getByLabelText('正文面板');
+
+    expect(readingPanel.className).toContain('grid-rows-[auto_minmax(0,1fr)]');
+    expect(within(readingPanel).getByRole('heading', { name: '正文' })).toBeInTheDocument();
+    expect(within(readingPanel).queryByText('Chapter 2')).toBeNull();
+    expect(within(readingPanel).queryByText('当前步骤')).toBeNull();
+    expect(within(readingPanel).queryByText(/当前查看/)).toBeNull();
+    expect(within(readingPanel).queryByText('章节大纲')).toBeNull();
+    expect(within(readingPanel).queryByText('章节摘要')).toBeNull();
+    expect(within(readingPanel).queryByText('当前章节暂无正文')).toBeNull();
+    expect(within(readingPanel).queryByText('选择章节后查看正文')).toBeNull();
   });
 
   it('keeps the workbench fixed while chapters, reading, and context scroll internally', async () => {
@@ -485,7 +597,6 @@ describe('BookDetail', () => {
       />
     );
 
-    expect(await screen.findByText('实时输出')).toBeInTheDocument();
     expect(
       screen.getByText(
         (_content, element) =>
@@ -493,8 +604,88 @@ describe('BookDetail', () => {
           element.textContent === '流式第一段\n流式第二段'
       )
     ).toHaveClass('whitespace-pre-wrap');
-    expect(screen.getByText('正在输出 Chapter 2')).toBeInTheDocument();
-    expect(screen.getByText('第 2 章 · 已接收 10 字')).toBeInTheDocument();
+    expect(screen.queryByText('实时输出')).toBeNull();
+    expect(screen.queryByText('正在输出 Chapter 2')).toBeNull();
+    expect(screen.queryByText('第 2 章 · 已接收 10 字')).toBeNull();
+  });
+
+  it('keeps live stream in the center panel and follows new output', async () => {
+    const chapters = [
+      {
+        id: '1-1',
+        volumeIndex: 1,
+        chapterIndex: 1,
+        title: 'Chapter 1',
+        wordCount: 0,
+        status: 'writing' as const,
+        content: null,
+        outline: 'Opening conflict',
+      },
+    ];
+
+    const { rerender } = render(
+      <BookDetail
+        book={{ title: 'Book 1', status: 'writing', wordCount: 0 }}
+        progress={{
+          phase: 'writing',
+          stepLabel: '正在写第 1 章',
+          currentVolume: 1,
+          currentChapter: 1,
+        }}
+        liveOutput={{
+          volumeIndex: 1,
+          chapterIndex: 1,
+          title: 'Chapter 1',
+          content: '流式第一段',
+        }}
+        chapters={chapters}
+      />
+    );
+
+    const readingPanel = screen.getByLabelText('正文面板');
+    const contextPanel = screen.getByLabelText('上下文面板');
+    const progressPanel = screen.getByLabelText('进度面板');
+    const streamPane = await screen.findByTestId('chapter-stream-pane');
+
+    expect(streamPane).toBeInTheDocument();
+    expect(within(progressPanel).getByText('正在写第 1 章')).toBeInTheDocument();
+    expect(within(readingPanel).queryByText('正在写第 1 章')).toBeNull();
+    expect(within(contextPanel).queryByText('正在写第 1 章')).toBeNull();
+    expect(within(readingPanel).getByText('流式第一段')).toBeInTheDocument();
+
+    scrollIntoViewSpy.mockClear();
+
+    rerender(
+      <BookDetail
+        book={{ title: 'Book 1', status: 'writing', wordCount: 0 }}
+        progress={{
+          phase: 'writing',
+          stepLabel: '正在写第 1 章',
+          currentVolume: 1,
+          currentChapter: 1,
+        }}
+        liveOutput={{
+          volumeIndex: 1,
+          chapterIndex: 1,
+          title: 'Chapter 1',
+          content: '流式第一段\n流式第二段',
+        }}
+        chapters={chapters}
+      />
+    );
+
+    expect(
+      screen.getByText(
+        (_content, element) =>
+          element?.tagName === 'P' &&
+          element.textContent === '流式第一段\n流式第二段'
+      )
+    ).toBeInTheDocument();
+    expect(scrollIntoViewSpy).toHaveBeenCalledWith({
+      block: 'end',
+      inline: 'nearest',
+      behavior: 'smooth',
+    });
   });
 
   it('automatically follows the streaming chapter until the user selects another chapter', async () => {
@@ -584,33 +775,138 @@ describe('BookDetail', () => {
       'true'
     );
     expect(screen.getByRole('button', { name: /第 2 章 · Chapter 2/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '回到实时追踪' })).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: '回到实时追踪' }));
-
-    expect(screen.getByRole('button', { name: /第 2 章 · Chapter 2/ })).toHaveAttribute(
-      'data-selected',
-      'true'
-    );
+    expect(screen.queryByText('正在后台追踪当前写作章节。')).toBeNull();
     expect(screen.queryByRole('button', { name: '回到实时追踪' })).toBeNull();
   });
 
-  it('uses the shared layout card treatment for the page shell and detail sections', async () => {
-    render(
+  it('scrolls the chapter list to the active chapter as soon as the next chapter starts', async () => {
+    const chapters = Array.from({ length: 80 }, (_, index) => {
+      const chapterIndex = index + 1;
+
+      return {
+        id: `1-${chapterIndex}`,
+        volumeIndex: 1,
+        chapterIndex,
+        title: `Chapter ${chapterIndex}`,
+        wordCount: index < 58 ? 1200 : 0,
+        status: index < 58 ? ('done' as const) : ('queued' as const),
+        content: index < 58 ? `第 ${chapterIndex} 章正文` : null,
+        outline: `Chapter ${chapterIndex} outline`,
+      };
+    });
+
+    const { rerender } = render(
       <BookDetail
-        book={{ title: 'Book 1', status: 'writing', wordCount: 12000 }}
+        book={{ title: 'Book 1', status: 'writing', wordCount: 69600 }}
+        progress={{ phase: 'writing' }}
+        chapters={chapters}
       />
     );
 
-    expect(screen.getByTestId('book-detail-header').className).toContain(
-      'rounded-[1.35rem]'
-    );
-    expect(screen.getByTestId('book-detail-header').className).toContain('ring-1');
+    scrollIntoViewSpy.mockClear();
 
-    fireEvent.click(screen.getByRole('tab', { name: '大纲' }));
+    rerender(
+      <BookDetail
+        book={{ title: 'Book 1', status: 'writing', wordCount: 69600 }}
+        progress={{
+          phase: 'writing',
+          stepLabel: '正在写第 60 章',
+          currentVolume: 1,
+          currentChapter: 60,
+        }}
+        chapters={chapters}
+      />
+    );
 
     expect(
-      (await screen.findByTestId('book-detail-empty-outline')).className
-    ).toContain('border-dashed');
+      await screen.findByRole('button', { name: /第 60 章 · Chapter 60/ })
+    ).toHaveAttribute('data-selected', 'true');
+    expect(scrollIntoViewSpy).toHaveBeenCalledWith({
+      block: 'center',
+      inline: 'nearest',
+      behavior: 'smooth',
+    });
+  });
+
+  it('scrolls the manually selected chapter toward the middle of the chapter list', async () => {
+    const chapters = Array.from({ length: 80 }, (_, index) => {
+      const chapterIndex = index + 1;
+
+      return {
+        id: `1-${chapterIndex}`,
+        volumeIndex: 1,
+        chapterIndex,
+        title: `Chapter ${chapterIndex}`,
+        wordCount: index < 80 ? 1200 : 0,
+        status: 'done' as const,
+        content: `第 ${chapterIndex} 章正文`,
+        outline: `Chapter ${chapterIndex} outline`,
+      };
+    });
+
+    render(
+      <BookDetail
+        book={{ title: 'Book 1', status: 'completed', wordCount: 96000 }}
+        progress={{ phase: 'completed' }}
+        chapters={chapters}
+      />
+    );
+
+    scrollIntoViewSpy.mockClear();
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: /第 60 章 · Chapter 60/ })
+    );
+
+    expect(
+      screen.getByRole('button', { name: /第 60 章 · Chapter 60/ })
+    ).toHaveAttribute('data-selected', 'true');
+    expect(scrollIntoViewSpy).toHaveBeenCalledWith({
+      block: 'center',
+      inline: 'nearest',
+      behavior: 'smooth',
+    });
+  });
+
+  it('keeps internal detail sections flat inside the page panels', async () => {
+    render(
+      <BookDetail
+        book={{ title: 'Book 1', status: 'writing', wordCount: 12000 }}
+        progress={{
+          phase: 'writing',
+          stepLabel: '正在写第 1 章',
+          currentVolume: 1,
+          currentChapter: 1,
+        }}
+        chapters={[
+          {
+            id: '1-1',
+            volumeIndex: 1,
+            chapterIndex: 1,
+            title: 'Chapter 1',
+            wordCount: 1200,
+            status: 'done',
+            content: '第一章正文',
+            summary: 'Chapter summary',
+          },
+        ]}
+      />
+    );
+
+    expect(screen.getByTestId('book-detail-topbar').className).not.toContain(
+      'rounded-['
+    );
+    expect(screen.getByTestId('book-detail-topbar').className).not.toContain('ring-1');
+
+    const readingPanel = screen.getByLabelText('正文面板');
+    const progressPanel = screen.getByLabelText('进度面板');
+
+    expect(readingPanel.className).toContain('grid-rows-[auto_minmax(0,1fr)]');
+    expect(progressPanel.className).toContain('grid-rows-[auto_minmax(0,1fr)]');
+    expect(within(progressPanel).getByText('进度')).toBeInTheDocument();
+    expect(within(readingPanel).queryByText('进度')).toBeNull();
+    expect(within(readingPanel).queryByText('当前查看：第 1 章 · Chapter 1')).toBeNull();
+    expect(within(readingPanel).queryByText('章节摘要')).toBeNull();
+    expect(within(readingPanel).getByText('第一章正文')).toBeInTheDocument();
   });
 });

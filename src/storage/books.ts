@@ -58,7 +58,7 @@ export function createBookRepository(db: SqliteDatabase) {
               created_at AS createdAt,
               updated_at AS updatedAt
             FROM books
-            ORDER BY updated_at DESC
+            ORDER BY created_at DESC
           `
         )
         .all() as BookRecord[];
