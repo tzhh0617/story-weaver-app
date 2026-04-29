@@ -1,6 +1,11 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import { flushSync } from 'react-dom';
 import {
+  parseBooleanSetting,
+  serializeBooleanSetting,
+  SHORT_CHAPTER_REVIEW_ENABLED_KEY,
+} from '../src/core/chapter-review';
+import {
   ipcChannels,
   type BookExportFormat,
   type BookRecord,
@@ -61,6 +66,8 @@ export default function App() {
   const [selectedBookDetail, setSelectedBookDetail] = useState<BookDetailData | null>(
     null
   );
+  const [shortChapterReviewEnabled, setShortChapterReviewEnabled] =
+    useState(true);
 
   async function loadBooks() {
     const nextBooks = await ipc.invoke<BookRecord[]>(ipcChannels.bookList);
@@ -114,6 +121,15 @@ export default function App() {
     setModelConfigs(safeConfigs);
   }
 
+  async function loadSettings() {
+    const nextValue = await ipc.invoke<string | null>(
+      ipcChannels.settingsGet,
+      SHORT_CHAPTER_REVIEW_ENABLED_KEY
+    );
+
+    setShortChapterReviewEnabled(parseBooleanSetting(nextValue));
+  }
+
   async function loadBookDetail(
     bookId: string,
     options?: { openView?: boolean; preserveExistingOnMissing?: boolean }
@@ -146,6 +162,7 @@ export default function App() {
   useEffect(() => {
     void loadBooks();
     void loadModels();
+    void loadSettings();
   }, []);
 
   useEffect(() => {
@@ -540,6 +557,7 @@ export default function App() {
                 config: config.config,
               }))}
               concurrencyLimit={progress?.concurrencyLimit ?? null}
+              shortChapterReviewEnabled={shortChapterReviewEnabled}
               onSaveSetting={async (input) => {
                 try {
                   flushSync(() => {
@@ -555,6 +573,15 @@ export default function App() {
                         ? ''
                         : String(input.concurrencyLimit),
                   });
+                  await ipc.invoke(ipcChannels.settingsSet, {
+                    key: SHORT_CHAPTER_REVIEW_ENABLED_KEY,
+                    value: serializeBooleanSetting(
+                      input.shortChapterReviewEnabled
+                    ),
+                  });
+                  setShortChapterReviewEnabled(
+                    input.shortChapterReviewEnabled
+                  );
                   flushSync(() => {
                     setBanner({
                       tone: 'success',

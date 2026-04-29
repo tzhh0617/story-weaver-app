@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_MOCK_MODEL_ID } from '../../src/models/runtime-mode';
+import { countStoryCharacters } from '../../src/core/story-constraints';
 
 function makeTempHome(testName: string) {
   return path.resolve(
@@ -14,8 +15,14 @@ function makeTempHome(testName: string) {
 async function loadRuntimeServices(input: {
   tempHome: string;
   generateTextImpl: ReturnType<typeof vi.fn>;
+  mockDelayMs?: number;
 }) {
   vi.resetModules();
+  if (input.mockDelayMs === undefined) {
+    delete process.env.STORY_WEAVER_MOCK_DELAY_MS;
+  } else {
+    process.env.STORY_WEAVER_MOCK_DELAY_MS = String(input.mockDelayMs);
+  }
   vi.doMock('node:os', () => ({
     default: {
       homedir: () => input.tempHome,
@@ -33,6 +40,25 @@ async function loadRuntimeServices(input: {
   return runtimeModule.getRuntimeServices();
 }
 
+async function waitForBookStatus(
+  services: Awaited<ReturnType<typeof loadRuntimeServices>>,
+  bookId: string,
+  status: string
+) {
+  const deadline = Date.now() + 2000;
+
+  while (Date.now() < deadline) {
+    const detail = services.bookService.getBookDetail(bookId);
+    if (detail?.book.status === status) {
+      return detail;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+
+  return services.bookService.getBookDetail(bookId);
+}
+
 describe('runtime mock fallback', () => {
   let tempHome = '';
 
@@ -44,6 +70,8 @@ describe('runtime mock fallback', () => {
   afterEach(() => {
     vi.doUnmock('node:os');
     vi.doUnmock('ai');
+    delete process.env.STORY_WEAVER_MOCK_DELAY_MS;
+    vi.useRealTimers();
     fs.rmSync(tempHome, { recursive: true, force: true });
   });
 
@@ -54,6 +82,7 @@ describe('runtime mock fallback', () => {
     const services = await loadRuntimeServices({
       tempHome,
       generateTextImpl: generateText,
+      mockDelayMs: 0,
     });
 
     const bookId = services.bookService.createBook({
@@ -78,11 +107,45 @@ describe('runtime mock fallback', () => {
     expect(generateText).not.toHaveBeenCalled();
   });
 
+  it('keeps mock runtime generation within the original chapter and word limits', async () => {
+    const generateText = vi.fn().mockResolvedValue({
+      text: 'should not be used',
+    });
+    const services = await loadRuntimeServices({
+      tempHome,
+      generateTextImpl: generateText,
+      mockDelayMs: 0,
+    });
+
+    const bookId = services.bookService.createBook({
+      idea: '一个被宗门逐出的少年，意外继承了会吞噬因果的古镜。',
+      targetChapters: 3,
+      wordsPerChapter: 90,
+    });
+
+    await services.startBook(bookId);
+
+    const detail = await waitForBookStatus(services, bookId, 'completed');
+
+    expect(detail?.book.status).toBe('completed');
+    expect(detail?.chapters).toHaveLength(3);
+    expect(
+      detail?.chapters.every(
+        (chapter) =>
+          chapter.content &&
+          chapter.content.length > 0 &&
+          chapter.wordCount === countStoryCharacters(chapter.content)
+      )
+    ).toBe(true);
+    expect(generateText).not.toHaveBeenCalled();
+  });
+
   it('does not swallow real-model failures once a complete config exists', async () => {
     const generateText = vi.fn().mockRejectedValue(new Error('bad key'));
     const services = await loadRuntimeServices({
       tempHome,
       generateTextImpl: generateText,
+      mockDelayMs: 0,
     });
 
     services.modelConfigs.save({
@@ -110,6 +173,7 @@ describe('runtime mock fallback', () => {
     const services = await loadRuntimeServices({
       tempHome,
       generateTextImpl: generateText,
+      mockDelayMs: 0,
     });
 
     await expect(
@@ -143,6 +207,7 @@ describe('runtime mock fallback', () => {
     const services = await loadRuntimeServices({
       tempHome,
       generateTextImpl: generateText,
+      mockDelayMs: 0,
     });
 
     const bookId = services.bookService.createBook({
@@ -161,6 +226,37 @@ describe('runtime mock fallback', () => {
     expect(detail?.plotThreads.some((thread) => /债务|档案|清算/.test(thread.description))).toBe(
       true
     );
+    expect(generateText).not.toHaveBeenCalled();
+  });
+
+  it('delays mock chapter output by about one second when no model is configured', async () => {
+    vi.useFakeTimers();
+    const generateText = vi.fn().mockResolvedValue({
+      text: 'should not be used',
+    });
+    const services = await loadRuntimeServices({
+      tempHome,
+      generateTextImpl: generateText,
+    });
+
+    const bookId = services.bookService.createBook({
+      idea: '一个被宗门逐出的少年，意外继承了会吞噬因果的古镜。',
+      targetChapters: 1,
+      wordsPerChapter: 90,
+    });
+
+    const startPromise = services.bookService.startBook(bookId);
+    await vi.advanceTimersByTimeAsync(2000);
+    await startPromise;
+    const writePromise = services.bookService.writeNextChapter(bookId);
+
+    await vi.advanceTimersByTimeAsync(999);
+    await expect(Promise.race([writePromise, Promise.resolve('pending')])).resolves.toBe(
+      'pending'
+    );
+
+    await vi.advanceTimersByTimeAsync(1);
+    await writePromise;
     expect(generateText).not.toHaveBeenCalled();
   });
 });

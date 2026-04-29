@@ -3,6 +3,11 @@ import type { BookStatus } from '../shared/contracts.js';
 import { DEFAULT_MOCK_MODEL_ID } from '../models/runtime-mode.js';
 import { buildStoredChapterContext } from './consistency.js';
 import { buildChapterDraftPrompt } from './prompt-builder.js';
+import {
+  assertPositiveIntegerLimit,
+  countStoryCharacters,
+  normalizeChapterOutlinesToTarget,
+} from './story-constraints.js';
 import type { OutlineBundle, OutlineGenerationInput } from './types.js';
 
 const CHAPTER_CONTEXT_MAX_CHARACTERS = 6000;
@@ -47,6 +52,22 @@ type ChapterUpdate = {
 
 function hasUsableChapterUpdate(update: ChapterUpdate) {
   return update.summary.trim().length > 0;
+}
+
+function buildShortChapterRewritePrompt(input: {
+  originalPrompt: string;
+  wordsPerChapter: number;
+  actualWordCount: number;
+}) {
+  return [
+    input.originalPrompt,
+    '',
+    'Automatic review found this chapter too short.',
+    `Generated effective word count: ${input.actualWordCount}`,
+    `Soft target word count: approximately ${input.wordsPerChapter}`,
+    'Start over from the original chapter brief and write a complete replacement draft. Preserve the same chapter title, outline, continuity, and story direction, but expand scenes, conflict, sensory detail, and emotional beats naturally.',
+    'Do not summarize, do not explain the rewrite, and do not truncate the prose.',
+  ].join('\n');
 }
 
 function saveChapterOutlines(
@@ -379,6 +400,10 @@ export function createBookService(deps: {
       content: string;
     }) => Promise<ChapterUpdate>;
   };
+  shouldRewriteShortChapter?: (input: {
+    content: string;
+    wordsPerChapter: number;
+  }) => boolean;
   resolveModelId?: () => string;
   onBookUpdated?: (bookId: string) => void;
 }) {
@@ -391,6 +416,15 @@ export function createBookService(deps: {
       wordsPerChapter: number;
       modelId?: string;
     }) {
+      assertPositiveIntegerLimit(
+        input.targetChapters,
+        'Target chapters must be a positive integer'
+      );
+      assertPositiveIntegerLimit(
+        input.wordsPerChapter,
+        'Words per chapter must be a positive integer'
+      );
+
       const id = randomUUID();
 
       deps.books.create({
@@ -520,7 +554,14 @@ export function createBookService(deps: {
         outline: outlineBundle.masterOutline,
       });
 
-      saveChapterOutlines(deps, bookId, outlineBundle.chapterOutlines);
+      saveChapterOutlines(
+        deps,
+        bookId,
+        normalizeChapterOutlinesToTarget(
+          outlineBundle.chapterOutlines,
+          book.targetChapters
+        )
+      );
 
       deps.books.updateStatus(bookId, 'building_outline');
       deps.progress.updatePhase(bookId, 'building_outline');
@@ -565,31 +606,54 @@ export function createBookService(deps: {
       }
 
       const modelId = resolveModelId();
-      const result = await deps.chapterWriter.writeChapter({
-        modelId,
-        prompt: buildChapterDraftPrompt({
-          idea: book.idea,
+      const prompt = buildChapterDraftPrompt({
+        idea: book.idea,
+        worldSetting: context?.worldSetting ?? null,
+        masterOutline: context?.outline ?? null,
+        continuityContext: buildStoredChapterContext({
           worldSetting: context?.worldSetting ?? null,
-          masterOutline: context?.outline ?? null,
-          continuityContext: buildStoredChapterContext({
-            worldSetting: context?.worldSetting ?? null,
-            characterStates: deps.characters.listLatestStatesByBook(bookId),
-            plotThreads: deps.plotThreads.listByBook(bookId),
-            latestScene: deps.sceneRecords.getLatestByBook(bookId),
-            chapters,
-            currentChapter: {
-              volumeIndex: nextChapter.volumeIndex,
-              chapterIndex: nextChapter.chapterIndex,
-              outline: nextChapter.outline,
-            },
-            maxCharacters: CHAPTER_CONTEXT_MAX_CHARACTERS,
-          }),
-          chapterTitle: nextChapter.title,
-          chapterOutline: nextChapter.outline,
-          targetChapters: book.targetChapters,
-          wordsPerChapter: book.wordsPerChapter,
+          characterStates: deps.characters.listLatestStatesByBook(bookId),
+          plotThreads: deps.plotThreads.listByBook(bookId),
+          latestScene: deps.sceneRecords.getLatestByBook(bookId),
+          chapters,
+          currentChapter: {
+            volumeIndex: nextChapter.volumeIndex,
+            chapterIndex: nextChapter.chapterIndex,
+            outline: nextChapter.outline,
+          },
+          maxCharacters: CHAPTER_CONTEXT_MAX_CHARACTERS,
         }),
+        chapterTitle: nextChapter.title,
+        chapterOutline: nextChapter.outline,
+        targetChapters: book.targetChapters,
+        wordsPerChapter: book.wordsPerChapter,
       });
+      let result = await deps.chapterWriter.writeChapter({
+        modelId,
+        prompt,
+      });
+
+      if (!deps.books.getById(bookId)) {
+        return {
+          deleted: true as const,
+        };
+      }
+
+      if (
+        deps.shouldRewriteShortChapter?.({
+          content: result.content,
+          wordsPerChapter: book.wordsPerChapter,
+        })
+      ) {
+        result = await deps.chapterWriter.writeChapter({
+          modelId,
+          prompt: buildShortChapterRewritePrompt({
+            originalPrompt: prompt,
+            wordsPerChapter: book.wordsPerChapter,
+            actualWordCount: countStoryCharacters(result.content),
+          }),
+        });
+      }
 
       if (!deps.books.getById(bookId)) {
         return {
@@ -616,7 +680,7 @@ export function createBookService(deps: {
         chapterIndex: nextChapter.chapterIndex,
         content: result.content,
         summary: chapterUpdate.summary,
-        wordCount: result.content.length,
+        wordCount: countStoryCharacters(result.content),
       });
 
       for (const thread of chapterUpdate.openedThreads) {
@@ -672,6 +736,7 @@ export function createBookService(deps: {
 
       deps.books.updateStatus(bookId, nextPhase);
       deps.progress.updatePhase(bookId, nextPhase);
+      deps.onBookUpdated?.(bookId);
 
       return result;
     },
@@ -730,6 +795,7 @@ export function createBookService(deps: {
 
       deps.books.updateStatus(bookId, 'completed');
       deps.progress.updatePhase(bookId, 'completed');
+      deps.onBookUpdated?.(bookId);
 
       return {
         completedChapters,

@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, nativeImage } from 'electron';
 import path from 'node:path';
 import { registerBookHandlers } from './ipc/books.js';
 import { registerModelHandlers } from './ipc/models.js';
@@ -6,10 +6,14 @@ import { registerSchedulerHandlers } from './ipc/scheduler.js';
 import { registerSettingsHandlers } from './ipc/settings.js';
 
 async function createWindow() {
-  const windowIcon =
-    process.platform === 'darwin'
-      ? undefined
-      : path.join(app.getAppPath(), 'build/icon.png');
+  const appIcon = nativeImage.createFromPath(
+    path.join(app.getAppPath(), 'build/icon.png')
+  );
+
+  if (process.platform === 'darwin' && app.dock && !appIcon.isEmpty()) {
+    app.dock.setIcon(appIcon);
+  }
+
   const mainWindow = new BrowserWindow({
     width: 1440,
     height: 960,
@@ -17,7 +21,7 @@ async function createWindow() {
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 14, y: 13 },
     backgroundColor: '#efe6d5',
-    icon: windowIcon,
+    icon: appIcon.isEmpty() ? undefined : appIcon,
     webPreferences: {
       preload: path.join(app.getAppPath(), 'dist-electron/electron/preload.cjs'),
       contextIsolation: true,

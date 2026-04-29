@@ -24,6 +24,7 @@ export default function Settings({
   onTestModel,
   models,
   concurrencyLimit,
+  shortChapterReviewEnabled = true,
   onSaveSetting,
 }: {
   onSaveModel: (input: {
@@ -51,10 +52,18 @@ export default function Settings({
     config?: Record<string, unknown>;
   }>;
   concurrencyLimit: number | null;
-  onSaveSetting: (input: { concurrencyLimit: number | null }) => void;
+  shortChapterReviewEnabled?: boolean;
+  onSaveSetting: (input: {
+    concurrencyLimit: number | null;
+    shortChapterReviewEnabled: boolean;
+  }) => void;
 }) {
   const syncedValue = concurrencyLimit?.toString() ?? '';
   const [concurrencyValue, setConcurrencyValue] = useState(syncedValue);
+  const [
+    shortChapterReviewValue,
+    setShortChapterReviewValue,
+  ] = useState(shortChapterReviewEnabled);
   const selectedModel = models[0] ?? null;
   const trimmedConcurrencyValue = concurrencyValue.trim();
   const parsedConcurrencyValue = trimmedConcurrencyValue
@@ -63,7 +72,9 @@ export default function Settings({
   const isConcurrencyValid =
     parsedConcurrencyValue === null ||
     (Number.isInteger(parsedConcurrencyValue) && parsedConcurrencyValue >= 1);
-  const hasSettingChanges = trimmedConcurrencyValue !== syncedValue;
+  const hasSettingChanges =
+    trimmedConcurrencyValue !== syncedValue ||
+    shortChapterReviewValue !== shortChapterReviewEnabled;
   const canSaveSettings = hasSettingChanges && isConcurrencyValid;
 
   useEffect(() => {
@@ -71,6 +82,10 @@ export default function Settings({
       currentValue === syncedValue || currentValue === '' ? syncedValue : currentValue
     );
   }, [syncedValue]);
+
+  useEffect(() => {
+    setShortChapterReviewValue(shortChapterReviewEnabled);
+  }, [shortChapterReviewEnabled]);
 
   return (
     <section className="grid gap-6">
@@ -131,6 +146,21 @@ export default function Settings({
                 }}
               />
             </div>
+            <label
+              htmlFor="settings-short-chapter-review"
+              className="flex items-start gap-3 text-sm leading-6"
+            >
+              <input
+                id="settings-short-chapter-review"
+                type="checkbox"
+                className="mt-1 size-4"
+                checked={shortChapterReviewValue}
+                onChange={(event) => {
+                  setShortChapterReviewValue(event.target.checked);
+                }}
+              />
+              <span>短章节自动审查重做</span>
+            </label>
             <Button
               type="button"
               disabled={!canSaveSettings}
@@ -138,6 +168,7 @@ export default function Settings({
               onClick={() =>
                 onSaveSetting({
                   concurrencyLimit: parsedConcurrencyValue,
+                  shortChapterReviewEnabled: shortChapterReviewValue,
                 })
               }
             >

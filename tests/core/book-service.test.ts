@@ -7,6 +7,7 @@ import { createPlotThreadRepository } from '../../src/storage/plot-threads';
 import { createProgressRepository } from '../../src/storage/progress';
 import { createSceneRecordRepository } from '../../src/storage/scene-records';
 import { createBookService } from '../../src/core/book-service';
+import { countStoryCharacters } from '../../src/core/story-constraints';
 
 describe('createBookService', () => {
   it('creates and lists books from persisted storage', () => {
@@ -63,6 +64,55 @@ describe('createBookService', () => {
     });
   });
 
+  it('rejects invalid chapter and word-count limits before persistence', () => {
+    const db = createDatabase(':memory:');
+    const service = createBookService({
+      books: createBookRepository(db),
+      chapters: createChapterRepository(db),
+      characters: createCharacterRepository(db),
+      plotThreads: createPlotThreadRepository(db),
+      sceneRecords: createSceneRecordRepository(db),
+      progress: createProgressRepository(db),
+      outlineService: {
+        generateFromIdea: vi.fn(),
+      },
+      chapterWriter: {
+        writeChapter: vi.fn(),
+      },
+      summaryGenerator: {
+        summarizeChapter: vi.fn(),
+      },
+      plotThreadExtractor: {
+        extractThreads: vi.fn().mockResolvedValue({
+          openedThreads: [],
+          resolvedThreadIds: [],
+        }),
+      },
+      characterStateExtractor: {
+        extractStates: vi.fn().mockResolvedValue([]),
+      },
+      sceneRecordExtractor: {
+        extractScene: vi.fn().mockResolvedValue(null),
+      },
+    });
+
+    expect(() =>
+      service.createBook({
+        idea: 'The moon taxes miracles.',
+        targetChapters: 0,
+        wordsPerChapter: 2500,
+      })
+    ).toThrow('Target chapters must be a positive integer');
+    expect(() =>
+      service.createBook({
+        idea: 'The moon taxes miracles.',
+        targetChapters: 500,
+        wordsPerChapter: 0,
+      })
+    ).toThrow('Words per chapter must be a positive integer');
+    expect(service.listBooks()).toHaveLength(0);
+  });
+
   it('returns book detail with persisted context and chapter outlines after start', async () => {
     const db = createDatabase(':memory:');
     const resolveModelId = vi.fn().mockReturnValue('openai:gpt-4o-mini');
@@ -114,7 +164,7 @@ describe('createBookService', () => {
 
     const bookId = service.createBook({
       idea: 'The moon taxes miracles.',
-      targetChapters: 500,
+      targetChapters: 1,
       wordsPerChapter: 2500,
     });
 
@@ -135,6 +185,132 @@ describe('createBookService', () => {
       }),
     ]);
     expect(detail?.progress?.phase).toBe('building_outline');
+  });
+
+  it('persists the target number of chapter outlines even when generated chapter indexes repeat', async () => {
+    const db = createDatabase(':memory:');
+    const service = createBookService({
+      books: createBookRepository(db),
+      chapters: createChapterRepository(db),
+      characters: createCharacterRepository(db),
+      plotThreads: createPlotThreadRepository(db),
+      sceneRecords: createSceneRecordRepository(db),
+      progress: createProgressRepository(db),
+      outlineService: {
+        generateFromIdea: vi.fn().mockResolvedValue({
+          worldSetting: 'World rules',
+          masterOutline: 'Master outline',
+          volumeOutlines: ['Volume 1'],
+          chapterOutlines: [
+            {
+              volumeIndex: 1,
+              chapterIndex: 1,
+              title: 'Duplicate 1',
+              outline: 'Opening conflict',
+            },
+            {
+              volumeIndex: 1,
+              chapterIndex: 1,
+              title: 'Duplicate 2',
+              outline: 'Escalation',
+            },
+          ],
+        }),
+      },
+      chapterWriter: {
+        writeChapter: vi.fn(),
+      },
+      summaryGenerator: {
+        summarizeChapter: vi.fn(),
+      },
+      plotThreadExtractor: {
+        extractThreads: vi.fn().mockResolvedValue({
+          openedThreads: [],
+          resolvedThreadIds: [],
+        }),
+      },
+      characterStateExtractor: {
+        extractStates: vi.fn().mockResolvedValue([]),
+      },
+      sceneRecordExtractor: {
+        extractScene: vi.fn().mockResolvedValue(null),
+      },
+    });
+
+    const bookId = service.createBook({
+      idea: 'The moon taxes miracles.',
+      targetChapters: 2,
+      wordsPerChapter: 2500,
+    });
+
+    await service.startBook(bookId);
+
+    const detail = service.getBookDetail(bookId);
+
+    expect(detail?.chapters).toHaveLength(2);
+    expect(detail?.chapters.map((chapter) => chapter.chapterIndex)).toEqual([
+      1, 2,
+    ]);
+  });
+
+  it('fills missing generated chapter outlines before persistence', async () => {
+    const db = createDatabase(':memory:');
+    const service = createBookService({
+      books: createBookRepository(db),
+      chapters: createChapterRepository(db),
+      characters: createCharacterRepository(db),
+      plotThreads: createPlotThreadRepository(db),
+      sceneRecords: createSceneRecordRepository(db),
+      progress: createProgressRepository(db),
+      outlineService: {
+        generateFromIdea: vi.fn().mockResolvedValue({
+          worldSetting: 'World rules',
+          masterOutline: 'Master outline',
+          volumeOutlines: ['Volume 1'],
+          chapterOutlines: [
+            {
+              volumeIndex: 1,
+              chapterIndex: 1,
+              title: 'Chapter 1',
+              outline: 'Opening conflict',
+            },
+          ],
+        }),
+      },
+      chapterWriter: {
+        writeChapter: vi.fn(),
+      },
+      summaryGenerator: {
+        summarizeChapter: vi.fn(),
+      },
+      plotThreadExtractor: {
+        extractThreads: vi.fn().mockResolvedValue({
+          openedThreads: [],
+          resolvedThreadIds: [],
+        }),
+      },
+      characterStateExtractor: {
+        extractStates: vi.fn().mockResolvedValue([]),
+      },
+      sceneRecordExtractor: {
+        extractScene: vi.fn().mockResolvedValue(null),
+      },
+    });
+
+    const bookId = service.createBook({
+      idea: 'The moon taxes miracles.',
+      targetChapters: 3,
+      wordsPerChapter: 2500,
+    });
+
+    await service.startBook(bookId);
+
+    const detail = service.getBookDetail(bookId);
+
+    expect(detail?.chapters).toHaveLength(3);
+    expect(detail?.chapters.map((chapter) => chapter.chapterIndex)).toEqual([
+      1, 2, 3,
+    ]);
   });
 
   it('marks the book as generating a title before asking the title model', async () => {
@@ -185,7 +361,7 @@ describe('createBookService', () => {
 
     bookId = service.createBook({
       idea: 'The moon taxes miracles.',
-      targetChapters: 500,
+      targetChapters: 1,
       wordsPerChapter: 2500,
     });
 
@@ -261,13 +437,13 @@ describe('createBookService', () => {
 
     bookId = service.createBook({
       idea: 'The moon taxes miracles.',
-      targetChapters: 500,
+      targetChapters: 1,
       wordsPerChapter: 2500,
     });
 
     await service.startBook(bookId);
 
-    expect(onBookUpdated).toHaveBeenCalledTimes(5);
+    expect(onBookUpdated).toHaveBeenCalledTimes(6);
   });
 
   it('persists chapter outlines while outline generation is still running', async () => {
@@ -391,7 +567,7 @@ describe('createBookService', () => {
     const bookId = service.createBook({
       idea: 'The moon taxes miracles.',
       modelId: 'openai:gpt-4o-mini',
-      targetChapters: 500,
+      targetChapters: 2,
       wordsPerChapter: 2500,
     });
 
@@ -480,7 +656,7 @@ describe('createBookService', () => {
     const bookId = service.createBook({
       idea: 'The moon taxes miracles.',
       modelId: 'openai:gpt-4o-mini',
-      targetChapters: 500,
+      targetChapters: 1,
       wordsPerChapter: 2500,
     });
 
@@ -520,6 +696,281 @@ describe('createBookService', () => {
         summary: 'Chapter summary',
       })
     );
+  });
+
+  it('notifies listeners after chapter content is persisted', async () => {
+    const db = createDatabase(':memory:');
+    const onBookUpdated = vi.fn();
+    const service = createBookService({
+      books: createBookRepository(db),
+      chapters: createChapterRepository(db),
+      characters: createCharacterRepository(db),
+      plotThreads: createPlotThreadRepository(db),
+      sceneRecords: createSceneRecordRepository(db),
+      progress: createProgressRepository(db),
+      outlineService: {
+        generateFromIdea: vi.fn().mockResolvedValue({
+          worldSetting: 'World rules',
+          masterOutline: 'Master outline',
+          volumeOutlines: ['Volume 1'],
+          chapterOutlines: [
+            {
+              volumeIndex: 1,
+              chapterIndex: 1,
+              title: 'Chapter 1',
+              outline: 'Opening conflict',
+            },
+          ],
+        }),
+      },
+      chapterWriter: {
+        writeChapter: vi.fn().mockResolvedValue({
+          content: 'Generated chapter content',
+          usage: { inputTokens: 100, outputTokens: 400 },
+        }),
+      },
+      summaryGenerator: {
+        summarizeChapter: vi.fn().mockResolvedValue('Chapter summary'),
+      },
+      plotThreadExtractor: {
+        extractThreads: vi.fn().mockResolvedValue({
+          openedThreads: [],
+          resolvedThreadIds: [],
+        }),
+      },
+      characterStateExtractor: {
+        extractStates: vi.fn().mockResolvedValue([]),
+      },
+      sceneRecordExtractor: {
+        extractScene: vi.fn().mockResolvedValue(null),
+      },
+      onBookUpdated,
+    });
+
+    const bookId = service.createBook({
+      idea: 'The moon taxes miracles.',
+      modelId: 'openai:gpt-4o-mini',
+      targetChapters: 1,
+      wordsPerChapter: 2500,
+    });
+
+    await service.startBook(bookId);
+    onBookUpdated.mockClear();
+    await service.writeNextChapter(bookId);
+
+    expect(onBookUpdated).toHaveBeenCalledWith(bookId);
+    expect(service.getBookDetail(bookId)?.chapters[0]?.content).toBe(
+      'Generated chapter content'
+    );
+  });
+
+  it('preserves generated chapter content when it exceeds the soft words-per-chapter target', async () => {
+    const db = createDatabase(':memory:');
+    const service = createBookService({
+      books: createBookRepository(db),
+      chapters: createChapterRepository(db),
+      characters: createCharacterRepository(db),
+      plotThreads: createPlotThreadRepository(db),
+      sceneRecords: createSceneRecordRepository(db),
+      progress: createProgressRepository(db),
+      outlineService: {
+        generateFromIdea: vi.fn().mockResolvedValue({
+          worldSetting: 'World rules',
+          masterOutline: 'Master outline',
+          volumeOutlines: ['Volume 1'],
+          chapterOutlines: [
+            {
+              volumeIndex: 1,
+              chapterIndex: 1,
+              title: 'Chapter 1',
+              outline: 'Opening conflict',
+            },
+          ],
+        }),
+      },
+      chapterWriter: {
+        writeChapter: vi.fn().mockResolvedValue({
+          content: '一二三四五六七八九十超出限制',
+          usage: { inputTokens: 100, outputTokens: 400 },
+        }),
+      },
+      summaryGenerator: {
+        summarizeChapter: vi.fn().mockImplementation(async ({ content }) => content),
+      },
+      plotThreadExtractor: {
+        extractThreads: vi.fn().mockResolvedValue({
+          openedThreads: [],
+          resolvedThreadIds: [],
+        }),
+      },
+      characterStateExtractor: {
+        extractStates: vi.fn().mockResolvedValue([]),
+      },
+      sceneRecordExtractor: {
+        extractScene: vi.fn().mockResolvedValue(null),
+      },
+    });
+
+    const bookId = service.createBook({
+      idea: 'The moon taxes miracles.',
+      modelId: 'openai:gpt-4o-mini',
+      targetChapters: 1,
+      wordsPerChapter: 10,
+    });
+
+    await service.startBook(bookId);
+    await service.writeNextChapter(bookId);
+
+    const chapter = service.getBookDetail(bookId)?.chapters[0];
+
+    expect(chapter?.content).toBe('一二三四五六七八九十超出限制');
+    expect(chapter?.wordCount).toBe(14);
+    expect(chapter?.summary).toBe('一二三四五六七八九十超出限制');
+  });
+
+  it('rewrites a short chapter once when automatic review requests it', async () => {
+    const db = createDatabase(':memory:');
+    const writeChapter = vi
+      .fn()
+      .mockResolvedValueOnce({
+        content: '太短',
+        usage: { inputTokens: 100, outputTokens: 20 },
+      })
+      .mockResolvedValueOnce({
+        content: '第二稿补足了场景、冲突和情绪推进。',
+        usage: { inputTokens: 140, outputTokens: 120 },
+      });
+    const service = createBookService({
+      books: createBookRepository(db),
+      chapters: createChapterRepository(db),
+      characters: createCharacterRepository(db),
+      plotThreads: createPlotThreadRepository(db),
+      sceneRecords: createSceneRecordRepository(db),
+      progress: createProgressRepository(db),
+      outlineService: {
+        generateFromIdea: vi.fn().mockResolvedValue({
+          worldSetting: 'World rules',
+          masterOutline: 'Master outline',
+          volumeOutlines: ['Volume 1'],
+          chapterOutlines: [
+            {
+              volumeIndex: 1,
+              chapterIndex: 1,
+              title: 'Chapter 1',
+              outline: 'Opening conflict',
+            },
+          ],
+        }),
+      },
+      chapterWriter: {
+        writeChapter,
+      },
+      summaryGenerator: {
+        summarizeChapter: vi.fn().mockImplementation(async ({ content }) => content),
+      },
+      plotThreadExtractor: {
+        extractThreads: vi.fn().mockResolvedValue({
+          openedThreads: [],
+          resolvedThreadIds: [],
+        }),
+      },
+      characterStateExtractor: {
+        extractStates: vi.fn().mockResolvedValue([]),
+      },
+      sceneRecordExtractor: {
+        extractScene: vi.fn().mockResolvedValue(null),
+      },
+      shouldRewriteShortChapter: ({ content }) => content === '太短',
+    });
+
+    const bookId = service.createBook({
+      idea: 'The moon taxes miracles.',
+      modelId: 'openai:gpt-4o-mini',
+      targetChapters: 1,
+      wordsPerChapter: 20,
+    });
+
+    await service.startBook(bookId);
+    await service.writeNextChapter(bookId);
+
+    const chapter = service.getBookDetail(bookId)?.chapters[0];
+
+    expect(writeChapter).toHaveBeenCalledTimes(2);
+    expect(writeChapter.mock.calls[1]?.[0].prompt).toContain(
+      'Automatic review found this chapter too short'
+    );
+    expect(writeChapter.mock.calls[1]?.[0].prompt).toContain(
+      'Start over from the original chapter brief'
+    );
+    expect(writeChapter.mock.calls[1]?.[0].prompt).not.toContain('Previous draft');
+    expect(writeChapter.mock.calls[1]?.[0].prompt).not.toContain('太短');
+    expect(chapter?.content).toBe('第二稿补足了场景、冲突和情绪推进。');
+    expect(chapter?.summary).toBe('第二稿补足了场景、冲突和情绪推进。');
+  });
+
+  it('counts chapter text by non-whitespace story characters without trimming prose', async () => {
+    const db = createDatabase(':memory:');
+    const service = createBookService({
+      books: createBookRepository(db),
+      chapters: createChapterRepository(db),
+      characters: createCharacterRepository(db),
+      plotThreads: createPlotThreadRepository(db),
+      sceneRecords: createSceneRecordRepository(db),
+      progress: createProgressRepository(db),
+      outlineService: {
+        generateFromIdea: vi.fn().mockResolvedValue({
+          worldSetting: 'World rules',
+          masterOutline: 'Master outline',
+          volumeOutlines: ['Volume 1'],
+          chapterOutlines: [
+            {
+              volumeIndex: 1,
+              chapterIndex: 1,
+              title: 'Chapter 1',
+              outline: 'Opening conflict',
+            },
+          ],
+        }),
+      },
+      chapterWriter: {
+        writeChapter: vi.fn().mockResolvedValue({
+          content: '一二三\n\n四五 六七八九',
+          usage: { inputTokens: 100, outputTokens: 400 },
+        }),
+      },
+      summaryGenerator: {
+        summarizeChapter: vi.fn().mockImplementation(async ({ content }) => content),
+      },
+      plotThreadExtractor: {
+        extractThreads: vi.fn().mockResolvedValue({
+          openedThreads: [],
+          resolvedThreadIds: [],
+        }),
+      },
+      characterStateExtractor: {
+        extractStates: vi.fn().mockResolvedValue([]),
+      },
+      sceneRecordExtractor: {
+        extractScene: vi.fn().mockResolvedValue(null),
+      },
+    });
+
+    const bookId = service.createBook({
+      idea: 'The moon taxes miracles.',
+      modelId: 'openai:gpt-4o-mini',
+      targetChapters: 1,
+      wordsPerChapter: 5,
+    });
+
+    await service.startBook(bookId);
+    await service.writeNextChapter(bookId);
+
+    const chapter = service.getBookDetail(bookId)?.chapters[0];
+
+    expect(chapter?.content).toBe('一二三\n\n四五 六七八九');
+    expect(countStoryCharacters(chapter?.content ?? '')).toBe(9);
+    expect(chapter?.wordCount).toBe(9);
+    expect(chapter?.summary).toBe('一二三\n\n四五 六七八九');
   });
 
   it('falls back to legacy post-chapter extractors when unified extraction fails', async () => {
@@ -606,7 +1057,7 @@ describe('createBookService', () => {
     const bookId = service.createBook({
       idea: 'The moon taxes miracles.',
       modelId: 'openai:gpt-4o-mini',
-      targetChapters: 500,
+      targetChapters: 2,
       wordsPerChapter: 2500,
     });
 
@@ -702,7 +1153,7 @@ describe('createBookService', () => {
     const bookId = service.createBook({
       idea: 'The moon taxes miracles.',
       modelId: 'openai:gpt-4o-mini',
-      targetChapters: 500,
+      targetChapters: 1,
       wordsPerChapter: 2500,
     });
 
@@ -774,7 +1225,7 @@ describe('createBookService', () => {
     const bookId = service.createBook({
       idea: 'The moon taxes miracles.',
       modelId: 'openai:gpt-4o-mini',
-      targetChapters: 500,
+      targetChapters: 2,
       wordsPerChapter: 2500,
     });
 
@@ -910,7 +1361,7 @@ describe('createBookService', () => {
     const bookId = service.createBook({
       idea: 'The moon taxes miracles.',
       modelId: 'openai:gpt-4o-mini',
-      targetChapters: 500,
+      targetChapters: 2,
       wordsPerChapter: 2500,
     });
 
@@ -1260,7 +1711,7 @@ describe('createBookService', () => {
     const bookId = service.createBook({
       idea: 'The moon taxes miracles.',
       modelId: 'openai:gpt-4o-mini',
-      targetChapters: 500,
+      targetChapters: 1,
       wordsPerChapter: 2500,
     });
 

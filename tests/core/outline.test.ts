@@ -18,13 +18,13 @@ describe('createOutlineService', () => {
     const title = await service.generateTitleFromIdea({
       bookId: 'book-1',
       idea: 'The moon taxes miracles.',
-      targetChapters: 500,
+      targetChapters: 2,
       wordsPerChapter: 2500,
     });
     const result = await service.generateFromIdea({
       bookId: 'book-1',
       idea: 'The moon taxes miracles.',
-      targetChapters: 500,
+      targetChapters: 2,
       wordsPerChapter: 2500,
       onChapterOutlines,
     });
@@ -58,5 +58,29 @@ describe('createOutlineService', () => {
         title: 'Chapter 1',
       }),
     ]);
+    expect(result.chapterOutlines).toHaveLength(2);
+  });
+
+  it('stops requesting chapter outlines once enough chapters are planned', async () => {
+    const generate = vi
+      .fn()
+      .mockResolvedValueOnce({ text: 'world' })
+      .mockResolvedValueOnce({ text: 'outline' })
+      .mockResolvedValueOnce({ text: 'Volume 1\n---\nVolume 2' })
+      .mockResolvedValueOnce({
+        text: ['1|Chapter 1|Outline 1', '2|Chapter 2|Outline 2'].join('\n'),
+      });
+
+    const service = createOutlineService({ generateText: generate });
+
+    const result = await service.generateFromIdea({
+      bookId: 'book-1',
+      idea: 'The moon taxes miracles.',
+      targetChapters: 2,
+      wordsPerChapter: 2500,
+    });
+
+    expect(result.chapterOutlines).toHaveLength(2);
+    expect(generate).toHaveBeenCalledTimes(4);
   });
 });

@@ -10,6 +10,10 @@ import type {
   OutlineBundle,
   OutlineGenerationInput,
 } from './types.js';
+import {
+  normalizeChapterOutlinesToTarget,
+  takeChapterOutlinesWithinTarget,
+} from './story-constraints.js';
 
 function parseChapterOutlineLines(
   text: string,
@@ -96,29 +100,48 @@ export function createAiOutlineService(deps: {
         .map((outline) => outline.trim())
         .filter(Boolean);
 
-      const chapterOutlines = (
-        await Promise.all(
-          volumeOutlines.map(async (volumeOutline, index) => {
-            const chapterText = (
-              await deps.generateText({
-                model,
-                prompt: buildChapterOutlinePrompt(volumeOutline, index + 1, input),
-              })
-            ).text;
+      const chapterOutlines: ChapterOutline[] = [];
 
-            const chapterOutlines = parseChapterOutlineLines(chapterText, index + 1);
-            input.onChapterOutlines?.(chapterOutlines);
+      for (const [index, volumeOutline] of volumeOutlines.entries()) {
+        if (chapterOutlines.length >= input.targetChapters) {
+          break;
+        }
 
-            return chapterOutlines;
+        const chapterText = (
+          await deps.generateText({
+            model,
+            prompt: buildChapterOutlinePrompt(volumeOutline, index + 1, input),
           })
-        )
-      ).flat();
+        ).text;
+
+        const nextChapterOutlines = takeChapterOutlinesWithinTarget({
+          chapterOutlines: parseChapterOutlineLines(chapterText, index + 1),
+          emittedCount: chapterOutlines.length,
+          targetChapters: input.targetChapters,
+        });
+
+        if (nextChapterOutlines.length > 0) {
+          chapterOutlines.push(...nextChapterOutlines);
+          input.onChapterOutlines?.(nextChapterOutlines);
+        }
+      }
+
+      const normalizedChapterOutlines = normalizeChapterOutlinesToTarget(
+        chapterOutlines,
+        input.targetChapters
+      );
+      const missingChapterOutlines = normalizedChapterOutlines.slice(
+        chapterOutlines.length
+      );
+      if (missingChapterOutlines.length > 0) {
+        input.onChapterOutlines?.(missingChapterOutlines);
+      }
 
       return {
         worldSetting,
         masterOutline,
         volumeOutlines,
-        chapterOutlines,
+        chapterOutlines: normalizedChapterOutlines,
       };
     },
   };

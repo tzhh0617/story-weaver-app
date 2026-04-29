@@ -103,6 +103,61 @@ function buildMockTitle(genre: ChineseWebNovelGenre, idea: string) {
   );
 }
 
+function buildMockVolumeOutlines(input: {
+  targetChapters: number;
+  isUrbanGenre: boolean;
+}) {
+  const targetChapters = Math.max(0, Math.floor(input.targetChapters));
+  const volumeCount = Math.max(1, Math.ceil(targetChapters / 50));
+  const themePrefix = input.isUrbanGenre ? '旧城清算' : '因果逆命';
+
+  return Array.from({ length: volumeCount }, (_, index) => {
+    const startChapter = index * 50 + 1;
+    const endChapter = Math.min((index + 1) * 50, targetChapters);
+
+    return `第${index + 1}卷：${themePrefix}（第${startChapter}-${endChapter}章）`;
+  });
+}
+
+function buildMockChapterOutlines(input: {
+  genre: ChineseWebNovelGenre;
+  idea: string;
+  protagonist: string;
+  firstFaction: string;
+  secondFaction: string;
+  firstLocation: string;
+  secondLocation: string;
+  targetChapters: number;
+}) {
+  const targetChapters = Math.max(0, Math.floor(input.targetChapters));
+  const isUrbanGenre = input.genre.id === 'urban-ability';
+  const titlePool = isUrbanGenre
+    ? ['夜市旧账', '封账名单', '雨巷催缴', '档案回潮', '终局清算']
+    : ['逐出山门', '古镜低鸣', '因果初验', '旧案浮灯', '山门回潮'];
+
+  return Array.from({ length: targetChapters }, (_, index) => {
+    const globalChapter = index + 1;
+    const volumeIndex = Math.floor(index / 50) + 1;
+    const chapterIndex = (index % 50) + 1;
+    const title =
+      titlePool[index] ?? `${isUrbanGenre ? '旧账' : '因果'}第${globalChapter}转`;
+    const location =
+      index % 2 === 0 ? input.firstLocation : input.secondLocation;
+    const faction =
+      index % 2 === 0 ? input.firstFaction : input.secondFaction;
+    const pressure = isUrbanGenre
+      ? '清算链条'
+      : '师门旧案与禁物代价';
+
+    return {
+      volumeIndex,
+      chapterIndex,
+      title,
+      outline: `${input.protagonist}在${location}推进第${globalChapter}章目标，直面${faction}制造的${pressure}，并留下下一章必须承接的伏笔。`,
+    };
+  });
+}
+
 export function createMockOutlineService() {
   return {
     async generateTitleFromIdea(input: OutlineGenerationInput): Promise<string> {
@@ -137,38 +192,20 @@ export function createMockOutlineService() {
       ].join('\n');
       input.onMasterOutline?.(masterOutline);
 
-      const volumeOutlines = isUrbanGenre
-        ? ['第一卷：旧城欠账', '第二卷：档案回潮']
-        : ['第一卷：山门尽头', '第二卷：旧案浮灯'];
-      const chapterOutlines = isUrbanGenre
-        ? [
-            {
-              volumeIndex: 1,
-              chapterIndex: 1,
-              title: '夜市旧账',
-              outline: `${protagonist}在${firstLocation}追查一份失踪档案，却发现自己已经被${firstFaction}列入清算名单。`,
-            },
-            {
-              volumeIndex: 1,
-              chapterIndex: 2,
-              title: '封账名单',
-              outline: `${protagonist}试图核对债务记录时，发现${secondFaction}正在掩埋一条会把整座旧城拖下水的清算链条。`,
-            },
-          ]
-        : [
-            {
-              volumeIndex: 1,
-              chapterIndex: 1,
-              title: '逐出山门',
-              outline: `${protagonist}在众目睽睽之下失去身份，却在${firstLocation}中触碰到改变命运的禁物。`,
-            },
-            {
-              volumeIndex: 1,
-              chapterIndex: 2,
-              title: '古镜低鸣',
-              outline: `${protagonist}第一次验证禁物力量，同时意识到${firstFaction}掩埋了与师门旧案有关的真相。`,
-            },
-          ];
+      const volumeOutlines = buildMockVolumeOutlines({
+        targetChapters: input.targetChapters,
+        isUrbanGenre,
+      });
+      const chapterOutlines = buildMockChapterOutlines({
+        genre,
+        idea: input.idea,
+        protagonist,
+        firstFaction,
+        secondFaction,
+        firstLocation,
+        secondLocation,
+        targetChapters: input.targetChapters,
+      });
       input.onChapterOutlines?.(chapterOutlines);
 
       return {

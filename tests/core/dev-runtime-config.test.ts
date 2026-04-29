@@ -19,6 +19,10 @@ const electronTsConfigSource = fs.readFileSync(
   path.resolve(__dirname, '../../tsconfig.node.json'),
   'utf8'
 );
+const iconGenerationSource = fs.readFileSync(
+  path.resolve(__dirname, '../../scripts/generate-icons.py'),
+  'utf8'
+);
 
 describe('desktop runtime config', () => {
   it('builds renderer assets with a relative base for file:// loading', () => {
@@ -42,6 +46,23 @@ describe('desktop runtime config', () => {
       "'dist-electron/electron/preload.cjs'"
     );
     expect(electronTsConfigSource).toContain('"electron/**/*.cts"');
+  });
+
+  it('uses the generated icon for the macOS development dock', () => {
+    expect(electronMainSource).toContain('nativeImage');
+    expect(electronMainSource).toContain("'build/icon.png'");
+    expect(electronMainSource).toContain('app.dock.setIcon');
+  });
+
+  it('generates desktop icons with a transparent outer margin and themed backdrop', () => {
+    expect(iconGenerationSource).toContain('BACKGROUND_SIZE = 768');
+    expect(iconGenerationSource).toContain('ICON_BACKGROUND = (239, 230, 213, 255)');
+    expect(iconGenerationSource).toContain('rounded_rectangle');
+    expect(iconGenerationSource).toContain('(0, 0, 0, 0)');
+  });
+
+  it('keeps desktop icon artwork inset within the transparent canvas', () => {
+    expect(iconGenerationSource).toContain('CONTENT_SIZE = 704');
   });
 
   it('keeps the renderer dev server pinned to port 5173', () => {

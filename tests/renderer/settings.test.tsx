@@ -123,6 +123,30 @@ describe('Settings', () => {
     });
     expect(onSaveSetting).toHaveBeenCalledWith({
       concurrencyLimit: 2,
+      shortChapterReviewEnabled: true,
+    });
+  });
+
+  it('saves the short-chapter automatic review toggle', () => {
+    const onSaveSetting = vi.fn();
+
+    render(
+      <Settings
+        onSaveModel={vi.fn()}
+        onTestModel={vi.fn()}
+        models={[]}
+        concurrencyLimit={null}
+        shortChapterReviewEnabled={false}
+        onSaveSetting={onSaveSetting}
+      />
+    );
+
+    fireEvent.click(screen.getByLabelText('短章节自动审查重做'));
+    fireEvent.click(screen.getByText('保存设置'));
+
+    expect(onSaveSetting).toHaveBeenCalledWith({
+      concurrencyLimit: null,
+      shortChapterReviewEnabled: true,
     });
   });
 

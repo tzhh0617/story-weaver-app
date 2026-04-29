@@ -51,5 +51,17 @@ describe('buildWorldPrompt', () => {
         wordsPerChapter: input.wordsPerChapter,
       })
     ).toContain('Write approximately 3000 Chinese characters');
+    expect(
+      buildChapterDraftPrompt({
+        idea: input.idea,
+        worldSetting: 'World setting',
+        masterOutline: 'Master outline',
+        continuityContext: null,
+        chapterTitle: 'Chapter 1',
+        chapterOutline: 'Opening',
+        targetChapters: input.targetChapters,
+        wordsPerChapter: input.wordsPerChapter,
+      })
+    ).not.toContain('do not exceed');
   });
 });

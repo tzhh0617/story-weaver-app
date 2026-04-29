@@ -9,6 +9,7 @@ import {
   createMockSceneRecordExtractor,
   createMockSummaryGenerator,
 } from '../../src/mock/story-services';
+import { countStoryCharacters } from '../../src/core/story-constraints';
 
 describe('mock story services', () => {
   it('exposes a complete mock service bundle', async () => {
@@ -49,6 +50,22 @@ describe('mock story services', () => {
       })
     );
     expect(result.chapterOutlines[0]?.title).toMatch(/[一-龥]/);
+  });
+
+  it('generates exactly the requested number of mock chapter outlines', async () => {
+    const service = createMockOutlineService();
+
+    const result = await service.generateFromIdea({
+      bookId: 'book-1',
+      idea: '一个被宗门逐出的少年，意外继承了会吞噬因果的古镜。',
+      targetChapters: 5,
+      wordsPerChapter: 120,
+    });
+
+    expect(result.chapterOutlines).toHaveLength(5);
+    expect(result.chapterOutlines.map((chapter) => chapter.chapterIndex)).toEqual([
+      1, 2, 3, 4, 5,
+    ]);
   });
 
   it('emits mock outline pieces as soon as each piece is available', async () => {
@@ -108,6 +125,24 @@ describe('mock story services', () => {
 
     expect(result.content).toMatch(/[一-龥]/);
     expect(result.content.length).toBeGreaterThan(120);
+    expect(result.content).toContain('逐出山门');
+    expect(result.content).toMatch(/然而|就在这时|可偏偏/);
+  });
+
+  it('treats mock words-per-chapter as a soft target without truncating prose', async () => {
+    const writer = createMockChapterWriter();
+
+    const result = await writer.writeChapter({
+      modelId: DEFAULT_MOCK_MODEL_ID,
+      prompt: [
+        'Words per chapter: 90',
+        'Book idea: 一个被宗门逐出的少年，意外继承了会吞噬因果的古镜。',
+        'Chapter title: 逐出山门',
+        'Chapter outline: 主角在众目睽睽之下被废去外门名籍，却在祖祠废井中得到古镜回应。',
+      ].join('\n'),
+    });
+
+    expect(countStoryCharacters(result.content)).toBeGreaterThan(90);
     expect(result.content).toContain('逐出山门');
     expect(result.content).toMatch(/然而|就在这时|可偏偏/);
   });

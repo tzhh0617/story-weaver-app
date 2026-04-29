@@ -3,7 +3,7 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageDraw
 
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -15,7 +15,10 @@ ICNS_PATH = BUILD_DIR / "icon.icns"
 ICO_PATH = BUILD_DIR / "icon.ico"
 
 CANVAS_SIZE = 1024
-CONTENT_SIZE = 896
+BACKGROUND_SIZE = 768
+CONTENT_SIZE = 704
+CORNER_RADIUS = 144
+ICON_BACKGROUND = (239, 230, 213, 255)
 
 ICONSET_SIZES = {
     "icon_16x16.png": 16,
@@ -35,6 +38,20 @@ def build_padded_icon() -> Image.Image:
     source = Image.open(SOURCE_LOGO).convert("RGBA")
     resized = source.resize((CONTENT_SIZE, CONTENT_SIZE), Image.Resampling.LANCZOS)
     canvas = Image.new("RGBA", (CANVAS_SIZE, CANVAS_SIZE), (0, 0, 0, 0))
+    background = Image.new("RGBA", (CANVAS_SIZE, CANVAS_SIZE), ICON_BACKGROUND)
+    mask = Image.new("L", (CANVAS_SIZE, CANVAS_SIZE), 0)
+    background_offset = (CANVAS_SIZE - BACKGROUND_SIZE) // 2
+    ImageDraw.Draw(mask).rounded_rectangle(
+        (
+            background_offset,
+            background_offset,
+            background_offset + BACKGROUND_SIZE - 1,
+            background_offset + BACKGROUND_SIZE - 1,
+        ),
+        radius=CORNER_RADIUS,
+        fill=255,
+    )
+    canvas.paste(background, (0, 0), mask)
     offset = ((CANVAS_SIZE - CONTENT_SIZE) // 2, (CANVAS_SIZE - CONTENT_SIZE) // 2)
     canvas.alpha_composite(resized, offset)
     return canvas

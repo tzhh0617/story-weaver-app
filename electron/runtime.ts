@@ -4,6 +4,11 @@ import os from 'node:os';
 import path from 'node:path';
 import { createAiOutlineService } from '../src/core/ai-outline.js';
 import {
+  parseBooleanSetting,
+  SHORT_CHAPTER_REVIEW_ENABLED_KEY,
+  shouldRewriteShortChapter,
+} from '../src/core/chapter-review.js';
+import {
   createAiChapterUpdateExtractor,
   createAiCharacterStateExtractor,
   createAiPlotThreadExtractor,
@@ -72,6 +77,38 @@ type RuntimeServices = {
 };
 
 let runtimeServices: RuntimeServices | null = null;
+const DEFAULT_MOCK_RUNTIME_DELAY_MS = 1000;
+
+function parseMockRuntimeDelayMs(value: string | undefined) {
+  if (value === undefined) {
+    return DEFAULT_MOCK_RUNTIME_DELAY_MS;
+  }
+
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return DEFAULT_MOCK_RUNTIME_DELAY_MS;
+  }
+
+  return parsed;
+}
+
+async function waitForMockRuntimeDelay() {
+  const delayMs = parseMockRuntimeDelayMs(
+    process.env.STORY_WEAVER_MOCK_DELAY_MS
+  );
+
+  if (delayMs <= 0) {
+    return;
+  }
+
+  await new Promise((resolve) => setTimeout(resolve, delayMs));
+}
+
+async function withMockRuntimeDelay<T>(operation: () => Promise<T>) {
+  const result = await operation();
+  await waitForMockRuntimeDelay();
+  return result;
+}
 
 function parseConcurrencyLimit(value: string | null) {
   if (!value) {
@@ -178,7 +215,9 @@ export function getRuntimeServices() {
     ) {
       const runtimeMode = getRuntimeModelMode(modelConfigs.list());
       if (runtimeMode.kind === 'mock') {
-        return mockServices.outlineService.generateTitleFromIdea(input);
+        return withMockRuntimeDelay(() =>
+          mockServices.outlineService.generateTitleFromIdea(input)
+        );
       }
 
       const registry = createRuntimeRegistry(runtimeMode.availableConfigs);
@@ -198,7 +237,9 @@ export function getRuntimeServices() {
     ) {
       const runtimeMode = getRuntimeModelMode(modelConfigs.list());
       if (runtimeMode.kind === 'mock') {
-        return mockServices.outlineService.generateFromIdea(input);
+        return withMockRuntimeDelay(() =>
+          mockServices.outlineService.generateFromIdea(input)
+        );
       }
 
       const registry = createRuntimeRegistry(runtimeMode.availableConfigs);
@@ -218,7 +259,9 @@ export function getRuntimeServices() {
       const persistedConfigs = modelConfigs.list();
       const runtimeMode = getRuntimeModelMode(persistedConfigs);
       if (runtimeMode.kind === 'mock') {
-        return mockServices.chapterWriter.writeChapter(input);
+        return withMockRuntimeDelay(() =>
+          mockServices.chapterWriter.writeChapter(input)
+        );
       }
 
       const model = getRuntimeLanguageModel({
@@ -426,6 +469,14 @@ export function getRuntimeServices() {
     plotThreadExtractor,
     sceneRecordExtractor,
     chapterUpdateExtractor,
+    shouldRewriteShortChapter: ({ content, wordsPerChapter }) =>
+      shouldRewriteShortChapter({
+        enabled: parseBooleanSetting(
+          settings.get(SHORT_CHAPTER_REVIEW_ENABLED_KEY)
+        ),
+        content,
+        wordsPerChapter,
+      }),
     resolveModelId: () => {
       const runtimeMode = getRuntimeModelMode(modelConfigs.list());
       return runtimeMode.resolveModelId();
