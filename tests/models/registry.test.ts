@@ -18,7 +18,7 @@ describe('validateModelConfig', () => {
 });
 
 describe('createRuntimeRegistry', () => {
-  it('uses the configured OpenAI base URL when creating the language model', () => {
+  it('uses the configured OpenAI base URL with chat completions', () => {
     const registry = createRuntimeRegistry([
       {
         id: 'openai:gpt-4o-mini',
@@ -33,13 +33,17 @@ describe('createRuntimeRegistry', () => {
     const model = (
       registry as unknown as {
         languageModel: (modelId: string) => {
-          config: { url: (input: { path: string }) => string };
+          config: {
+            provider: string;
+            url: (input: { path: string }) => string;
+          };
         };
       }
     ).languageModel('openai:gpt-4o-mini');
 
-    expect(model.config.url({ path: '/responses' })).toBe(
-      'https://proxy.example.com/openai/v1/responses'
+    expect(model.config.provider).toBe('openai.chat');
+    expect(model.config.url({ path: '/chat/completions' })).toBe(
+      'https://proxy.example.com/openai/v1/chat/completions'
     );
   });
 
