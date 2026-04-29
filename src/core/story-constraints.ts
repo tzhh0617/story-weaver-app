@@ -26,14 +26,13 @@ function buildMissingChapterOutlines(
 
   const lastChapter = existing.at(-1);
   const volumeIndex = lastChapter?.volumeIndex ?? 1;
-  const firstChapterIndex = (lastChapter?.chapterIndex ?? existing.length) + 1;
 
   return Array.from({ length: missingCount }, (_, index) => {
     const chapterNumber = existing.length + index + 1;
 
     return {
       volumeIndex,
-      chapterIndex: firstChapterIndex + index,
+      chapterIndex: chapterNumber,
       title: `第${chapterNumber}章`,
       outline: `承接前文冲突推进第${chapterNumber}章，保持主线、人物状态和伏笔回收节奏。`,
     };
@@ -58,25 +57,26 @@ export function normalizeChapterOutlinesToTarget(
 export function ensureUniqueChapterOutlineKeys(
   chapterOutlines: ChapterOutline[]
 ) {
-  const usedChapterKeys = new Set<string>();
   return chapterOutlines
     .filter(isUsableChapterOutline)
-    .map((chapter) => {
-      let chapterIndex = Math.floor(chapter.chapterIndex);
-      const volumeIndex = Math.floor(chapter.volumeIndex);
+    .map((chapter, index) => ({
+      ...chapter,
+      volumeIndex: Math.floor(chapter.volumeIndex),
+      chapterIndex: index + 1,
+    }));
+}
 
-      while (usedChapterKeys.has(`${volumeIndex}:${chapterIndex}`)) {
-        chapterIndex += 1;
-      }
+export function renumberChapterOutlinesFrom(
+  chapterOutlines: ChapterOutline[],
+  startChapterIndex: number
+) {
+  const firstChapterIndex = coercePositiveInteger(startChapterIndex);
 
-      usedChapterKeys.add(`${volumeIndex}:${chapterIndex}`);
-
-      return {
-        ...chapter,
-        volumeIndex,
-        chapterIndex,
-      };
-    });
+  return chapterOutlines.filter(isUsableChapterOutline).map((chapter, index) => ({
+    ...chapter,
+    volumeIndex: Math.floor(chapter.volumeIndex),
+    chapterIndex: firstChapterIndex + index,
+  }));
 }
 
 export function takeChapterOutlinesWithinTarget(input: {

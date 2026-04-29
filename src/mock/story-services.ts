@@ -138,7 +138,6 @@ function buildMockChapterOutlines(input: {
   return Array.from({ length: targetChapters }, (_, index) => {
     const globalChapter = index + 1;
     const volumeIndex = Math.floor(index / 50) + 1;
-    const chapterIndex = (index % 50) + 1;
     const title =
       titlePool[index] ?? `${isUrbanGenre ? '旧账' : '因果'}第${globalChapter}转`;
     const location =
@@ -151,7 +150,7 @@ function buildMockChapterOutlines(input: {
 
     return {
       volumeIndex,
-      chapterIndex,
+      chapterIndex: globalChapter,
       title,
       outline: `${input.protagonist}在${location}推进第${globalChapter}章目标，直面${faction}制造的${pressure}，并留下下一章必须承接的伏笔。`,
     };

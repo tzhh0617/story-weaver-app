@@ -12,6 +12,7 @@ import type {
 } from './types';
 import {
   normalizeChapterOutlinesToTarget,
+  renumberChapterOutlinesFrom,
   takeChapterOutlinesWithinTarget,
 } from './story-constraints';
 
@@ -89,11 +90,14 @@ export function createOutlineService({ generateText }: { generateText: GenerateT
           prompt: buildChapterOutlinePrompt(volumeOutline, index + 1, input),
         })).text;
 
-        const nextChapterOutlines = takeChapterOutlinesWithinTarget({
-          chapterOutlines: parseChapterOutlineLines(chapterText, index + 1),
-          emittedCount: chapterOutlines.length,
-          targetChapters: input.targetChapters,
-        });
+        const nextChapterOutlines = renumberChapterOutlinesFrom(
+          takeChapterOutlinesWithinTarget({
+            chapterOutlines: parseChapterOutlineLines(chapterText, index + 1),
+            emittedCount: chapterOutlines.length,
+            targetChapters: input.targetChapters,
+          }),
+          chapterOutlines.length + 1
+        );
 
         if (nextChapterOutlines.length > 0) {
           chapterOutlines.push(...nextChapterOutlines);

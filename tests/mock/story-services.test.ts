@@ -68,6 +68,24 @@ describe('mock story services', () => {
     ]);
   });
 
+  it('keeps mock chapter indexes cumulative across volumes', async () => {
+    const service = createMockOutlineService();
+
+    const result = await service.generateFromIdea({
+      bookId: 'book-1',
+      idea: '一个被宗门逐出的少年，意外继承了会吞噬因果的古镜。',
+      targetChapters: 55,
+      wordsPerChapter: 120,
+    });
+
+    expect(result.chapterOutlines[49]).toEqual(
+      expect.objectContaining({ volumeIndex: 1, chapterIndex: 50 })
+    );
+    expect(result.chapterOutlines[50]).toEqual(
+      expect.objectContaining({ volumeIndex: 2, chapterIndex: 51 })
+    );
+  });
+
   it('emits mock outline pieces as soon as each piece is available', async () => {
     const service = createMockOutlineService();
     const events: string[] = [];

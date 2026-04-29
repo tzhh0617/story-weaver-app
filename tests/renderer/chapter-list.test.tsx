@@ -312,7 +312,7 @@ describe('ChapterList', () => {
           {
             id: '2-1',
             volumeIndex: 2,
-            chapterIndex: 1,
+            chapterIndex: 3,
             title: 'New Arc',
             wordCount: 0,
             status: 'queued',

@@ -118,7 +118,7 @@ export default function ChapterList({
         const shouldShowVolumeLabel =
           chapter.volumeIndex &&
           previousChapter?.volumeIndex !== chapter.volumeIndex;
-        const chapterNumber = `第 ${index + 1} 章`;
+        const chapterNumber = `第 ${chapter.chapterIndex ?? index + 1} 章`;
         const statusLabel = chapterStatusLabels[chapter.status];
         const visualMeta = getChapterVisualMeta(chapter);
         const buttonStateClassName = isActive

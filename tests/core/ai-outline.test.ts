@@ -128,4 +128,36 @@ describe('createAiOutlineService', () => {
     expect(result.chapterOutlines).toHaveLength(2);
     expect(generateText).toHaveBeenCalledTimes(4);
   });
+
+  it('renumbers volume-local chapter outlines into cumulative book chapter numbers', async () => {
+    const fakeModel = { id: 'model' };
+    const registry = {
+      languageModel: vi.fn().mockReturnValue(fakeModel),
+    };
+    const generateText = vi
+      .fn()
+      .mockResolvedValueOnce({ text: 'world' })
+      .mockResolvedValueOnce({ text: 'outline' })
+      .mockResolvedValueOnce({ text: 'Volume 1\n---\nVolume 2' })
+      .mockResolvedValueOnce({ text: '1|第一卷第一章|开局' })
+      .mockResolvedValueOnce({ text: '1|第二卷第一章|新卷开局' });
+
+    const service = createAiOutlineService({
+      registry: registry as never,
+      generateText: generateText as never,
+    });
+
+    const result = await service.generateFromIdea({
+      bookId: 'book-1',
+      idea: 'The moon taxes miracles.',
+      targetChapters: 2,
+      wordsPerChapter: 180,
+      modelId: 'openai:gpt-4o-mini',
+    });
+
+    expect(result.chapterOutlines).toEqual([
+      expect.objectContaining({ volumeIndex: 1, chapterIndex: 1 }),
+      expect.objectContaining({ volumeIndex: 2, chapterIndex: 2 }),
+    ]);
+  });
 });

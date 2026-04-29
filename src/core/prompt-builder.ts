@@ -95,6 +95,7 @@ export function buildChapterOutlinePrompt(
     `Volume ${volumeIndex} outline:\n${volumeOutline}`,
     ...buildLengthConstraintLines(input),
     'Return chapter-level outlines in the format "chapterIndex|title|outline".',
+    'chapterIndex must be the cumulative full-book chapter number, not a volume-local chapter number.',
     `Generate one line per chapter, and each chapter should be planned for about ${input.wordsPerChapter} words.`,
   ].join('\n');
 }

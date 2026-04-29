@@ -59,6 +59,9 @@ describe('createOutlineService', () => {
       }),
     ]);
     expect(result.chapterOutlines).toHaveLength(2);
+    expect(result.chapterOutlines.map((chapter) => chapter.chapterIndex)).toEqual([
+      1, 2,
+    ]);
   });
 
   it('stops requesting chapter outlines once enough chapters are planned', async () => {
