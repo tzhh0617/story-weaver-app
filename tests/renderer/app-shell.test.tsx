@@ -10,6 +10,18 @@ function installIpcMock(
   handler: (channel: string, payload?: unknown) => Promise<unknown>
 ) {
   const invoke = vi.fn(handler);
+  const onProgress = vi.fn((listener: (payload: unknown) => void) => {
+    progressListener = listener;
+    return () => {
+      progressListener = null;
+    };
+  });
+  const onBookGeneration = vi.fn((listener: (payload: unknown) => void) => {
+    bookGenerationListener = listener;
+    return () => {
+      bookGenerationListener = null;
+    };
+  });
   let progressListener: ((payload: unknown) => void) | null = null;
   let bookGenerationListener: ((payload: unknown) => void) | null = null;
   function invokeTyped<T>(channel: string, payload?: unknown) {
@@ -18,22 +30,14 @@ function installIpcMock(
 
   window.storyWeaver = {
     invoke: invokeTyped,
-    onProgress: (listener) => {
-      progressListener = listener;
-      return () => {
-        progressListener = null;
-      };
-    },
-    onBookGeneration: (listener) => {
-      bookGenerationListener = listener;
-      return () => {
-        bookGenerationListener = null;
-      };
-    },
+    onProgress,
+    onBookGeneration,
   };
 
   return {
     invoke,
+    onProgress,
+    onBookGeneration,
     emitProgress(payload: unknown) {
       progressListener?.(payload);
     },
@@ -2516,6 +2520,90 @@ describe('App shell', () => {
           element.textContent === '流式第一段\n流式第二段'
       )
     ).toBeInTheDocument();
+  });
+
+  it('keeps the generation event subscription stable while stream chunks render', async () => {
+    const books = [
+      {
+        id: 'book-1',
+        title: 'Stable Stream Book',
+        idea: 'A city hears unfinished stories.',
+        status: 'writing',
+        targetChapters: 1,
+        wordsPerChapter: 1200,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    ];
+    const ipc = installIpcMock(async (channel, payload) => {
+      switch (channel) {
+        case 'book:list':
+          return copy(books);
+        case 'model:list':
+          return [];
+        case 'book:detail': {
+          const { bookId } = payload as { bookId: string };
+          return bookId === 'book-1'
+            ? {
+                book: books[0],
+                context: null,
+                latestScene: null,
+                characterStates: [],
+                plotThreads: [],
+                chapters: [
+                  {
+                    bookId: 'book-1',
+                    volumeIndex: 1,
+                    chapterIndex: 1,
+                    title: 'Chapter 1',
+                    outline: 'Opening',
+                    content: null,
+                    summary: null,
+                    wordCount: 0,
+                  },
+                ],
+                progress: {
+                  phase: 'writing',
+                },
+              }
+            : null;
+        }
+        default:
+          return null;
+      }
+    });
+
+    render(<App />);
+    await selectBook('Stable Stream Book');
+    expect(
+      await screen.findByRole('heading', { name: 'Stable Stream Book' })
+    ).toBeInTheDocument();
+
+    const subscriptionCountAfterSelection = ipc.onBookGeneration.mock.calls.length;
+
+    ipc.emitBookGeneration({
+      bookId: 'book-1',
+      type: 'chapter-stream',
+      volumeIndex: 1,
+      chapterIndex: 1,
+      title: 'Chapter 1',
+      delta: '第一段',
+    });
+    ipc.emitBookGeneration({
+      bookId: 'book-1',
+      type: 'chapter-stream',
+      volumeIndex: 1,
+      chapterIndex: 1,
+      title: 'Chapter 1',
+      delta: '第二段',
+    });
+
+    expect(await screen.findByText('实时输出')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(ipc.onBookGeneration).toHaveBeenCalledTimes(
+        subscriptionCountAfterSelection
+      );
+    });
   });
 
   it('replaces live output when a rewrite stream starts', async () => {

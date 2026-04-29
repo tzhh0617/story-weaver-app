@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 declare global {
   interface Window {
     storyWeaver?: {
@@ -8,18 +10,22 @@ declare global {
   }
 }
 
-export function useIpc() {
-  if (window.storyWeaver) {
-    return {
-      ...window.storyWeaver,
-      isAvailable: true,
-    };
-  }
+const unavailableIpc = {
+  isAvailable: false,
+  invoke: async <T>() => undefined as T,
+  onProgress: () => () => undefined,
+  onBookGeneration: () => () => undefined,
+};
 
-  return {
-    isAvailable: false,
-    invoke: async <T>() => undefined as T,
-    onProgress: () => () => undefined,
-    onBookGeneration: () => () => undefined,
-  };
+export function useIpc() {
+  return useMemo(() => {
+    if (window.storyWeaver) {
+      return {
+        ...window.storyWeaver,
+        isAvailable: true,
+      };
+    }
+
+    return unavailableIpc;
+  }, []);
 }
