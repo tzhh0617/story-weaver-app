@@ -5,6 +5,10 @@ import {
 
 export const DEFAULT_MOCK_MODEL_ID = 'mock:fallback';
 
+export function isMockModelId(modelId: string) {
+  return modelId.startsWith('mock:');
+}
+
 type RuntimeModeInput = {
   persistedConfigs: ModelConfigInput[];
   environmentConfigs: ModelConfigInput[];

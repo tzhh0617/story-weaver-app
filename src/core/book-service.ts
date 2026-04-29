@@ -1,6 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import type { BookGenerationEvent, BookStatus } from '../shared/contracts.js';
-import { DEFAULT_MOCK_MODEL_ID } from '../models/runtime-mode.js';
+import {
+  DEFAULT_MOCK_MODEL_ID,
+  isMockModelId,
+} from '../models/runtime-mode.js';
 import { buildStoredChapterContext } from './consistency.js';
 import { buildChapterDraftPrompt } from './prompt-builder.js';
 import {
@@ -679,7 +682,7 @@ export function createBookService(deps: {
       }
 
       if (
-        modelId !== DEFAULT_MOCK_MODEL_ID &&
+        !isMockModelId(modelId) &&
         deps.shouldRewriteShortChapter?.({
           content: result.content,
           wordsPerChapter: book.wordsPerChapter,

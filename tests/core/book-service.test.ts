@@ -1039,7 +1039,7 @@ describe('createBookService', () => {
     expect(chapter?.summary).toBe('第二稿补足了场景、冲突和情绪推进。');
   });
 
-  it('skips short-chapter rewrite when using the mock fallback model', async () => {
+  it('skips short-chapter rewrite when using a mock model id', async () => {
     const db = createDatabase(':memory:');
     const writeChapter = vi.fn().mockResolvedValue({
       content: '太短',
@@ -1087,6 +1087,7 @@ describe('createBookService', () => {
         extractScene: vi.fn().mockResolvedValue(null),
       },
       shouldRewriteShortChapter,
+      resolveModelId: () => 'mock:preview',
     });
 
     const bookId = service.createBook({
