@@ -11,6 +11,14 @@ const viteConfigSource = fs.readFileSync(
   path.resolve(__dirname, '../../vite.config.ts'),
   'utf8'
 );
+const electronMainSource = fs.readFileSync(
+  path.resolve(__dirname, '../../electron/main.ts'),
+  'utf8'
+);
+const electronTsConfigSource = fs.readFileSync(
+  path.resolve(__dirname, '../../tsconfig.node.json'),
+  'utf8'
+);
 
 describe('desktop runtime config', () => {
   it('builds renderer assets with a relative base for file:// loading', () => {
@@ -21,6 +29,19 @@ describe('desktop runtime config', () => {
     expect(packageJson.scripts?.['dev:electron']).toContain(
       'VITE_DEV_SERVER_URL=http://localhost:5173'
     );
+  });
+
+  it('builds the Electron preload before launching the dev shell', () => {
+    expect(packageJson.scripts?.['dev:electron']).toContain(
+      'pnpm run build:electron'
+    );
+  });
+
+  it('loads the preload bridge as a CommonJS script', () => {
+    expect(electronMainSource).toContain(
+      "'dist-electron/electron/preload.cjs'"
+    );
+    expect(electronTsConfigSource).toContain('"electron/**/*.cts"');
   });
 
   it('keeps the renderer dev server pinned to port 5173', () => {

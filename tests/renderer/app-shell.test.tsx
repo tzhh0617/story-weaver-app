@@ -116,6 +116,26 @@ describe('App shell', () => {
     expect(await screen.findByText('全部开始')).toBeDisabled();
   });
 
+  it('keeps the new-book form open and explains when IPC is unavailable', async () => {
+    delete window.storyWeaver;
+
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole('button', { name: '新建作品' }));
+    fireEvent.change(screen.getByLabelText('故事设想'), {
+      target: { value: 'A city remembers every unfinished book.' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '开始写作' }));
+
+    expect(
+      await screen.findByText('请在桌面应用中创建作品。')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: '新建作品' })
+    ).toBeInTheDocument();
+    expect(screen.queryByText('暂无作品')).not.toBeInTheDocument();
+  });
+
   it('opens the new-book workspace from the empty shelf action', async () => {
     installIpcMock(async (channel) => {
       switch (channel) {

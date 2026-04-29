@@ -84,10 +84,6 @@
     background-size: auto;
     -webkit-app-region: drag;
   }
-
-  .app-content-scrollport {
-    -webkit-app-region: no-drag;
-  }
 }
 
 :root {

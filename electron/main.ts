@@ -19,7 +19,7 @@ async function createWindow() {
     backgroundColor: '#efe6d5',
     icon: windowIcon,
     webPreferences: {
-      preload: path.join(app.getAppPath(), 'dist-electron/electron/preload.js'),
+      preload: path.join(app.getAppPath(), 'dist-electron/electron/preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
     },

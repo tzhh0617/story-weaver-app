@@ -420,6 +420,11 @@ export default function App() {
           {currentView === 'new-book' ? (
             <NewBook
               onCreate={async (input) => {
+                if (!ipc.isAvailable) {
+                  showBanner('error', '请在桌面应用中创建作品。');
+                  return;
+                }
+
                 try {
                   flushSync(() => {
                     setBanner({

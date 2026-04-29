@@ -109,6 +109,14 @@ describe('renderer layout constraints', () => {
     expect(titlebarRule).not.toContain('background-attachment');
   });
 
+  it('does not let the right-side scrollport cancel desktop titlebar dragging', () => {
+    const cssSource = fs.readFileSync(path.join(rendererRoot, 'index.css'), 'utf8');
+    const scrollportRule =
+      cssSource.match(/\.app-content-scrollport \{[\s\S]*?\n  \}/)?.[0] ?? '';
+
+    expect(scrollportRule).not.toContain('-webkit-app-region: no-drag');
+  });
+
   it('defines the shared shadcn theme tokens used by overlay and form primitives', () => {
     const cssSource = fs.readFileSync(path.join(rendererRoot, 'index.css'), 'utf8');
     const tailwindSource = fs.readFileSync(

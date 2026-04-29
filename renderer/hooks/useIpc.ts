@@ -8,10 +8,16 @@ declare global {
 }
 
 export function useIpc() {
-  return (
-    window.storyWeaver ?? {
-      invoke: async <T>() => undefined as T,
-      onProgress: () => () => undefined,
-    }
-  );
+  if (window.storyWeaver) {
+    return {
+      ...window.storyWeaver,
+      isAvailable: true,
+    };
+  }
+
+  return {
+    isAvailable: false,
+    invoke: async <T>() => undefined as T,
+    onProgress: () => () => undefined,
+  };
 }

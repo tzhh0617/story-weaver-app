@@ -32,7 +32,7 @@ This is an **Electron desktop app** with a strict two-process split:
 ### Main process (`electron/`)
 - `electron/main.ts` — bootstraps the BrowserWindow and registers all IPC handlers
 - `electron/runtime.ts` — singleton that wires together all services (DB, scheduler, AI adapters) at startup; exports `getRuntimeServices()`
-- `electron/preload.ts` — exposes `window.storyWeaver.invoke` and `window.storyWeaver.onProgress` to the renderer via `contextBridge`
+- `electron/preload.cts` — exposes `window.storyWeaver.invoke` and `window.storyWeaver.onProgress` to the renderer via `contextBridge`
 - `electron/ipc/*.ts` — thin IPC handlers that call into `getRuntimeServices()`
 
 ### Renderer (`renderer/`)
