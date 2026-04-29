@@ -312,6 +312,27 @@ export default function App() {
     });
   }
 
+  function getRenderedChapterStatus(chapter: BookDetailData['chapters'][number]) {
+    if (chapter.content) {
+      return 'done' as const;
+    }
+
+    const currentVolume =
+      selectedBookDetail?.progress?.currentVolume ?? liveOutput?.volumeIndex;
+    const currentChapter =
+      selectedBookDetail?.progress?.currentChapter ?? liveOutput?.chapterIndex;
+
+    if (
+      selectedBookDetail?.book.status === 'writing' &&
+      chapter.volumeIndex === currentVolume &&
+      chapter.chapterIndex === currentChapter
+    ) {
+      return 'writing' as const;
+    }
+
+    return 'queued' as const;
+  }
+
   async function runSelectedBookAction({
     startMessage,
     errorMessage,
@@ -366,6 +387,9 @@ export default function App() {
     }
   }
 
+  const isBookDetailWorkbench =
+    currentView === 'book-detail' && Boolean(selectedBookDetail);
+
   return (
     <SidebarProvider
       defaultOpen
@@ -375,8 +399,20 @@ export default function App() {
       <div aria-hidden="true" className="app-titlebar-drag-region" />
       <AppSidebar currentView={currentView} onSelectView={setCurrentView} />
       <SidebarInset className="app-paper-background min-w-0 flex-1 overflow-hidden">
-        <main className="app-content-scrollport h-svh overflow-y-auto w-full px-5 pb-5 pt-[calc(var(--app-titlebar-height)+1.25rem)]">
-          <div className="grid w-full content-start gap-5">
+        <main
+          data-testid="app-content-scrollport"
+          className={`app-content-scrollport h-svh w-full px-5 pb-5 pt-[calc(var(--app-titlebar-height)+1.25rem)] ${
+            isBookDetailWorkbench ? 'overflow-hidden' : 'overflow-y-auto'
+          }`}
+        >
+          <div
+            data-testid="app-view-frame"
+            className={`w-full gap-5 ${
+              isBookDetailWorkbench
+                ? 'flex h-full min-h-0 flex-col'
+                : 'grid content-start'
+            }`}
+          >
           {banner ? <Alert tone={banner.tone}>{banner.message}</Alert> : null}
           {currentView === 'library' ? (
             <Library
@@ -484,7 +520,7 @@ export default function App() {
                   chapter.title ??
                   `Chapter ${chapter.volumeIndex}.${chapter.chapterIndex}`,
                 wordCount: chapter.wordCount,
-                status: chapter.content ? 'done' : 'queued',
+                status: getRenderedChapterStatus(chapter),
                 content: chapter.content,
                 summary: chapter.summary,
                 outline: chapter.outline,

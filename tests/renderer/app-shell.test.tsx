@@ -263,6 +263,57 @@ describe('App shell', () => {
     ).toBeInTheDocument();
   });
 
+  it('uses a fixed app scrollport for the book detail workbench', async () => {
+    const books = [
+      {
+        id: 'book-1',
+        title: 'Workbench Book',
+        idea: 'Workbench idea',
+        status: 'writing',
+        targetChapters: 500,
+        wordsPerChapter: 2500,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    ];
+
+    installIpcMock(async (channel, payload) => {
+      switch (channel) {
+        case 'book:list':
+          return copy(books);
+        case 'model:list':
+          return [];
+        case 'book:detail': {
+          const { bookId } = payload as { bookId: string };
+
+          return {
+            book: books.find((item) => item.id === bookId) ?? books[0],
+            context: null,
+            latestScene: null,
+            characterStates: [],
+            plotThreads: [],
+            chapters: [],
+            progress: {
+              phase: 'writing',
+            },
+          };
+        }
+        default:
+          return null;
+      }
+    });
+
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Workbench Book' }));
+
+    expect(await screen.findByTestId('book-detail-workbench')).toBeInTheDocument();
+    expect(screen.getByTestId('app-content-scrollport').className).toContain(
+      'overflow-hidden'
+    );
+    expect(screen.getByTestId('app-view-frame').className).toContain('min-h-0');
+  });
+
   it('opens a dedicated detail view for the selected book and returns to the library through the sidebar', async () => {
     const books = [
       {
@@ -1614,9 +1665,8 @@ describe('App shell', () => {
       });
     });
 
-    fireEvent.click(await screen.findByText('章节'));
     expect(await screen.findByText('Restarted content')).toBeInTheDocument();
-    fireEvent.click(screen.getByText('人物'));
+    fireEvent.click(screen.getByRole('tab', { name: '人物' }));
     expect((await screen.findAllByText(/Debt Court/)).length).toBeGreaterThan(0);
   });
 
@@ -1790,14 +1840,13 @@ describe('App shell', () => {
       });
     });
 
-    fireEvent.click(await screen.findByText('章节'));
     expect(await screen.findByText('Generated chapter content')).toBeInTheDocument();
     expect(await screen.findByText('Generated chapter summary')).toBeInTheDocument();
-    fireEvent.click(screen.getByText('伏笔'));
+    fireEvent.click(screen.getByRole('tab', { name: '伏笔' }));
     expect(
       await screen.findByText(/A hidden debt resurfaces later/)
     ).toBeInTheDocument();
-    fireEvent.click(screen.getByText('人物'));
+    fireEvent.click(screen.getByRole('tab', { name: '人物' }));
     expect((await screen.findAllByText(/Lin Mo/)).length).toBeGreaterThan(0);
     expect((await screen.findAllByText(/Rain Market/)).length).toBeGreaterThan(0);
   });
@@ -1988,12 +2037,11 @@ describe('App shell', () => {
       });
     });
 
-    fireEvent.click(await screen.findByText('章节'));
     expect(await screen.findByText('Generated chapter 1')).toBeInTheDocument();
     expect(await screen.findByText('已完成 · 2100 字')).toBeInTheDocument();
-    fireEvent.click(screen.getByText('伏笔'));
+    fireEvent.click(screen.getByRole('tab', { name: '伏笔' }));
     expect(await screen.findByText(/Debt clue/)).toBeInTheDocument();
-    fireEvent.click(screen.getByText('人物'));
+    fireEvent.click(screen.getByRole('tab', { name: '人物' }));
     expect((await screen.findAllByText(/Debt Court/)).length).toBeGreaterThan(0);
   });
 
@@ -2494,6 +2542,11 @@ describe('App shell', () => {
       currentVolume: 1,
       currentChapter: 2,
     });
+    expect(
+      await screen.findByRole('button', {
+        name: /第 2 章 · Chapter 2 0 字 写作中/,
+      })
+    ).toBeInTheDocument();
     ipc.emitBookGeneration({
       bookId: 'book-1',
       type: 'chapter-stream',

@@ -679,6 +679,7 @@ export function createBookService(deps: {
       }
 
       if (
+        modelId !== DEFAULT_MOCK_MODEL_ID &&
         deps.shouldRewriteShortChapter?.({
           content: result.content,
           wordsPerChapter: book.wordsPerChapter,

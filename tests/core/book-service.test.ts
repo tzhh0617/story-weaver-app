@@ -1011,6 +1011,7 @@ describe('createBookService', () => {
         extractScene: vi.fn().mockResolvedValue(null),
       },
       shouldRewriteShortChapter: ({ content }) => content === '太短',
+      resolveModelId: () => 'openai:gpt-4o-mini',
     });
 
     const bookId = service.createBook({
@@ -1036,6 +1037,70 @@ describe('createBookService', () => {
     expect(writeChapter.mock.calls[1]?.[0].prompt).not.toContain('太短');
     expect(chapter?.content).toBe('第二稿补足了场景、冲突和情绪推进。');
     expect(chapter?.summary).toBe('第二稿补足了场景、冲突和情绪推进。');
+  });
+
+  it('skips short-chapter rewrite when using the mock fallback model', async () => {
+    const db = createDatabase(':memory:');
+    const writeChapter = vi.fn().mockResolvedValue({
+      content: '太短',
+      usage: { inputTokens: 100, outputTokens: 20 },
+    });
+    const shouldRewriteShortChapter = vi.fn().mockReturnValue(true);
+    const service = createBookService({
+      books: createBookRepository(db),
+      chapters: createChapterRepository(db),
+      characters: createCharacterRepository(db),
+      plotThreads: createPlotThreadRepository(db),
+      sceneRecords: createSceneRecordRepository(db),
+      progress: createProgressRepository(db),
+      outlineService: {
+        generateFromIdea: vi.fn().mockResolvedValue({
+          worldSetting: 'World rules',
+          masterOutline: 'Master outline',
+          volumeOutlines: ['Volume 1'],
+          chapterOutlines: [
+            {
+              volumeIndex: 1,
+              chapterIndex: 1,
+              title: 'Chapter 1',
+              outline: 'Opening conflict',
+            },
+          ],
+        }),
+      },
+      chapterWriter: {
+        writeChapter,
+      },
+      summaryGenerator: {
+        summarizeChapter: vi.fn().mockImplementation(async ({ content }) => content),
+      },
+      plotThreadExtractor: {
+        extractThreads: vi.fn().mockResolvedValue({
+          openedThreads: [],
+          resolvedThreadIds: [],
+        }),
+      },
+      characterStateExtractor: {
+        extractStates: vi.fn().mockResolvedValue([]),
+      },
+      sceneRecordExtractor: {
+        extractScene: vi.fn().mockResolvedValue(null),
+      },
+      shouldRewriteShortChapter,
+    });
+
+    const bookId = service.createBook({
+      idea: 'The moon taxes miracles.',
+      targetChapters: 1,
+      wordsPerChapter: 20,
+    });
+
+    await service.startBook(bookId);
+    await service.writeNextChapter(bookId);
+
+    expect(shouldRewriteShortChapter).not.toHaveBeenCalled();
+    expect(writeChapter).toHaveBeenCalledTimes(1);
+    expect(service.getBookDetail(bookId)?.chapters[0]?.content).toBe('太短');
   });
 
   it('replaces live stream output when a short chapter rewrite starts', async () => {
@@ -1104,6 +1169,7 @@ describe('createBookService', () => {
       onGenerationEvent: (event) => {
         events.push(event);
       },
+      resolveModelId: () => 'openai:gpt-4o-mini',
     });
 
     const bookId = service.createBook({

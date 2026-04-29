@@ -62,7 +62,9 @@ describe('renderer layout constraints', () => {
 
     expect(appSource).toContain('h-svh overflow-hidden');
     expect(appSource).toContain('min-w-0 flex-1 overflow-hidden');
-    expect(appSource).toContain('h-svh overflow-y-auto');
+    expect(appSource).toContain('h-svh w-full');
+    expect(appSource).toContain('overflow-y-auto');
+    expect(appSource).toContain('isBookDetailWorkbench ? \'overflow-hidden\'');
     expect(appSource).not.toContain('min-h-screen w-full p-5');
     expect(sidebarSource).toContain('h-svh shrink-0');
   });
