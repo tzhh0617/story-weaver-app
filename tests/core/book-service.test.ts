@@ -8,6 +8,7 @@ import { createProgressRepository } from '../../src/storage/progress';
 import { createSceneRecordRepository } from '../../src/storage/scene-records';
 import { createBookService } from '../../src/core/book-service';
 import { countStoryCharacters } from '../../src/core/story-constraints';
+import type { BookGenerationEvent } from '../../src/shared/contracts';
 
 describe('createBookService', () => {
   it('creates and lists books from persisted storage', () => {
@@ -761,6 +762,135 @@ describe('createBookService', () => {
     expect(onBookUpdated).toHaveBeenCalledWith(bookId);
     expect(service.getBookDetail(bookId)?.chapters[0]?.content).toBe(
       'Generated chapter content'
+    );
+  });
+
+  it('emits generation progress, stream chunks, and completion for the next chapter', async () => {
+    const db = createDatabase(':memory:');
+    const events: BookGenerationEvent[] = [];
+    const writeChapter = vi.fn().mockImplementation(
+      async ({
+        onChunk,
+      }: {
+        onChunk?: (chunk: string) => void;
+      }) => {
+        onChunk?.('第一段');
+        onChunk?.('第二段');
+
+        return {
+          content: '第一段第二段',
+          usage: { inputTokens: 100, outputTokens: 400 },
+        };
+      }
+    );
+    const service = createBookService({
+      books: createBookRepository(db),
+      chapters: createChapterRepository(db),
+      characters: createCharacterRepository(db),
+      plotThreads: createPlotThreadRepository(db),
+      sceneRecords: createSceneRecordRepository(db),
+      progress: createProgressRepository(db),
+      outlineService: {
+        generateFromIdea: vi.fn().mockResolvedValue({
+          worldSetting: 'World rules',
+          masterOutline: 'Master outline',
+          volumeOutlines: ['Volume 1'],
+          chapterOutlines: [
+            {
+              volumeIndex: 1,
+              chapterIndex: 1,
+              title: 'Chapter 1',
+              outline: 'Opening conflict',
+            },
+          ],
+        }),
+      },
+      chapterWriter: {
+        writeChapter,
+      },
+      summaryGenerator: {
+        summarizeChapter: vi.fn().mockResolvedValue('Chapter summary'),
+      },
+      plotThreadExtractor: {
+        extractThreads: vi.fn().mockResolvedValue({
+          openedThreads: [],
+          resolvedThreadIds: [],
+        }),
+      },
+      characterStateExtractor: {
+        extractStates: vi.fn().mockResolvedValue([]),
+      },
+      sceneRecordExtractor: {
+        extractScene: vi.fn().mockResolvedValue(null),
+      },
+      onGenerationEvent: (event) => {
+        events.push(event);
+      },
+    });
+
+    const bookId = service.createBook({
+      idea: 'The moon taxes miracles.',
+      targetChapters: 1,
+      wordsPerChapter: 2500,
+    });
+
+    await service.startBook(bookId);
+    events.splice(0, events.length);
+    await service.writeNextChapter(bookId);
+
+    expect(writeChapter).toHaveBeenCalledWith(
+      expect.objectContaining({
+        onChunk: expect.any(Function),
+      })
+    );
+    expect(events).toEqual([
+      {
+        bookId,
+        type: 'progress',
+        phase: 'writing',
+        stepLabel: '正在写第 1 章',
+        currentVolume: 1,
+        currentChapter: 1,
+      },
+      {
+        bookId,
+        type: 'chapter-stream',
+        volumeIndex: 1,
+        chapterIndex: 1,
+        title: 'Chapter 1',
+        delta: '第一段',
+      },
+      {
+        bookId,
+        type: 'chapter-stream',
+        volumeIndex: 1,
+        chapterIndex: 1,
+        title: 'Chapter 1',
+        delta: '第二段',
+      },
+      {
+        bookId,
+        type: 'progress',
+        phase: 'writing',
+        stepLabel: '正在生成第 1 章摘要与连续性',
+        currentVolume: 1,
+        currentChapter: 1,
+      },
+      {
+        bookId,
+        type: 'chapter-complete',
+        volumeIndex: 1,
+        chapterIndex: 1,
+        title: 'Chapter 1',
+      },
+    ]);
+    expect(service.getBookDetail(bookId)?.progress).toEqual(
+      expect.objectContaining({
+        currentVolume: 1,
+        currentChapter: 1,
+        phase: 'writing',
+        stepLabel: '正在生成第 1 章摘要与连续性',
+      })
     );
   });
 

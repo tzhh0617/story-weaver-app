@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { flushSync } from 'react-dom';
 import {
   parseBooleanSetting,
@@ -7,6 +7,7 @@ import {
 } from '../src/core/chapter-review';
 import {
   ipcChannels,
+  type BookGenerationEvent,
   type BookExportFormat,
   type BookRecord,
   type SchedulerStatus,
@@ -63,9 +64,17 @@ export default function App() {
   } | null>(null);
   const [currentView, setCurrentView] = useState<AppView>('library');
   const [selectedBookId, setSelectedBookId] = useState<string | null>(null);
+  const selectedBookIdRef = useRef<string | null>(null);
   const [selectedBookDetail, setSelectedBookDetail] = useState<BookDetailData | null>(
     null
   );
+  const [liveOutput, setLiveOutput] = useState<{
+    bookId: string;
+    volumeIndex: number;
+    chapterIndex: number;
+    title: string;
+    content: string;
+  } | null>(null);
   const [shortChapterReviewEnabled, setShortChapterReviewEnabled] =
     useState(true);
 
@@ -134,11 +143,11 @@ export default function App() {
     bookId: string,
     options?: { openView?: boolean; preserveExistingOnMissing?: boolean }
   ) {
+    setSelectedBookId(bookId);
     const detail = await ipc.invoke<BookDetailData | null>(
       ipcChannels.bookDetail,
       { bookId }
     );
-    setSelectedBookId(bookId);
     setSelectedBookDetail((currentDetail) => {
       if (detail) {
         return detail;
@@ -198,6 +207,96 @@ export default function App() {
 
     void loadBookDetail(books[0].id, { openView: false });
   }, [books, currentView, selectedBookDetail, selectedBookId]);
+
+  useEffect(() => {
+    selectedBookIdRef.current = selectedBookId;
+  }, [selectedBookId]);
+
+  useEffect(() => {
+    setLiveOutput(null);
+  }, [selectedBookId]);
+
+  useEffect(() => {
+    const unsubscribe = ipc.onBookGeneration((payload) => {
+      const event = payload as BookGenerationEvent;
+
+      setSelectedBookDetail((currentDetail) => {
+        if (!currentDetail || event.bookId !== currentDetail.book.id) {
+          return currentDetail;
+        }
+
+        if (event.type === 'progress') {
+          return {
+            ...currentDetail,
+            progress: {
+              ...(currentDetail.progress ?? {}),
+              phase: event.phase,
+              stepLabel: event.stepLabel,
+              currentVolume: event.currentVolume ?? null,
+              currentChapter: event.currentChapter ?? null,
+            },
+          };
+        }
+
+        if (event.type === 'error') {
+          return {
+            ...currentDetail,
+            progress: {
+              ...(currentDetail.progress ?? {}),
+              phase: event.phase,
+              stepLabel: event.stepLabel,
+              currentVolume: event.currentVolume ?? null,
+              currentChapter: event.currentChapter ?? null,
+            },
+          };
+        }
+
+        return currentDetail;
+      });
+
+      if (event.type === 'chapter-stream') {
+        setLiveOutput((currentOutput) => {
+          if (selectedBookIdRef.current !== event.bookId) {
+            return currentOutput;
+          }
+
+          if (
+            currentOutput &&
+            currentOutput.bookId === event.bookId &&
+            currentOutput.volumeIndex === event.volumeIndex &&
+            currentOutput.chapterIndex === event.chapterIndex
+          ) {
+            return {
+              ...currentOutput,
+              content: `${currentOutput.content}${event.delta}`,
+            };
+          }
+
+          return {
+            bookId: event.bookId,
+            volumeIndex: event.volumeIndex,
+            chapterIndex: event.chapterIndex,
+            title: event.title,
+            content: event.delta,
+          };
+        });
+      }
+
+      if (event.type === 'chapter-complete' || event.type === 'error') {
+        if (selectedBookIdRef.current === event.bookId) {
+          if (event.type === 'chapter-complete') {
+            setLiveOutput(null);
+          }
+          void loadBookDetail(event.bookId, {
+            openView: false,
+            preserveExistingOnMissing: true,
+          });
+        }
+      }
+    });
+
+    return unsubscribe;
+  }, [ipc, selectedBookId]);
 
   function showBanner(tone: BannerTone, message: string) {
     flushSync(() => {
@@ -355,6 +454,11 @@ export default function App() {
               characterStates={selectedBookDetail.characterStates}
               plotThreads={selectedBookDetail.plotThreads}
               progress={selectedBookDetail.progress}
+              liveOutput={
+                liveOutput && liveOutput.bookId === selectedBookDetail.book.id
+                  ? liveOutput
+                  : null
+              }
               onBackToLibrary={() => setCurrentView('library')}
               onResume={async () => {
                 await runSelectedBookAction({
@@ -381,6 +485,7 @@ export default function App() {
                 status: chapter.content ? 'done' : 'queued',
                 content: chapter.content,
                 summary: chapter.summary,
+                outline: chapter.outline,
               }))}
               onPause={async () => {
                 await runSelectedBookAction({

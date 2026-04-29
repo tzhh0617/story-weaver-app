@@ -100,6 +100,7 @@ export const migrations = [
     current_volume INTEGER,
     current_chapter INTEGER,
     phase TEXT,
+    step_label TEXT,
     retry_count INTEGER NOT NULL DEFAULT 0,
     error_msg TEXT,
     FOREIGN KEY (book_id) REFERENCES books(id)

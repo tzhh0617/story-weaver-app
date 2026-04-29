@@ -256,6 +256,149 @@ describe('BookDetail', () => {
     ).toHaveClass('whitespace-pre-wrap');
   });
 
+  it('renders every planned chapter and highlights the current writing chapter', async () => {
+    render(
+      <BookDetail
+        book={{ title: 'Book 1', status: 'writing', wordCount: 1200 }}
+        progress={{
+          phase: 'writing',
+          stepLabel: '正在写第 2 章',
+          currentVolume: 1,
+          currentChapter: 2,
+        }}
+        chapters={[
+          {
+            id: '1-1',
+            volumeIndex: 1,
+            chapterIndex: 1,
+            title: 'Chapter 1',
+            wordCount: 1200,
+            status: 'done',
+            content: '第一章正文',
+            outline: 'Opening conflict',
+          },
+          {
+            id: '1-2',
+            volumeIndex: 1,
+            chapterIndex: 2,
+            title: 'Chapter 2',
+            wordCount: 0,
+            status: 'writing',
+            content: null,
+            outline: 'Second conflict',
+          },
+          {
+            id: '1-3',
+            volumeIndex: 1,
+            chapterIndex: 3,
+            title: 'Chapter 3',
+            wordCount: 0,
+            status: 'queued',
+            content: null,
+            outline: 'Third conflict',
+          },
+        ]}
+      />
+    );
+
+    expect(await screen.findByText('当前步骤')).toBeInTheDocument();
+    expect(screen.getByText('正在写第 2 章')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /第 1\.1 章 Chapter 1/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /第 1\.2 章 Chapter 2/ })).toHaveAttribute(
+      'aria-current',
+      'step'
+    );
+    expect(screen.getByRole('button', { name: /第 1\.3 章 Chapter 3/ })).toBeInTheDocument();
+  });
+
+  it('selects an outline-only chapter and shows its outline as the preview', async () => {
+    render(
+      <BookDetail
+        book={{ title: 'Book 1', status: 'writing', wordCount: 1200 }}
+        progress={{ phase: 'writing' }}
+        chapters={[
+          {
+            id: '1-1',
+            volumeIndex: 1,
+            chapterIndex: 1,
+            title: 'Chapter 1',
+            wordCount: 1200,
+            status: 'done',
+            content: '第一章正文',
+            outline: 'Opening conflict',
+          },
+          {
+            id: '1-2',
+            volumeIndex: 1,
+            chapterIndex: 2,
+            title: 'Chapter 2',
+            wordCount: 0,
+            status: 'queued',
+            content: null,
+            outline: 'Second conflict',
+          },
+        ]}
+      />
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: /第 1\.2 章 Chapter 2/ }));
+
+    expect(await screen.findByText('章节大纲')).toBeInTheDocument();
+    expect(screen.getByText('Second conflict')).toBeInTheDocument();
+  });
+
+  it('shows streaming chapter output separately from saved chapter content', async () => {
+    render(
+      <BookDetail
+        book={{ title: 'Book 1', status: 'writing', wordCount: 1200 }}
+        progress={{
+          phase: 'writing',
+          stepLabel: '正在写第 2 章',
+          currentVolume: 1,
+          currentChapter: 2,
+        }}
+        liveOutput={{
+          volumeIndex: 1,
+          chapterIndex: 2,
+          title: 'Chapter 2',
+          content: '流式第一段\n流式第二段',
+        }}
+        chapters={[
+          {
+            id: '1-1',
+            volumeIndex: 1,
+            chapterIndex: 1,
+            title: 'Chapter 1',
+            wordCount: 1200,
+            status: 'done',
+            content: '第一章正文',
+            outline: 'Opening conflict',
+          },
+          {
+            id: '1-2',
+            volumeIndex: 1,
+            chapterIndex: 2,
+            title: 'Chapter 2',
+            wordCount: 0,
+            status: 'writing',
+            content: null,
+            outline: 'Second conflict',
+          },
+        ]}
+      />
+    );
+
+    expect(await screen.findByText('实时输出')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        (_content, element) =>
+          element?.tagName === 'P' &&
+          element.textContent === '流式第一段\n流式第二段'
+      )
+    ).toHaveClass('whitespace-pre-wrap');
+    expect(screen.getByText('正在输出 Chapter 2')).toBeInTheDocument();
+  });
+
   it('uses the shared layout card treatment for the page shell and detail sections', async () => {
     render(
       <BookDetail

@@ -44,5 +44,8 @@ export type BookDetailData = {
   }>;
   progress: {
     phase?: string | null;
+    stepLabel?: string | null;
+    currentVolume?: number | null;
+    currentChapter?: number | null;
   } | null;
 };

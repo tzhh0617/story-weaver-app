@@ -25,6 +25,40 @@ export type SchedulerStatus = {
   concurrencyLimit: number | null;
 };
 
+export type BookGenerationEvent =
+  | {
+      bookId: string;
+      type: 'progress';
+      phase: string;
+      stepLabel: string;
+      currentVolume?: number | null;
+      currentChapter?: number | null;
+    }
+  | {
+      bookId: string;
+      type: 'chapter-stream';
+      volumeIndex: number;
+      chapterIndex: number;
+      title: string;
+      delta: string;
+    }
+  | {
+      bookId: string;
+      type: 'chapter-complete';
+      volumeIndex: number;
+      chapterIndex: number;
+      title: string;
+    }
+  | {
+      bookId: string;
+      type: 'error';
+      phase: string;
+      stepLabel: string;
+      error: string;
+      currentVolume?: number | null;
+      currentChapter?: number | null;
+    };
+
 export type BookExportFormat = 'txt' | 'md';
 
 export const ipcChannels = {
@@ -43,6 +77,7 @@ export const ipcChannels = {
   schedulerPauseAll: 'scheduler:pauseAll',
   schedulerStatus: 'scheduler:status',
   schedulerProgress: 'scheduler:progress',
+  bookGeneration: 'book:generation',
   bookChapterDone: 'book:chapterDone',
   bookError: 'book:error',
   modelList: 'model:list',

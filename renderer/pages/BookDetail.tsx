@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { BookExportFormat } from '../../src/shared/contracts';
 import ChapterList from '../components/ChapterList';
 import {
@@ -77,6 +77,60 @@ function DetailSection({
   );
 }
 
+function GenerationProgressPanel({
+  phase,
+  stepLabel,
+  currentVolume,
+  currentChapter,
+}: {
+  phase: string;
+  stepLabel?: string | null;
+  currentVolume?: number | null;
+  currentChapter?: number | null;
+}) {
+  const chapterLabel =
+    currentVolume && currentChapter
+      ? `第 ${currentVolume}.${currentChapter} 章`
+      : '暂无当前章节';
+
+  return (
+    <DetailSection title="当前步骤">
+      <div className="grid gap-2">
+        <p className="font-medium text-foreground">
+          {stepLabel || getStatusLabel(phase)}
+        </p>
+        <p>{chapterLabel}</p>
+      </div>
+    </DetailSection>
+  );
+}
+
+function LiveOutputPanel({
+  liveOutput,
+}: {
+  liveOutput?: {
+    volumeIndex: number;
+    chapterIndex: number;
+    title: string;
+    content: string;
+  } | null;
+}) {
+  if (!liveOutput?.content) {
+    return null;
+  }
+
+  return (
+    <DetailSection title="实时输出">
+      <div className="grid gap-3">
+        <p className="font-medium text-foreground">
+          {`正在输出 ${liveOutput.title}`}
+        </p>
+        <p className="whitespace-pre-wrap">{liveOutput.content}</p>
+      </div>
+    </DetailSection>
+  );
+}
+
 function DetailEmpty({
   message,
   testId,
@@ -102,6 +156,7 @@ export default function BookDetail({
   plotThreads,
   chapters,
   progress,
+  liveOutput,
   onBackToLibrary,
   onPause,
   onResume,
@@ -150,9 +205,19 @@ export default function BookDetail({
     status: 'done' | 'writing' | 'queued';
     content?: string | null;
     summary?: string | null;
+    outline?: string | null;
   }>;
   progress?: {
     phase?: string | null;
+    stepLabel?: string | null;
+    currentVolume?: number | null;
+    currentChapter?: number | null;
+  } | null;
+  liveOutput?: {
+    volumeIndex: number;
+    chapterIndex: number;
+    title: string;
+    content: string;
   } | null;
   onBackToLibrary?: () => void;
   onPause?: () => void;
@@ -169,12 +234,24 @@ export default function BookDetail({
         chapter.id ??
         `${chapter.volumeIndex ?? 0}-${chapter.chapterIndex ?? 0}`,
       title: chapter.title,
+      volumeIndex: chapter.volumeIndex,
+      chapterIndex: chapter.chapterIndex,
       wordCount: chapter.wordCount,
       status: chapter.status,
+      content: chapter.content,
+      summary: chapter.summary,
+      outline: chapter.outline,
     })) ?? [];
-  const latestContent = chapters?.find((chapter) => chapter.content)?.content;
-  const latestSummary = chapters?.find((chapter) => chapter.summary)?.summary;
   const [activeTab, setActiveTab] = useState<DetailTab>('chapters');
+  const activeChapterId =
+    progress?.currentVolume && progress?.currentChapter
+      ? `${progress.currentVolume}-${progress.currentChapter}`
+      : liveOutput
+        ? `${liveOutput.volumeIndex}-${liveOutput.chapterIndex}`
+        : null;
+  const [selectedChapterId, setSelectedChapterId] = useState<string | null>(
+    activeChapterId ?? renderedChapters[0]?.id ?? null
+  );
   const hasOutlineContent = Boolean(context?.worldSetting || context?.outline);
   const currentPhase = progress?.phase ?? book.status;
   const hasRemainingChapters = Boolean(
@@ -189,6 +266,30 @@ export default function BookDetail({
     hasRemainingChapters &&
     currentPhase !== 'paused' &&
     currentPhase !== 'completed';
+  const selectedChapter =
+    renderedChapters.find((chapter) => chapter.id === selectedChapterId) ??
+    renderedChapters[0] ??
+    null;
+  const selectedHasLiveOutput =
+    selectedChapter &&
+    liveOutput &&
+    selectedChapter.volumeIndex === liveOutput.volumeIndex &&
+    selectedChapter.chapterIndex === liveOutput.chapterIndex &&
+    liveOutput.content.trim().length > 0;
+  const selectedContent = selectedHasLiveOutput
+    ? null
+    : selectedChapter?.content;
+  const selectedSummary = selectedChapter?.summary;
+  const selectedOutline = selectedChapter?.outline;
+
+  useEffect(() => {
+    if (activeChapterId) {
+      setSelectedChapterId((current) => current ?? activeChapterId);
+      return;
+    }
+
+    setSelectedChapterId((current) => current ?? renderedChapters[0]?.id ?? null);
+  }, [activeChapterId, renderedChapters]);
 
   return (
     <section className="grid gap-6">
@@ -283,19 +384,32 @@ export default function BookDetail({
               <ScrollArea aria-label="章节滚动区">
                 <div className="grid gap-5 pt-2">
                   {renderedChapters.length ? (
-                    <ChapterList chapters={renderedChapters} />
+                    <ChapterList
+                      chapters={renderedChapters}
+                      activeChapterId={activeChapterId}
+                      selectedChapterId={selectedChapterId}
+                      onSelectChapter={setSelectedChapterId}
+                    />
                   ) : null}
                   {!renderedChapters.length ? (
                     <DetailEmpty message={getEmptyChapterMessage(currentPhase)} />
                   ) : null}
-                  {latestContent ? (
-                    <DetailSection title="正文预览">
-                      <p className="whitespace-pre-wrap">{latestContent}</p>
+                  <LiveOutputPanel liveOutput={liveOutput} />
+                  {selectedContent ? (
+                    <DetailSection
+                      title={selectedHasLiveOutput ? '实时正文预览' : '正文预览'}
+                    >
+                      <p className="whitespace-pre-wrap">{selectedContent}</p>
                     </DetailSection>
                   ) : null}
-                  {latestSummary ? (
+                  {!selectedContent && selectedOutline ? (
+                    <DetailSection title="章节大纲">
+                      <p className="whitespace-pre-wrap">{selectedOutline}</p>
+                    </DetailSection>
+                  ) : null}
+                  {selectedSummary ? (
                     <DetailSection title="章节摘要">
-                      <p>{latestSummary}</p>
+                      <p>{selectedSummary}</p>
                     </DetailSection>
                   ) : null}
                 </div>
@@ -359,6 +473,12 @@ export default function BookDetail({
           </Tabs>
         </div>
         <aside className="grid content-start gap-4">
+          <GenerationProgressPanel
+            phase={currentPhase}
+            stepLabel={progress?.stepLabel}
+            currentVolume={progress?.currentVolume}
+            currentChapter={progress?.currentChapter}
+          />
           {latestScene ? (
             <DetailSection title="最近场景">
               <p>{`${latestScene.location} · ${latestScene.timeInStory}`}</p>

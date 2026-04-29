@@ -3,6 +3,7 @@ declare global {
     storyWeaver?: {
       invoke: <T>(channel: string, payload?: unknown) => Promise<T>;
       onProgress: (listener: (payload: unknown) => void) => () => void;
+      onBookGeneration: (listener: (payload: unknown) => void) => () => void;
     };
   }
 }
@@ -19,5 +20,6 @@ export function useIpc() {
     isAvailable: false,
     invoke: async <T>() => undefined as T,
     onProgress: () => () => undefined,
+    onBookGeneration: () => () => undefined,
   };
 }

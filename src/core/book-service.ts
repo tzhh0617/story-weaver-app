@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { BookStatus } from '../shared/contracts.js';
+import type { BookGenerationEvent, BookStatus } from '../shared/contracts.js';
 import { DEFAULT_MOCK_MODEL_ID } from '../models/runtime-mode.js';
 import { buildStoredChapterContext } from './consistency.js';
 import { buildChapterDraftPrompt } from './prompt-builder.js';
@@ -308,13 +308,23 @@ export function createBookService(deps: {
     clearByBook: (bookId: string) => void;
   };
   progress: {
-    updatePhase: (bookId: string, phase: string) => void;
+    updatePhase: (
+      bookId: string,
+      phase: string,
+      metadata?: {
+        currentVolume?: number | null;
+        currentChapter?: number | null;
+        stepLabel?: string | null;
+        errorMsg?: string | null;
+      }
+    ) => void;
     getByBookId: (bookId: string) =>
       | {
           bookId: string;
           currentVolume: number | null;
           currentChapter: number | null;
           phase: string | null;
+          stepLabel: string | null;
           retryCount: number;
           errorMsg: string | null;
         }
@@ -334,6 +344,7 @@ export function createBookService(deps: {
     writeChapter: (input: {
       modelId: string;
       prompt: string;
+      onChunk?: (chunk: string) => void;
     }) => Promise<{
       content: string;
       usage?: {
@@ -406,6 +417,7 @@ export function createBookService(deps: {
   }) => boolean;
   resolveModelId?: () => string;
   onBookUpdated?: (bookId: string) => void;
+  onGenerationEvent?: (event: BookGenerationEvent) => void;
 }) {
   const resolveModelId = deps.resolveModelId ?? (() => DEFAULT_MOCK_MODEL_ID);
 
@@ -605,6 +617,7 @@ export function createBookService(deps: {
         throw new Error('No outlined chapter available to write');
       }
 
+      const nextChapterTitle = nextChapter.title;
       const modelId = resolveModelId();
       const prompt = buildChapterDraftPrompt({
         idea: book.idea,
@@ -623,14 +636,40 @@ export function createBookService(deps: {
           },
           maxCharacters: CHAPTER_CONTEXT_MAX_CHARACTERS,
         }),
-        chapterTitle: nextChapter.title,
+        chapterTitle: nextChapterTitle,
         chapterOutline: nextChapter.outline,
         targetChapters: book.targetChapters,
         wordsPerChapter: book.wordsPerChapter,
       });
+      const writingStepLabel = `正在写第 ${nextChapter.chapterIndex} 章`;
+
+      deps.progress.updatePhase(bookId, 'writing', {
+        currentVolume: nextChapter.volumeIndex,
+        currentChapter: nextChapter.chapterIndex,
+        stepLabel: writingStepLabel,
+      });
+      deps.onGenerationEvent?.({
+        bookId,
+        type: 'progress',
+        phase: 'writing',
+        stepLabel: writingStepLabel,
+        currentVolume: nextChapter.volumeIndex,
+        currentChapter: nextChapter.chapterIndex,
+      });
+
       let result = await deps.chapterWriter.writeChapter({
         modelId,
         prompt,
+        onChunk: (delta) => {
+          deps.onGenerationEvent?.({
+            bookId,
+            type: 'chapter-stream',
+            volumeIndex: nextChapter.volumeIndex,
+            chapterIndex: nextChapter.chapterIndex,
+            title: nextChapterTitle,
+            delta,
+          });
+        },
       });
 
       if (!deps.books.getById(bookId)) {
@@ -660,6 +699,21 @@ export function createBookService(deps: {
           deleted: true as const,
         };
       }
+
+      const postChapterStepLabel = `正在生成第 ${nextChapter.chapterIndex} 章摘要与连续性`;
+      deps.progress.updatePhase(bookId, 'writing', {
+        currentVolume: nextChapter.volumeIndex,
+        currentChapter: nextChapter.chapterIndex,
+        stepLabel: postChapterStepLabel,
+      });
+      deps.onGenerationEvent?.({
+        bookId,
+        type: 'progress',
+        phase: 'writing',
+        stepLabel: postChapterStepLabel,
+        currentVolume: nextChapter.volumeIndex,
+        currentChapter: nextChapter.chapterIndex,
+      });
 
       const chapterUpdate = await extractChapterUpdate({
         modelId,
@@ -735,7 +789,18 @@ export function createBookService(deps: {
       const nextPhase = latestBook?.status === 'paused' ? 'paused' : 'writing';
 
       deps.books.updateStatus(bookId, nextPhase);
-      deps.progress.updatePhase(bookId, nextPhase);
+      deps.progress.updatePhase(bookId, nextPhase, {
+        currentVolume: nextChapter.volumeIndex,
+        currentChapter: nextChapter.chapterIndex,
+        stepLabel: postChapterStepLabel,
+      });
+      deps.onGenerationEvent?.({
+        bookId,
+        type: 'chapter-complete',
+        volumeIndex: nextChapter.volumeIndex,
+        chapterIndex: nextChapter.chapterIndex,
+        title: nextChapterTitle,
+      });
       deps.onBookUpdated?.(bookId);
 
       return result;

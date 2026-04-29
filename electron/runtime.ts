@@ -1,5 +1,5 @@
 import { mkdirSync } from 'node:fs';
-import { generateText } from 'ai';
+import { generateText, streamText as streamModelText } from 'ai';
 import os from 'node:os';
 import path from 'node:path';
 import { createAiOutlineService } from '../src/core/ai-outline.js';
@@ -40,7 +40,10 @@ import { createPlotThreadRepository } from '../src/storage/plot-threads.js';
 import { createProgressRepository } from '../src/storage/progress.js';
 import { createSceneRecordRepository } from '../src/storage/scene-records.js';
 import { exportBookToFile } from '../src/storage/export.js';
-import type { BookExportFormat } from '../src/shared/contracts.js';
+import type {
+  BookExportFormat,
+  BookGenerationEvent,
+} from '../src/shared/contracts.js';
 import { createSettingsRepository } from '../src/storage/settings.js';
 
 type RuntimeServices = {
@@ -68,6 +71,9 @@ type RuntimeServices = {
       pausedBookIds: string[];
       concurrencyLimit: number | null;
     }) => void
+  ) => () => void;
+  subscribeBookGeneration: (
+    listener: (event: BookGenerationEvent) => void
   ) => () => void;
   testModel: (modelId: string) => Promise<{
     ok: boolean;
@@ -209,6 +215,9 @@ export function getRuntimeServices() {
       concurrencyLimit: number | null;
     }) => void
   >();
+  const bookGenerationListeners = new Set<
+    (event: BookGenerationEvent) => void
+  >();
   const outlineService = {
     async generateTitleFromIdea(
       input: OutlineGenerationInput & { modelId: string }
@@ -255,13 +264,25 @@ export function getRuntimeServices() {
     },
   };
   const chapterWriter = {
-    async writeChapter(input: { modelId: string; prompt: string }) {
+    async writeChapter(input: {
+      modelId: string;
+      prompt: string;
+      onChunk?: (chunk: string) => void;
+    }) {
       const persistedConfigs = modelConfigs.list();
       const runtimeMode = getRuntimeModelMode(persistedConfigs);
       if (runtimeMode.kind === 'mock') {
-        return withMockRuntimeDelay(() =>
-          mockServices.chapterWriter.writeChapter(input)
-        );
+        return withMockRuntimeDelay(async () => {
+          const result = await mockServices.chapterWriter.writeChapter(input);
+
+          if (input.onChunk) {
+            for (let index = 0; index < result.content.length; index += 80) {
+              input.onChunk(result.content.slice(index, index + 80));
+            }
+          }
+
+          return result;
+        });
       }
 
       const model = getRuntimeLanguageModel({
@@ -281,8 +302,14 @@ export function getRuntimeServices() {
               outputTokens?: number;
             };
           }>),
+        streamText: (payload: { prompt: string }) =>
+          streamModelText({
+            model: model as never,
+            prompt: payload.prompt,
+          }).textStream,
       }).writeChapter({
         prompt: input.prompt,
+        onChunk: input.onChunk,
       });
     },
   };
@@ -423,6 +450,12 @@ export function getRuntimeServices() {
     }
   }
 
+  function emitBookGeneration(event: BookGenerationEvent) {
+    for (const listener of bookGenerationListeners) {
+      listener(event);
+    }
+  }
+
   const scheduler = createScheduler({
     concurrencyLimit: parseConcurrencyLimit(
       settings.get('scheduler.concurrencyLimit')
@@ -484,6 +517,7 @@ export function getRuntimeServices() {
     onBookUpdated: () => {
       emitSchedulerStatus();
     },
+    onGenerationEvent: emitBookGeneration,
   });
 
   runtimeServices = {
@@ -569,6 +603,12 @@ export function getRuntimeServices() {
       listener(currentSchedulerStatus());
       return () => {
         schedulerListeners.delete(listener);
+      };
+    },
+    subscribeBookGeneration: (listener) => {
+      bookGenerationListeners.add(listener);
+      return () => {
+        bookGenerationListeners.delete(listener);
       };
     },
     testModel: async (modelId: string) => {

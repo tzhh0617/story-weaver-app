@@ -6,9 +6,34 @@ type GenerateText = (input: { prompt: string }) => Promise<{
   };
 }>;
 
-export function createChapterWriter({ generateText }: { generateText: GenerateText }) {
+type StreamText = (input: { prompt: string }) => AsyncIterable<string>;
+
+export function createChapterWriter({
+  generateText,
+  streamText,
+}: {
+  generateText: GenerateText;
+  streamText?: StreamText;
+}) {
   return {
-    async writeChapter(input: { prompt: string }) {
+    async writeChapter(input: { prompt: string; onChunk?: (chunk: string) => void }) {
+      if (input.onChunk && streamText) {
+        let content = '';
+
+        for await (const chunk of streamText({ prompt: input.prompt })) {
+          content += chunk;
+          input.onChunk(chunk);
+        }
+
+        return {
+          content,
+          usage: {
+            inputTokens: 0,
+            outputTokens: 0,
+          },
+        };
+      }
+
       const response = await generateText({ prompt: input.prompt });
 
       return {

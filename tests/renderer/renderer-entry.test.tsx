@@ -23,6 +23,7 @@ describe('renderer entry styling', () => {
         }
       },
       onProgress: () => () => undefined,
+      onBookGeneration: () => () => undefined,
     };
 
     const { container } = render(<App />);

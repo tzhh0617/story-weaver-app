@@ -8,11 +8,18 @@ export function registerSchedulerHandlers() {
     pauseAllBooks,
     getSchedulerStatus,
     subscribeSchedulerStatus,
+    subscribeBookGeneration,
   } = getRuntimeServices();
 
   subscribeSchedulerStatus((status) => {
     for (const window of BrowserWindow.getAllWindows()) {
       window.webContents.send(ipcChannels.schedulerProgress, status);
+    }
+  });
+
+  subscribeBookGeneration((event) => {
+    for (const window of BrowserWindow.getAllWindows()) {
+      window.webContents.send(ipcChannels.bookGeneration, event);
     }
   });
 

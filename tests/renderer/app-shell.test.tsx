@@ -11,6 +11,7 @@ function installIpcMock(
 ) {
   const invoke = vi.fn(handler);
   let progressListener: ((payload: unknown) => void) | null = null;
+  let bookGenerationListener: ((payload: unknown) => void) | null = null;
   function invokeTyped<T>(channel: string, payload?: unknown) {
     return invoke(channel, payload) as Promise<T>;
   }
@@ -23,12 +24,21 @@ function installIpcMock(
         progressListener = null;
       };
     },
+    onBookGeneration: (listener) => {
+      bookGenerationListener = listener;
+      return () => {
+        bookGenerationListener = null;
+      };
+    },
   };
 
   return {
     invoke,
     emitProgress(payload: unknown) {
       progressListener?.(payload);
+    },
+    emitBookGeneration(payload: unknown) {
+      bookGenerationListener?.(payload);
     },
   };
 }
@@ -2394,5 +2404,117 @@ describe('App shell', () => {
 
     const startResolver = resolveStart as null | (() => void);
     startResolver?.();
+  });
+
+  it('shows live generation output for the selected book and ignores other books', async () => {
+    const books = [
+      {
+        id: 'book-1',
+        title: 'Stream Book',
+        idea: 'A city hears unfinished stories.',
+        status: 'writing',
+        targetChapters: 2,
+        wordsPerChapter: 1200,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    ];
+    const detail = {
+      book: books[0],
+      context: null,
+      latestScene: null,
+      characterStates: [],
+      plotThreads: [],
+      chapters: [
+        {
+          bookId: 'book-1',
+          volumeIndex: 1,
+          chapterIndex: 1,
+          title: 'Chapter 1',
+          outline: 'Opening',
+          content: '已完成正文',
+          summary: null,
+          wordCount: 1200,
+        },
+        {
+          bookId: 'book-1',
+          volumeIndex: 1,
+          chapterIndex: 2,
+          title: 'Chapter 2',
+          outline: 'Second',
+          content: null,
+          summary: null,
+          wordCount: 0,
+        },
+      ],
+      progress: {
+        phase: 'writing',
+      },
+    };
+    const ipc = installIpcMock(async (channel, payload) => {
+      switch (channel) {
+        case 'book:list':
+          return copy(books);
+        case 'model:list':
+          return [];
+        case 'book:detail': {
+          const { bookId } = payload as { bookId: string };
+          return bookId === 'book-1' ? copy(detail) : null;
+        }
+        default:
+          return null;
+      }
+    });
+
+    render(<App />);
+    await selectBook('Stream Book');
+    expect(
+      await screen.findByRole('heading', { name: 'Stream Book' })
+    ).toBeInTheDocument();
+
+    ipc.emitBookGeneration({
+      bookId: 'book-2',
+      type: 'chapter-stream',
+      volumeIndex: 1,
+      chapterIndex: 2,
+      title: 'Other Chapter',
+      delta: '不应显示',
+    });
+    expect(screen.queryByText('不应显示')).toBeNull();
+
+    ipc.emitBookGeneration({
+      bookId: 'book-1',
+      type: 'progress',
+      phase: 'writing',
+      stepLabel: '正在写第 2 章',
+      currentVolume: 1,
+      currentChapter: 2,
+    });
+    ipc.emitBookGeneration({
+      bookId: 'book-1',
+      type: 'chapter-stream',
+      volumeIndex: 1,
+      chapterIndex: 2,
+      title: 'Chapter 2',
+      delta: '流式第一段',
+    });
+    ipc.emitBookGeneration({
+      bookId: 'book-1',
+      type: 'chapter-stream',
+      volumeIndex: 1,
+      chapterIndex: 2,
+      title: 'Chapter 2',
+      delta: '\n流式第二段',
+    });
+
+    expect(await screen.findByText('实时输出')).toBeInTheDocument();
+    expect(screen.getByText('正在写第 2 章')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        (_content, element) =>
+          element?.tagName === 'P' &&
+          element.textContent === '流式第一段\n流式第二段'
+      )
+    ).toBeInTheDocument();
   });
 });

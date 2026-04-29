@@ -107,6 +107,54 @@ describe('runtime mock fallback', () => {
     expect(generateText).not.toHaveBeenCalled();
   });
 
+  it('emits deterministic mock chapter stream events through runtime subscriptions', async () => {
+    const generateText = vi.fn().mockResolvedValue({
+      text: 'should not be used',
+    });
+    const services = await loadRuntimeServices({
+      tempHome,
+      generateTextImpl: generateText,
+      mockDelayMs: 0,
+    });
+    const events: unknown[] = [];
+    const unsubscribe = services.subscribeBookGeneration((event) => {
+      events.push(event);
+    });
+
+    const bookId = services.bookService.createBook({
+      idea: '一个被宗门逐出的少年，意外继承了会吞噬因果的古镜。',
+      targetChapters: 1,
+      wordsPerChapter: 90,
+    });
+
+    await services.bookService.startBook(bookId);
+    await services.bookService.writeNextChapter(bookId);
+    unsubscribe();
+
+    expect(events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          bookId,
+          type: 'progress',
+          stepLabel: '正在写第 1 章',
+        }),
+        expect.objectContaining({
+          bookId,
+          type: 'chapter-stream',
+          chapterIndex: 1,
+          title: expect.any(String),
+          delta: expect.stringMatching(/[一-龥]/),
+        }),
+        expect.objectContaining({
+          bookId,
+          type: 'chapter-complete',
+          chapterIndex: 1,
+        }),
+      ])
+    );
+    expect(generateText).not.toHaveBeenCalled();
+  });
+
   it('keeps mock runtime generation within the original chapter and word limits', async () => {
     const generateText = vi.fn().mockResolvedValue({
       text: 'should not be used',
