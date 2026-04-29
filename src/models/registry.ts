@@ -14,10 +14,13 @@ export function createRuntimeRegistry(configs: ModelConfigInput[]) {
   for (const config of normalizedConfigs) {
     switch (config.provider) {
       case 'openai':
-        providers.openai = createOpenAIProvider(config.apiKey);
+        providers.openai = createOpenAIProvider(config.apiKey, config.baseUrl);
         break;
       case 'anthropic':
-        providers.anthropic = createAnthropicProvider(config.apiKey);
+        providers.anthropic = createAnthropicProvider(
+          config.apiKey,
+          config.baseUrl
+        );
         break;
     }
   }
