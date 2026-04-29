@@ -684,6 +684,22 @@ export function createBookService(deps: {
           wordsPerChapter: book.wordsPerChapter,
         })
       ) {
+        const rewriteStepLabel = `正在重写第 ${nextChapter.chapterIndex} 章`;
+        deps.progress.updatePhase(bookId, 'writing', {
+          currentVolume: nextChapter.volumeIndex,
+          currentChapter: nextChapter.chapterIndex,
+          stepLabel: rewriteStepLabel,
+        });
+        deps.onGenerationEvent?.({
+          bookId,
+          type: 'progress',
+          phase: 'writing',
+          stepLabel: rewriteStepLabel,
+          currentVolume: nextChapter.volumeIndex,
+          currentChapter: nextChapter.chapterIndex,
+        });
+
+        let isFirstRewriteChunk = true;
         result = await deps.chapterWriter.writeChapter({
           modelId,
           prompt: buildShortChapterRewritePrompt({
@@ -691,6 +707,19 @@ export function createBookService(deps: {
             wordsPerChapter: book.wordsPerChapter,
             actualWordCount: countStoryCharacters(result.content),
           }),
+          onChunk: (delta) => {
+            const streamEvent: BookGenerationEvent = {
+              bookId,
+              type: 'chapter-stream',
+              volumeIndex: nextChapter.volumeIndex,
+              chapterIndex: nextChapter.chapterIndex,
+              title: nextChapterTitle,
+              delta,
+              ...(isFirstRewriteChunk ? { replace: true } : {}),
+            };
+            deps.onGenerationEvent?.(streamEvent);
+            isFirstRewriteChunk = false;
+          },
         });
       }
 

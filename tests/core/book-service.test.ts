@@ -1038,6 +1038,118 @@ describe('createBookService', () => {
     expect(chapter?.summary).toBe('第二稿补足了场景、冲突和情绪推进。');
   });
 
+  it('replaces live stream output when a short chapter rewrite starts', async () => {
+    const db = createDatabase(':memory:');
+    const events: BookGenerationEvent[] = [];
+    const writeChapter = vi
+      .fn()
+      .mockImplementationOnce(async ({ onChunk }) => {
+        onChunk?.('短稿');
+
+        return {
+          content: '短稿',
+          usage: { inputTokens: 100, outputTokens: 20 },
+        };
+      })
+      .mockImplementationOnce(async ({ onChunk }) => {
+        onChunk?.('完整重写');
+        onChunk?.('正文');
+
+        return {
+          content: '完整重写正文',
+          usage: { inputTokens: 140, outputTokens: 120 },
+        };
+      });
+    const service = createBookService({
+      books: createBookRepository(db),
+      chapters: createChapterRepository(db),
+      characters: createCharacterRepository(db),
+      plotThreads: createPlotThreadRepository(db),
+      sceneRecords: createSceneRecordRepository(db),
+      progress: createProgressRepository(db),
+      outlineService: {
+        generateFromIdea: vi.fn().mockResolvedValue({
+          worldSetting: 'World rules',
+          masterOutline: 'Master outline',
+          volumeOutlines: ['Volume 1'],
+          chapterOutlines: [
+            {
+              volumeIndex: 1,
+              chapterIndex: 1,
+              title: 'Chapter 1',
+              outline: 'Opening conflict',
+            },
+          ],
+        }),
+      },
+      chapterWriter: {
+        writeChapter,
+      },
+      summaryGenerator: {
+        summarizeChapter: vi.fn().mockImplementation(async ({ content }) => content),
+      },
+      plotThreadExtractor: {
+        extractThreads: vi.fn().mockResolvedValue({
+          openedThreads: [],
+          resolvedThreadIds: [],
+        }),
+      },
+      characterStateExtractor: {
+        extractStates: vi.fn().mockResolvedValue([]),
+      },
+      sceneRecordExtractor: {
+        extractScene: vi.fn().mockResolvedValue(null),
+      },
+      shouldRewriteShortChapter: ({ content }) => content === '短稿',
+      onGenerationEvent: (event) => {
+        events.push(event);
+      },
+    });
+
+    const bookId = service.createBook({
+      idea: 'The moon taxes miracles.',
+      targetChapters: 1,
+      wordsPerChapter: 20,
+    });
+
+    await service.startBook(bookId);
+    events.splice(0, events.length);
+    await service.writeNextChapter(bookId);
+
+    expect(events).toEqual(
+      expect.arrayContaining([
+        {
+          bookId,
+          type: 'progress',
+          phase: 'writing',
+          stepLabel: '正在重写第 1 章',
+          currentVolume: 1,
+          currentChapter: 1,
+        },
+        {
+          bookId,
+          type: 'chapter-stream',
+          volumeIndex: 1,
+          chapterIndex: 1,
+          title: 'Chapter 1',
+          delta: '完整重写',
+          replace: true,
+        },
+        {
+          bookId,
+          type: 'chapter-stream',
+          volumeIndex: 1,
+          chapterIndex: 1,
+          title: 'Chapter 1',
+          delta: '正文',
+        },
+      ])
+    );
+    expect(service.getBookDetail(bookId)?.chapters[0]?.content).toBe(
+      '完整重写正文'
+    );
+  });
+
   it('counts chapter text by non-whitespace story characters without trimming prose', async () => {
     const db = createDatabase(':memory:');
     const service = createBookService({

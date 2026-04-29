@@ -2517,4 +2517,97 @@ describe('App shell', () => {
       )
     ).toBeInTheDocument();
   });
+
+  it('replaces live output when a rewrite stream starts', async () => {
+    const books = [
+      {
+        id: 'book-1',
+        title: 'Rewrite Book',
+        idea: 'A rewrite begins.',
+        status: 'writing',
+        targetChapters: 1,
+        wordsPerChapter: 1200,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    ];
+    const ipc = installIpcMock(async (channel, payload) => {
+      switch (channel) {
+        case 'book:list':
+          return copy(books);
+        case 'model:list':
+          return [];
+        case 'book:detail': {
+          const { bookId } = payload as { bookId: string };
+          return bookId === 'book-1'
+            ? {
+                book: books[0],
+                context: null,
+                latestScene: null,
+                characterStates: [],
+                plotThreads: [],
+                chapters: [
+                  {
+                    bookId: 'book-1',
+                    volumeIndex: 1,
+                    chapterIndex: 1,
+                    title: 'Chapter 1',
+                    outline: 'Opening',
+                    content: null,
+                    summary: null,
+                    wordCount: 0,
+                  },
+                ],
+                progress: {
+                  phase: 'writing',
+                },
+              }
+            : null;
+        }
+        default:
+          return null;
+      }
+    });
+
+    render(<App />);
+    await selectBook('Rewrite Book');
+    expect(
+      await screen.findByRole('heading', { name: 'Rewrite Book' })
+    ).toBeInTheDocument();
+
+    ipc.emitBookGeneration({
+      bookId: 'book-1',
+      type: 'chapter-stream',
+      volumeIndex: 1,
+      chapterIndex: 1,
+      title: 'Chapter 1',
+      delta: '短稿',
+    });
+    ipc.emitBookGeneration({
+      bookId: 'book-1',
+      type: 'chapter-stream',
+      volumeIndex: 1,
+      chapterIndex: 1,
+      title: 'Chapter 1',
+      delta: '完整重写',
+      replace: true,
+    });
+    ipc.emitBookGeneration({
+      bookId: 'book-1',
+      type: 'chapter-stream',
+      volumeIndex: 1,
+      chapterIndex: 1,
+      title: 'Chapter 1',
+      delta: '正文',
+    });
+
+    expect(await screen.findByText('实时输出')).toBeInTheDocument();
+    expect(screen.queryByText('短稿')).toBeNull();
+    expect(
+      screen.getByText(
+        (_content, element) =>
+          element?.tagName === 'P' && element.textContent === '完整重写正文'
+      )
+    ).toBeInTheDocument();
+  });
 });

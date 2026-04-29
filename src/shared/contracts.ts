@@ -41,6 +41,7 @@ export type BookGenerationEvent =
       chapterIndex: number;
       title: string;
       delta: string;
+      replace?: boolean;
     }
   | {
       bookId: string;

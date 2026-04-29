@@ -268,7 +268,9 @@ export default function App() {
           ) {
             return {
               ...currentOutput,
-              content: `${currentOutput.content}${event.delta}`,
+              content: event.replace
+                ? event.delta
+                : `${currentOutput.content}${event.delta}`,
             };
           }
 
