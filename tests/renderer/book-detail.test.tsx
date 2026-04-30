@@ -102,6 +102,59 @@ describe('BookDetail', () => {
     expect(screen.getByLabelText('正文面板')).toHaveTextContent('审校 88');
   });
 
+  it('shows the selected chapter tension budget in the context outline tab', async () => {
+    render(
+      <BookDetail
+        book={{ title: 'Book 1', status: 'writing', wordCount: 1200 }}
+        progress={{ phase: 'writing' }}
+        context={{
+          worldSetting: 'World rules',
+          outline: 'Master outline',
+        }}
+        narrative={{
+          chapterTensionBudgets: [
+            {
+              bookId: 'book-1',
+              volumeIndex: 1,
+              chapterIndex: 1,
+              pressureLevel: 'high',
+              dominantTension: 'moral_choice',
+              requiredTurn: '胜利会伤害同伴。',
+              forcedChoice: '保住证据，或救下同伴。',
+              costToPay: '失去同伴信任。',
+              irreversibleChange: '林牧无法继续旁观。',
+              readerQuestion: '谁安排了这次选择？',
+              hookPressure: '章末出现更坏记录。',
+              flatnessRisks: ['不要用解释代替冲突。'],
+            },
+          ],
+        }}
+        chapters={[
+          {
+            id: '1-1',
+            volumeIndex: 1,
+            chapterIndex: 1,
+            title: 'Chapter 1',
+            wordCount: 1200,
+            status: 'done',
+            content: 'Generated chapter content',
+          },
+        ]}
+      />
+    );
+
+    const contextPanel = screen.getByLabelText('上下文面板');
+
+    expect(within(contextPanel).getByText('张力预算')).toBeInTheDocument();
+    expect(within(contextPanel).getByText('high · moral_choice')).toBeInTheDocument();
+    expect(within(contextPanel).getByText('强制选择')).toBeInTheDocument();
+    expect(
+      within(contextPanel).getByText('保住证据，或救下同伴。')
+    ).toBeInTheDocument();
+    expect(within(contextPanel).getByText('代价')).toBeInTheDocument();
+    expect(within(contextPanel).getByText('失去同伴信任。')).toBeInTheDocument();
+  });
+
   it('keeps reading visible while switching context tabs', async () => {
     render(
       <BookDetail

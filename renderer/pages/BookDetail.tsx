@@ -32,6 +32,21 @@ import { formatTotalWordCount } from '../word-count-format';
 
 type ContextTab = 'outline' | 'characters' | 'threads';
 
+type ChapterTensionBudgetView = {
+  bookId: string;
+  volumeIndex: number;
+  chapterIndex: number;
+  pressureLevel: string;
+  dominantTension: string;
+  requiredTurn: string;
+  forcedChoice: string;
+  costToPay: string;
+  irreversibleChange: string;
+  readerQuestion: string;
+  hookPressure: string;
+  flatnessRisks: string[];
+};
+
 function formatLogDate(value: string) {
   return new Intl.DateTimeFormat('zh-CN', {
     hour: '2-digit',
@@ -95,6 +110,40 @@ function DetailSection({
       </div>
       <div className="text-sm leading-7 text-muted-foreground">{children}</div>
     </section>
+  );
+}
+
+function TensionBudgetSection({
+  budget,
+}: {
+  budget: ChapterTensionBudgetView;
+}) {
+  return (
+    <DetailSection title="张力预算">
+      <div className="grid gap-3">
+        <p className="text-xs font-semibold text-foreground">
+          {`${budget.pressureLevel} · ${budget.dominantTension}`}
+        </p>
+        <dl className="grid gap-2">
+          <div>
+            <dt className="text-xs font-semibold text-foreground">强制选择</dt>
+            <dd>{budget.forcedChoice}</dd>
+          </div>
+          <div>
+            <dt className="text-xs font-semibold text-foreground">代价</dt>
+            <dd>{budget.costToPay}</dd>
+          </div>
+          <div>
+            <dt className="text-xs font-semibold text-foreground">不可逆变化</dt>
+            <dd>{budget.irreversibleChange}</dd>
+          </div>
+          <div>
+            <dt className="text-xs font-semibold text-foreground">章末压力</dt>
+            <dd>{budget.hookPressure}</dd>
+          </div>
+        </dl>
+      </div>
+    </DetailSection>
   );
 }
 
@@ -270,6 +319,7 @@ export default function BookDetail({
   book,
   context,
   latestScene,
+  narrative,
   characterStates,
   plotThreads,
   chapters,
@@ -293,6 +343,9 @@ export default function BookDetail({
     timeInStory: string;
     charactersPresent: string[];
     events: string | null;
+  } | null;
+  narrative?: {
+    chapterTensionBudgets?: ChapterTensionBudgetView[];
   } | null;
   characterStates?: Array<{
     characterId: string;
@@ -407,6 +460,14 @@ export default function BookDetail({
   const selectedAuditScore =
     typeof selectedChapter?.auditScore === 'number'
       ? selectedChapter.auditScore
+      : null;
+  const selectedTensionBudget =
+    selectedChapter && narrative?.chapterTensionBudgets
+      ? narrative.chapterTensionBudgets.find(
+          (budget) =>
+            budget.volumeIndex === selectedChapter.volumeIndex &&
+            budget.chapterIndex === selectedChapter.chapterIndex
+        ) ?? null
       : null;
   useEffect(() => {
     if (activeChapterId) {
@@ -632,6 +693,9 @@ export default function BookDetail({
                   </TabsList>
                   <TabsContent value="outline" className="mt-0">
                     <div className="grid content-start gap-4">
+                      {selectedTensionBudget ? (
+                        <TensionBudgetSection budget={selectedTensionBudget} />
+                      ) : null}
                       {context?.worldSetting ? (
                         <DetailSection title="世界观">
                           <p>{context.worldSetting}</p>

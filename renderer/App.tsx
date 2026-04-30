@@ -555,6 +555,7 @@ export default function App() {
               }}
               context={selectedBookDetail.context}
               latestScene={selectedBookDetail.latestScene}
+              narrative={selectedBookDetail.narrative}
               characterStates={selectedBookDetail.characterStates}
               plotThreads={selectedBookDetail.plotThreads}
               progress={selectedBookDetail.progress}
