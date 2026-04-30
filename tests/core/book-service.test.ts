@@ -1002,6 +1002,69 @@ describe('createBookService', () => {
     ).toContain('chapter-goal');
   });
 
+  it('injects story route plans into legacy chapter prompts without chapter cards', async () => {
+    const db = createDatabase(':memory:');
+    const writeChapter = vi.fn().mockResolvedValue({
+      content: 'Generated chapter content',
+      usage: { inputTokens: 100, outputTokens: 400 },
+    });
+    const service = createBookService({
+      books: createBookRepository(db),
+      chapters: createChapterRepository(db),
+      characters: createCharacterRepository(db),
+      plotThreads: createPlotThreadRepository(db),
+      sceneRecords: createSceneRecordRepository(db),
+      progress: createProgressRepository(db),
+      outlineService: {
+        generateFromIdea: vi.fn().mockResolvedValue({
+          worldSetting: 'World rules',
+          masterOutline: 'Master outline',
+          volumeOutlines: ['Volume 1'],
+          chapterOutlines: [
+            {
+              volumeIndex: 1,
+              chapterIndex: 1,
+              title: 'Chapter 1',
+              outline: 'Opening conflict',
+            },
+          ],
+        }),
+      },
+      chapterWriter: {
+        writeChapter,
+      },
+      summaryGenerator: {
+        summarizeChapter: vi.fn().mockResolvedValue('Chapter summary'),
+      },
+      plotThreadExtractor: {
+        extractThreads: vi.fn().mockResolvedValue({
+          openedThreads: [],
+          resolvedThreadIds: [],
+        }),
+      },
+      characterStateExtractor: {
+        extractStates: vi.fn().mockResolvedValue([]),
+      },
+      sceneRecordExtractor: {
+        extractScene: vi.fn().mockResolvedValue(null),
+      },
+    });
+
+    const bookId = service.createBook({
+      idea: 'The moon taxes miracles.',
+      targetChapters: 1,
+      wordsPerChapter: 2500,
+    });
+
+    await service.startBook(bookId);
+    await service.writeNextChapter(bookId);
+
+    expect(writeChapter.mock.calls[0]?.[0].prompt).toContain(
+      'Story Skill Route Plan'
+    );
+    expect(writeChapter.mock.calls[0]?.[0].prompt).toContain('Chapter Card missing');
+  });
+
   it('emits generation progress, stream chunks, and completion for the next chapter', async () => {
     const db = createDatabase(':memory:');
     const events: BookGenerationEvent[] = [];

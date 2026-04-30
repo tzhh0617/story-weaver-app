@@ -64,4 +64,23 @@ describe('buildWorldPrompt', () => {
       })
     ).not.toContain('do not exceed');
   });
+
+  it('injects story route plans into legacy chapter draft prompts', () => {
+    const prompt = buildChapterDraftPrompt({
+      idea: 'A mountain archive decides who may remember history.',
+      worldSetting: 'World setting',
+      masterOutline: 'Master outline',
+      continuityContext: null,
+      chapterTitle: 'Chapter 1',
+      chapterOutline: 'Opening',
+      targetChapters: 800,
+      wordsPerChapter: 3000,
+      routePlanText:
+        'Story Skill Route Plan\nRequired Skills\n- story-structure',
+    });
+
+    expect(prompt).toContain('Story Skill Route Plan');
+    expect(prompt).toContain('story-structure');
+    expect(prompt).toContain('Chapter outline: Opening');
+  });
 });

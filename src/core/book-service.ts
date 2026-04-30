@@ -1197,6 +1197,7 @@ export function createBookService(deps: {
             chapterOutline: nextChapter.outline,
             targetChapters: book.targetChapters,
             wordsPerChapter: book.wordsPerChapter,
+            routePlanText,
           });
       const writingStepLabel = `正在写第 ${nextChapter.chapterIndex} 章`;
 

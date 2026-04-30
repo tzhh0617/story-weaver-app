@@ -118,6 +118,7 @@ export function buildChapterDraftPrompt(input: {
   chapterOutline: string;
   targetChapters: number;
   wordsPerChapter: number;
+  routePlanText?: string | null;
 }) {
   return [
     'Write the next chapter of a long-form Chinese web novel.',
@@ -134,6 +135,7 @@ export function buildChapterDraftPrompt(input: {
     )}`,
     `Continuity context:\n${input.continuityContext ?? 'N/A'}`,
     'Treat the continuity context as hard constraints: do not contradict character states, last scene timing/location, unresolved plot threads, or established world rules.',
+    input.routePlanText ? `Story route requirements:\n${input.routePlanText}` : '',
     `Chapter title: ${input.chapterTitle}`,
     `Chapter outline: ${input.chapterOutline}`,
     'Return only the final chapter prose.',
