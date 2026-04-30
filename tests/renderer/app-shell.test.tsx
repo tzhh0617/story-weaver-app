@@ -1116,10 +1116,26 @@ describe('App shell', () => {
         wordsPerChapter: 2500,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
+        progress: 50,
+        completedChapters: 1,
+        totalChapters: 2,
+      },
+      {
+        id: 'book-2',
+        title: 'Second Book',
+        idea: 'A second archive wakes up.',
+        status: 'writing',
+        targetChapters: 500,
+        wordsPerChapter: 2500,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        progress: 0,
+        completedChapters: 0,
+        totalChapters: 0,
       },
     ];
 
-    installIpcMock(async (channel, payload) => {
+    const ipc = installIpcMock(async (channel, payload) => {
       switch (channel) {
         case 'book:list':
           return copy(books);
@@ -1165,12 +1181,19 @@ describe('App shell', () => {
 
     render(<App />);
 
-    const progressBar = await screen.findByRole('progressbar', {
+    const progressBars = await screen.findAllByRole('progressbar', {
       name: '章节进度',
     });
 
-    expect(progressBar).toHaveAttribute('aria-valuenow', '50');
+    expect(progressBars.some((bar) => bar.getAttribute('aria-valuenow') === '50')).toBe(
+      true
+    );
     expect(await screen.findByText('1 / 2 章')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(ipc.invoke).not.toHaveBeenCalledWith('book:detail', {
+        bookId: 'book-2',
+      });
+    });
   });
 
   it('starts all runnable books from the library', async () => {

@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+} from 'react';
 import { flushSync } from 'react-dom';
 import {
   parseBooleanSetting,
@@ -7,14 +13,14 @@ import {
 } from '../src/core/chapter-review';
 import {
   ipcChannels,
-  type BookGenerationEvent,
   type BookExportFormat,
-  type BookRecord,
   type ExecutionLogRecord,
   type SchedulerStatus,
 } from '../src/shared/contracts';
 import { useIpc } from './hooks/useIpc';
 import { useProgress } from './hooks/useProgress';
+import { useBookGenerationEvents } from './hooks/useBookGenerationEvents';
+import { useBooksController } from './hooks/useBooksController';
 import { AppSidebar, type AppView } from './components/app-sidebar';
 import { Alert } from './components/ui/alert';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
@@ -38,29 +44,24 @@ const sidebarProviderStyle = {
 
 type BannerTone = 'error' | 'success' | 'info';
 type ToastTone = BannerTone;
+type ModelConfigView = {
+  id: string;
+  provider: string;
+  modelName: string;
+  apiKey: string;
+  baseUrl: string;
+  config: Record<string, unknown>;
+};
+type SelectedBookActionChannel =
+  | typeof ipcChannels.bookResume
+  | typeof ipcChannels.bookRestart
+  | typeof ipcChannels.bookPause
+  | typeof ipcChannels.bookDelete;
 
 export default function App() {
   const ipc = useIpc();
   const progress = useProgress();
-  const [books, setBooks] = useState<
-    Array<
-      BookRecord & {
-        progress?: number;
-        completedChapters?: number;
-        totalChapters?: number;
-      }
-    >
-  >([]);
-  const [modelConfigs, setModelConfigs] = useState<
-    Array<{
-      id: string;
-      provider: string;
-      modelName: string;
-      apiKey: string;
-      baseUrl: string;
-      config: Record<string, unknown>;
-    }>
-  >([]);
+  const [modelConfigs, setModelConfigs] = useState<ModelConfigView[]>([]);
   const [banner, setBanner] = useState<{
     tone: BannerTone;
     message: string;
@@ -73,109 +74,57 @@ export default function App() {
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [currentView, setCurrentView] = useState<AppView>('library');
   const [executionLogs, setExecutionLogs] = useState<ExecutionLogRecord[]>([]);
-  const [selectedBookId, setSelectedBookId] = useState<string | null>(null);
-  const selectedBookIdRef = useRef<string | null>(null);
-  const [selectedBookDetail, setSelectedBookDetail] = useState<BookDetailData | null>(
-    null
-  );
-  const [liveOutput, setLiveOutput] = useState<{
-    bookId: string;
-    volumeIndex: number;
-    chapterIndex: number;
-    title: string;
-    content: string;
-  } | null>(null);
   const [shortChapterReviewEnabled, setShortChapterReviewEnabled] =
     useState(true);
+  const {
+    books,
+    selectedBookId,
+    selectedBookIdRef,
+    selectedBookDetail,
+    setSelectedBookDetail,
+    loadBooks,
+    loadBookDetail: loadBookDetailRecord,
+    clearSelectedBook,
+  } = useBooksController(ipc);
 
-  async function loadBooks() {
-    const nextBooks = await ipc.invoke<BookRecord[]>(ipcChannels.bookList);
-    const safeBooks = Array.isArray(nextBooks) ? nextBooks : [];
-    const nextBooksWithProgress = await Promise.all(
-      safeBooks.map(async (book) => {
-        const detail = await ipc.invoke<BookDetailData | null>(
-          ipcChannels.bookDetail,
-          { bookId: book.id }
-        );
+  const loadBookDetail = useCallback(
+    async (
+      bookId: string,
+      options?: { openView?: boolean; preserveExistingOnMissing?: boolean }
+    ) => {
+      const shouldOpenView = await loadBookDetailRecord(bookId, options);
 
-        if (!detail?.chapters.length) {
-          return {
-            ...book,
-            progress: 0,
-            completedChapters: 0,
-            totalChapters: 0,
-          };
-        }
+      if (shouldOpenView) {
+        setCurrentView('book-detail');
+      }
+    },
+    [loadBookDetailRecord]
+  );
 
-        const completedChapters = detail.chapters.filter(
-          (chapter) => chapter.content
-        ).length;
-        const totalChapters = detail.chapters.length;
-
-        return {
-          ...book,
-          progress: Math.round((completedChapters / totalChapters) * 100),
-          completedChapters,
-          totalChapters,
-        };
-      })
-    );
-
-    setBooks(nextBooksWithProgress);
-  }
+  const liveOutput = useBookGenerationEvents({
+    ipc,
+    selectedBookId,
+    selectedBookIdRef,
+    setSelectedBookDetail,
+    loadBookDetail: loadBookDetailRecord,
+  });
 
   async function loadModels() {
-    const nextConfigs = await ipc.invoke<
-      Array<{
-        id: string;
-        provider: string;
-        modelName: string;
-        apiKey: string;
-        baseUrl: string;
-        config: Record<string, unknown>;
-      }>
-    >(ipcChannels.modelList);
+    const nextConfigs = await ipc.invoke(ipcChannels.modelList);
     const safeConfigs = Array.isArray(nextConfigs) ? nextConfigs : [];
 
     setModelConfigs(safeConfigs);
   }
 
   async function loadSettings() {
-    const nextValue = await ipc.invoke<string | null>(
+    const nextValue = await ipc.invoke(
       ipcChannels.settingsGet,
       SHORT_CHAPTER_REVIEW_ENABLED_KEY
     );
 
-    setShortChapterReviewEnabled(parseBooleanSetting(nextValue));
-  }
-
-  async function loadBookDetail(
-    bookId: string,
-    options?: { openView?: boolean; preserveExistingOnMissing?: boolean }
-  ) {
-    setSelectedBookId(bookId);
-    const detail = await ipc.invoke<BookDetailData | null>(
-      ipcChannels.bookDetail,
-      { bookId }
+    setShortChapterReviewEnabled(
+      parseBooleanSetting(typeof nextValue === 'string' ? nextValue : null)
     );
-    setSelectedBookDetail((currentDetail) => {
-      if (detail) {
-        return detail;
-      }
-
-      if (
-        options?.preserveExistingOnMissing &&
-        currentDetail?.book.id === bookId
-      ) {
-        return currentDetail;
-      }
-
-      return null;
-    });
-
-    if (options?.openView ?? true) {
-      setCurrentView('book-detail');
-    }
   }
 
   useEffect(() => {
@@ -221,8 +170,7 @@ export default function App() {
         return;
       }
 
-      setSelectedBookId(null);
-      setSelectedBookDetail(null);
+      clearSelectedBook();
       if (currentView === 'book-detail') {
         setCurrentView('library');
       }
@@ -234,99 +182,14 @@ export default function App() {
     }
 
     void loadBookDetail(books[0].id, { openView: false });
-  }, [books, currentView, selectedBookDetail, selectedBookId]);
-
-  useEffect(() => {
-    selectedBookIdRef.current = selectedBookId;
-  }, [selectedBookId]);
-
-  useEffect(() => {
-    setLiveOutput(null);
-  }, [selectedBookId]);
-
-  useEffect(() => {
-    const unsubscribe = ipc.onBookGeneration((payload) => {
-      const event = payload as BookGenerationEvent;
-
-      setSelectedBookDetail((currentDetail) => {
-        if (!currentDetail || event.bookId !== currentDetail.book.id) {
-          return currentDetail;
-        }
-
-        if (event.type === 'progress') {
-          return {
-            ...currentDetail,
-            progress: {
-              ...(currentDetail.progress ?? {}),
-              phase: event.phase,
-              stepLabel: event.stepLabel,
-              currentVolume: event.currentVolume ?? null,
-              currentChapter: event.currentChapter ?? null,
-            },
-          };
-        }
-
-        if (event.type === 'error') {
-          return {
-            ...currentDetail,
-            progress: {
-              ...(currentDetail.progress ?? {}),
-              phase: event.phase,
-              stepLabel: event.stepLabel,
-              currentVolume: event.currentVolume ?? null,
-              currentChapter: event.currentChapter ?? null,
-            },
-          };
-        }
-
-        return currentDetail;
-      });
-
-      if (event.type === 'chapter-stream') {
-        setLiveOutput((currentOutput) => {
-          if (selectedBookIdRef.current !== event.bookId) {
-            return currentOutput;
-          }
-
-          if (
-            currentOutput &&
-            currentOutput.bookId === event.bookId &&
-            currentOutput.volumeIndex === event.volumeIndex &&
-            currentOutput.chapterIndex === event.chapterIndex
-          ) {
-            return {
-              ...currentOutput,
-              content: event.replace
-                ? event.delta
-                : `${currentOutput.content}${event.delta}`,
-            };
-          }
-
-          return {
-            bookId: event.bookId,
-            volumeIndex: event.volumeIndex,
-            chapterIndex: event.chapterIndex,
-            title: event.title,
-            content: event.delta,
-          };
-        });
-      }
-
-      if (event.type === 'chapter-complete' || event.type === 'error') {
-        if (selectedBookIdRef.current === event.bookId) {
-          if (event.type === 'chapter-complete') {
-            setLiveOutput(null);
-          }
-          void loadBookDetail(event.bookId, {
-            openView: false,
-            preserveExistingOnMissing: true,
-          });
-        }
-      }
-    });
-
-    return unsubscribe;
-  }, [ipc, selectedBookId]);
+  }, [
+    books,
+    clearSelectedBook,
+    currentView,
+    loadBookDetail,
+    selectedBookDetail,
+    selectedBookId,
+  ]);
 
   function showBanner(tone: BannerTone, message: string) {
     flushSync(() => {
@@ -400,8 +263,8 @@ export default function App() {
   }: {
     startMessage: string | null;
     errorMessage: string;
-    channel: string;
-    payload?: Record<string, unknown>;
+    channel: SelectedBookActionChannel;
+    payload?: { bookId: string };
     successMessage?: string | null;
     clearSelection?: boolean;
   }) {
@@ -419,8 +282,7 @@ export default function App() {
       await ipc.invoke(channel, payload ?? { bookId: selectedBookId });
 
       if (clearSelection) {
-        setSelectedBookId(null);
-        setSelectedBookDetail(null);
+        clearSelectedBook();
       }
 
       await loadBooks();
@@ -612,7 +474,7 @@ export default function App() {
                 }
 
                 try {
-                  const filePath = await ipc.invoke<string>(ipcChannels.bookExport, {
+                  const filePath = await ipc.invoke(ipcChannels.bookExport, {
                     bookId: selectedBookId,
                     format,
                   });
@@ -657,7 +519,7 @@ export default function App() {
                       message: '正在创建作品...',
                     });
                   });
-                  const bookId = await ipc.invoke<string>(
+                  const bookId = await ipc.invoke(
                     ipcChannels.bookCreate,
                     input
                   );
@@ -718,11 +580,7 @@ export default function App() {
                   clearBanner();
                   showToast('info', '正在测试模型连接...');
                   await ipc.invoke(ipcChannels.modelSave, input);
-                  const result = await ipc.invoke<{
-                    ok: boolean;
-                    latency: number;
-                    error: string | null;
-                  }>(ipcChannels.modelTest, {
+                  const result = await ipc.invoke(ipcChannels.modelTest, {
                     modelId: input.id,
                   });
 

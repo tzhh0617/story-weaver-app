@@ -16,6 +16,7 @@ import {
 } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
+import type { ModelSavePayload } from '../../src/shared/contracts';
 
 const settingCardClass = `mb-5 break-inside-avoid ${layoutCardClassName}`;
 
@@ -27,22 +28,8 @@ export default function Settings({
   shortChapterReviewEnabled = true,
   onSaveSetting,
 }: {
-  onSaveModel: (input: {
-    id: string;
-    provider: string;
-    modelName: string;
-    apiKey: string;
-    baseUrl: string;
-    config: Record<string, unknown>;
-  }) => void;
-  onTestModel: (input: {
-    id: string;
-    provider: string;
-    modelName: string;
-    apiKey: string;
-    baseUrl: string;
-    config: Record<string, unknown>;
-  }) => void;
+  onSaveModel: (input: ModelSavePayload) => void;
+  onTestModel: (input: ModelSavePayload) => void;
   models: Array<{
     id: string;
     modelName: string;

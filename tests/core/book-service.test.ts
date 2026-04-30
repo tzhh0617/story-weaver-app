@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createDatabase } from '../../src/storage/database';
 import { createBookRepository } from '../../src/storage/books';
+import { createChapterAuditRepository } from '../../src/storage/chapter-audits';
 import { createChapterRepository } from '../../src/storage/chapters';
 import { createCharacterRepository } from '../../src/storage/characters';
 import { createPlotThreadRepository } from '../../src/storage/plot-threads';
@@ -63,6 +64,193 @@ describe('createBookService', () => {
       wordsPerChapter: 2500,
       status: 'creating',
     });
+  });
+
+  it('lists books with chapter completion progress without loading full detail', () => {
+    const db = createDatabase(':memory:');
+    const books = createBookRepository(db);
+    const chapters = createChapterRepository(db);
+    const service = createBookService({
+      books,
+      chapters,
+      characters: createCharacterRepository(db),
+      plotThreads: createPlotThreadRepository(db),
+      sceneRecords: createSceneRecordRepository(db),
+      progress: createProgressRepository(db),
+      outlineService: {
+        generateFromIdea: vi.fn(),
+      },
+      chapterWriter: {
+        writeChapter: vi.fn(),
+      },
+      summaryGenerator: {
+        summarizeChapter: vi.fn(),
+      },
+      plotThreadExtractor: {
+        extractThreads: vi.fn().mockResolvedValue({
+          openedThreads: [],
+          resolvedThreadIds: [],
+        }),
+      },
+      characterStateExtractor: {
+        extractStates: vi.fn().mockResolvedValue([]),
+      },
+      sceneRecordExtractor: {
+        extractScene: vi.fn().mockResolvedValue(null),
+      },
+    });
+
+    const bookId = service.createBook({
+      idea: 'A city remembers every promise.',
+      targetChapters: 2,
+      wordsPerChapter: 2500,
+    });
+    chapters.upsertOutline({
+      bookId,
+      volumeIndex: 1,
+      chapterIndex: 1,
+      title: 'Chapter 1',
+      outline: 'Opening conflict',
+    });
+    chapters.upsertOutline({
+      bookId,
+      volumeIndex: 1,
+      chapterIndex: 2,
+      title: 'Chapter 2',
+      outline: 'Escalation',
+    });
+    chapters.saveContent({
+      bookId,
+      volumeIndex: 1,
+      chapterIndex: 1,
+      content: 'Generated chapter content',
+      summary: 'Summary',
+      wordCount: 1200,
+    });
+
+    expect(service.listBooks()[0]).toMatchObject({
+      id: bookId,
+      progress: 50,
+      completedChapters: 1,
+      totalChapters: 2,
+    });
+  });
+
+  it('uses batched chapter progress when listing books', () => {
+    const chapters = {
+      upsertOutline: vi.fn(),
+      listByBook: vi.fn(() => {
+        throw new Error('listByBook should not be used for list progress');
+      }),
+      listProgressByBookIds: vi.fn(
+        () =>
+          new Map([
+            ['book-1', { completedChapters: 1, totalChapters: 2 }],
+            ['book-2', { completedChapters: 0, totalChapters: 0 }],
+          ])
+      ),
+      saveContent: vi.fn(),
+      clearGeneratedContent: vi.fn(),
+      deleteByBook: vi.fn(),
+    };
+    const service = createBookService({
+      books: {
+        create: vi.fn(),
+        list: vi.fn(() => [
+          {
+            id: 'book-1',
+            title: 'Book 1',
+            idea: 'A city remembers every promise.',
+            status: 'writing',
+            targetChapters: 2,
+            wordsPerChapter: 2500,
+            createdAt: '2026-04-30T00:00:00.000Z',
+            updatedAt: '2026-04-30T00:00:00.000Z',
+          },
+          {
+            id: 'book-2',
+            title: 'Book 2',
+            idea: 'A lighthouse records every storm.',
+            status: 'creating',
+            targetChapters: 1,
+            wordsPerChapter: 2500,
+            createdAt: '2026-04-30T00:00:00.000Z',
+            updatedAt: '2026-04-30T00:00:00.000Z',
+          },
+        ]),
+        getById: vi.fn(),
+        updateStatus: vi.fn(),
+        updateTitle: vi.fn(),
+        delete: vi.fn(),
+        saveContext: vi.fn(),
+        getContext: vi.fn(),
+      },
+      chapters,
+      characters: {
+        saveState: vi.fn(),
+        listLatestStatesByBook: vi.fn(() => []),
+        clearStatesByBook: vi.fn(),
+        deleteByBook: vi.fn(),
+      },
+      plotThreads: {
+        upsertThread: vi.fn(),
+        resolveThread: vi.fn(),
+        listByBook: vi.fn(() => []),
+        clearByBook: vi.fn(),
+      },
+      sceneRecords: {
+        save: vi.fn(),
+        getLatestByBook: vi.fn(() => null),
+        clearByBook: vi.fn(),
+      },
+      progress: {
+        updatePhase: vi.fn(),
+        getByBookId: vi.fn(),
+        reset: vi.fn(),
+        deleteByBook: vi.fn(),
+      },
+      outlineService: {
+        generateFromIdea: vi.fn(),
+      },
+      chapterWriter: {
+        writeChapter: vi.fn(),
+      },
+      summaryGenerator: {
+        summarizeChapter: vi.fn(),
+      },
+      plotThreadExtractor: {
+        extractThreads: vi.fn().mockResolvedValue({
+          openedThreads: [],
+          resolvedThreadIds: [],
+        }),
+      },
+      characterStateExtractor: {
+        extractStates: vi.fn().mockResolvedValue([]),
+      },
+      sceneRecordExtractor: {
+        extractScene: vi.fn().mockResolvedValue(null),
+      },
+    });
+
+    expect(service.listBooks()).toEqual([
+      expect.objectContaining({
+        id: 'book-1',
+        progress: 50,
+        completedChapters: 1,
+        totalChapters: 2,
+      }),
+      expect.objectContaining({
+        id: 'book-2',
+        progress: 0,
+        completedChapters: 0,
+        totalChapters: 0,
+      }),
+    ]);
+    expect(chapters.listProgressByBookIds).toHaveBeenCalledWith([
+      'book-1',
+      'book-2',
+    ]);
+    expect(chapters.listByBook).not.toHaveBeenCalled();
   });
 
   it('rejects invalid chapter and word-count limits before persistence', () => {
@@ -788,6 +976,14 @@ describe('createBookService', () => {
         threadManagement: 8,
         pacingReward: 10,
         themeAlignment: 6,
+        viral: {
+          openingHook: 90,
+          desireClarity: 90,
+          payoffStrength: 90,
+          readerQuestionStrength: 90,
+          tropeFulfillment: 90,
+          antiClicheFreshness: 90,
+        },
         flatness: {
           conflictEscalation: 80,
           choicePressure: 80,
@@ -842,6 +1038,22 @@ describe('createBookService', () => {
             relationshipEdges: [],
             worldRules: [],
             narrativeThreads: [],
+            viralStoryProtocol: {
+              readerPromise: '压抑后翻盘。',
+              targetEmotion: 'revenge',
+              coreDesire: '洗清旧案。',
+              protagonistDrive: '证据逼迫林牧主动行动。',
+              hookEngine: '旧案证据逐层指向宗门高层。',
+              payoffCadence: {
+                mode: 'steady',
+                minorPayoffEveryChapters: 2,
+                majorPayoffEveryChapters: 8,
+                payoffTypes: ['truth_reveal'],
+              },
+              tropeContract: ['revenge_payback'],
+              antiClicheRules: ['反击必须付出代价。'],
+              longTermQuestion: '谁改写了命簿？',
+            },
           },
           chapterCards: [
             {
@@ -911,6 +1123,7 @@ describe('createBookService', () => {
       },
       chapterWriter: { writeChapter },
       chapterAuditor: { auditChapter },
+      chapterAudits: createChapterAuditRepository(db),
       summaryGenerator: {
         summarizeChapter: vi.fn().mockResolvedValue('摘要'),
       },
@@ -942,11 +1155,24 @@ describe('createBookService', () => {
       'Story Skill Route Plan'
     );
     expect(writeChapter.mock.calls[0]?.[0].prompt).toContain('chapter-goal');
+    expect(writeChapter.mock.calls[0]?.[0].prompt).toContain(
+      'Viral Story Protocol'
+    );
     expect(auditChapter).toHaveBeenCalledWith(
       expect.objectContaining({
         routePlanText: expect.stringContaining('Story Skill Route Plan'),
+        viralStoryProtocol: expect.objectContaining({
+          readerPromise: '压抑后翻盘。',
+        }),
       })
     );
+    const detail = service.getBookDetail(bookId);
+    expect(detail?.narrative?.storyBible?.viralStoryProtocol).toMatchObject({
+      readerPromise: '压抑后翻盘。',
+    });
+    expect(detail?.chapters[0]).toMatchObject({
+      auditViralScore: 90,
+    });
   });
 
   it('returns story route plans on chapter detail records', async () => {

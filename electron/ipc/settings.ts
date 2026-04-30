@@ -1,12 +1,16 @@
 import { ipcMain } from 'electron';
 import { SHORT_CHAPTER_REVIEW_ENABLED_KEY } from '../../src/core/chapter-review.js';
-import { ipcChannels } from '../../src/shared/contracts.js';
+import {
+  assertIpcPayload,
+  ipcChannels,
+} from '../../src/shared/contracts.js';
 import { getRuntimeServices } from '../runtime.js';
 
 export function registerSettingsHandlers() {
   const { settings, setSchedulerConcurrencyLimit } = getRuntimeServices();
 
-  ipcMain.handle(ipcChannels.settingsGet, async (_event, key?: string) => {
+  ipcMain.handle(ipcChannels.settingsGet, async (_event, key?: unknown) => {
+    assertIpcPayload(ipcChannels.settingsGet, key);
     if (!key) {
       return settings.list();
     }
@@ -16,7 +20,8 @@ export function registerSettingsHandlers() {
 
   ipcMain.handle(
     ipcChannels.settingsSet,
-    async (_event, payload: { key: string; value: string }) => {
+    async (_event, payload) => {
+      assertIpcPayload(ipcChannels.settingsSet, payload);
       if (payload.key === 'scheduler.concurrencyLimit') {
         const trimmed = payload.value.trim();
 

@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type {
   BookGenerationEvent,
+  BookRecord,
   BookStatus,
   StoryRoutePlanView,
 } from '../shared/contracts.js';
@@ -20,6 +21,7 @@ import {
 } from './narrative/checkpoint.js';
 import { buildNarrativeCommandContext } from './narrative/context.js';
 import { buildOpeningRetentionContextLines } from './narrative/opening-retention.js';
+import { formatViralProtocolForPrompt } from './narrative/viral-story-protocol.js';
 import {
   formatStoryRoutePlanForPrompt,
   routeStoryTask,
@@ -34,6 +36,7 @@ import type {
   NarrativeAudit,
   NarrativeStateDelta,
   RelationshipStateInput,
+  ViralStoryProtocol,
 } from './narrative/types.js';
 import {
   assertPositiveIntegerLimit,
@@ -53,6 +56,15 @@ const FLATNESS_ISSUE_TYPES = new Set<NarrativeAudit['issues'][number]['type']>(
     'repeated_tension_pattern',
   ]
 );
+const VIRAL_ISSUE_TYPES = new Set<NarrativeAudit['issues'][number]['type']>([
+  'weak_reader_promise',
+  'unclear_desire',
+  'missing_payoff',
+  'payoff_without_cost',
+  'generic_trope',
+  'weak_reader_question',
+  'stale_hook_engine',
+]);
 
 function deriveTitleFromIdea(idea: string) {
   const cleaned = idea.trim().replace(/\s+/g, ' ');
@@ -127,6 +139,23 @@ function calculateFlatnessScore(scoring: NarrativeAudit['scoring']) {
       flatness.irreversibleChange +
       flatness.hookStrength) /
       5
+  );
+}
+
+function calculateViralScore(scoring: NarrativeAudit['scoring']) {
+  const viral = scoring.viral;
+  if (!viral) {
+    return null;
+  }
+
+  return Math.round(
+    (viral.openingHook +
+      viral.desireClarity +
+      viral.payoffStrength +
+      viral.readerQuestionStrength +
+      viral.tropeFulfillment +
+      viral.antiClicheFreshness) /
+      6
   );
 }
 
@@ -253,6 +282,7 @@ export function createBookService(deps: {
       idea: string;
       targetChapters: number;
       wordsPerChapter: number;
+      viralStrategy?: BookRecord['viralStrategy'];
     }) => void;
     list: () => Array<{
       id: string;
@@ -261,6 +291,7 @@ export function createBookService(deps: {
       status: string;
       targetChapters: number;
       wordsPerChapter: number;
+      viralStrategy?: BookRecord['viralStrategy'];
       createdAt: string;
       updatedAt: string;
     }>;
@@ -272,6 +303,7 @@ export function createBookService(deps: {
           status: string;
           targetChapters: number;
           wordsPerChapter: number;
+          viralStrategy?: BookRecord['viralStrategy'];
           createdAt: string;
           updatedAt: string;
         }
@@ -314,6 +346,9 @@ export function createBookService(deps: {
       auditScore?: number | null;
       draftAttempts?: number;
     }>;
+    listProgressByBookIds?: (
+      bookIds: string[]
+    ) => Map<string, { completedChapters: number; totalChapters: number }>;
     saveContent: (input: {
       bookId: string;
       volumeIndex: number;
@@ -598,6 +633,8 @@ export function createBookService(deps: {
       draft: string;
       auditContext: string;
       routePlanText?: string | null;
+      viralStoryProtocol?: ViralStoryProtocol | null;
+      chapterIndex?: number | null;
     }) => Promise<NarrativeAudit>;
   };
   chapterRevision?: {
@@ -724,6 +761,7 @@ export function createBookService(deps: {
       targetChapters: number;
       wordsPerChapter: number;
       modelId?: string;
+      viralStrategy?: BookRecord['viralStrategy'];
     }) {
       assertPositiveIntegerLimit(
         input.targetChapters,
@@ -742,6 +780,7 @@ export function createBookService(deps: {
         idea: input.idea,
         targetChapters: input.targetChapters,
         wordsPerChapter: input.wordsPerChapter,
+        viralStrategy: input.viralStrategy ?? null,
       });
 
       deps.progress.updatePhase(id, 'creating');
@@ -750,7 +789,31 @@ export function createBookService(deps: {
     },
 
     listBooks() {
-      return deps.books.list();
+      const books = deps.books.list();
+      const batchedProgress = deps.chapters.listProgressByBookIds?.(
+        books.map((book) => book.id)
+      );
+
+      return books.map((book) => {
+        const chapterProgress = batchedProgress?.get(book.id);
+        const chapters = chapterProgress
+          ? null
+          : deps.chapters.listByBook(book.id);
+        const totalChapters = chapterProgress?.totalChapters ?? chapters?.length ?? 0;
+        const completedChapters =
+          chapterProgress?.completedChapters ??
+          chapters?.filter((chapter) => Boolean(chapter.content)).length ??
+          0;
+
+        return {
+          ...book,
+          progress: totalChapters
+            ? Math.round((completedChapters / totalChapters) * 100)
+            : 0,
+          completedChapters,
+          totalChapters,
+        };
+      });
     },
 
     getBookDetail(bookId: string) {
@@ -797,9 +860,16 @@ export function createBookService(deps: {
         const auditFlatnessScore = latestAudit
           ? calculateFlatnessScore(latestAudit.scoring)
           : null;
+        const auditViralScore = latestAudit
+          ? calculateViralScore(latestAudit.scoring)
+          : null;
         const auditFlatnessIssues =
           latestAudit?.issues?.filter((issue) =>
             FLATNESS_ISSUE_TYPES.has(issue.type)
+          ) ?? [];
+        const auditViralIssues =
+          latestAudit?.issues?.filter((issue) =>
+            VIRAL_ISSUE_TYPES.has(issue.type)
           ) ?? [];
         const card = chapterCards.find(
           (candidate) =>
@@ -827,6 +897,8 @@ export function createBookService(deps: {
             ...chapter,
             auditFlatnessScore,
             auditFlatnessIssues,
+            auditViralScore,
+            auditViralIssues,
             storyRoutePlan,
           };
         }
@@ -835,6 +907,8 @@ export function createBookService(deps: {
           ...chapter,
           auditFlatnessScore,
           auditFlatnessIssues,
+          auditViralScore,
+          auditViralIssues,
           storyRoutePlan,
           outline: [
             `必须变化：${card.mustChange}`,
@@ -856,6 +930,7 @@ export function createBookService(deps: {
                 themeQuestion: bible.themeQuestion,
                 themeAnswerDirection: bible.themeAnswerDirection,
                 centralDramaticQuestion: bible.centralDramaticQuestion,
+                viralStoryProtocol: bible.viralStoryProtocol ?? null,
               }
             : null,
           characterArcs: deps.characterArcs?.listByBook(bookId) ?? [],
@@ -923,6 +998,7 @@ export function createBookService(deps: {
         targetChapters: book.targetChapters,
         wordsPerChapter: book.wordsPerChapter,
         modelId,
+        viralStrategy: book.viralStrategy ?? null,
         onWorldSetting: (worldSetting) => {
           if (!deps.books.getById(bookId)) {
             return;
@@ -1086,6 +1162,7 @@ export function createBookService(deps: {
 
       const nextChapterTitle = nextChapter.title;
       const modelId = resolveModelId();
+      const storyBible = deps.storyBibles?.getByBook?.(bookId) ?? null;
       const chapterCard =
         deps.chapterCards
           ?.listByBook?.(bookId)
@@ -1118,12 +1195,10 @@ export function createBookService(deps: {
       const commandContext = chapterCard
         ? buildNarrativeCommandContext({
             bible: {
-              themeQuestion:
-                deps.storyBibles?.getByBook?.(bookId)?.themeQuestion ?? '',
-              themeAnswerDirection:
-                deps.storyBibles?.getByBook?.(bookId)?.themeAnswerDirection ??
-                '',
-              voiceGuide: deps.storyBibles?.getByBook?.(bookId)?.voiceGuide ?? '',
+              themeQuestion: storyBible?.themeQuestion ?? '',
+              themeAnswerDirection: storyBible?.themeAnswerDirection ?? '',
+              voiceGuide: storyBible?.voiceGuide ?? '',
+              viralStoryProtocol: storyBible?.viralStoryProtocol ?? null,
             },
             chapterCard,
             tensionBudget,
@@ -1177,7 +1252,7 @@ export function createBookService(deps: {
       const storyRoutePlan = routeStoryTask({
         taskType: 'write_chapter',
         context: {
-          hasNarrativeBible: Boolean(deps.storyBibles?.getByBook?.(bookId)),
+          hasNarrativeBible: Boolean(storyBible),
           hasChapterCard: Boolean(chapterCard),
           hasTensionBudget: Boolean(tensionBudget),
         },
@@ -1188,6 +1263,13 @@ export function createBookService(deps: {
       const routePlanText = formatStoryRoutePlanForPrompt({
         ...storyRoutePlan,
         openingRetentionLines,
+        viralProtocolLines: storyBible?.viralStoryProtocol
+          ? [
+              formatViralProtocolForPrompt(storyBible.viralStoryProtocol, {
+                chapterIndex: nextChapter.chapterIndex,
+              }),
+            ]
+          : [],
       });
       const prompt = chapterCard
         ? buildNarrativeDraftPrompt({
@@ -1195,6 +1277,8 @@ export function createBookService(deps: {
             wordsPerChapter: book.wordsPerChapter,
             commandContext: commandContext ?? legacyContinuityContext,
             routePlanText,
+            viralStoryProtocol: storyBible?.viralStoryProtocol ?? null,
+            chapterIndex: nextChapter.chapterIndex,
           })
         : buildChapterDraftPrompt({
             idea: book.idea,
@@ -1333,6 +1417,8 @@ export function createBookService(deps: {
           draft: result.content,
           auditContext,
           routePlanText,
+          viralStoryProtocol: storyBible?.viralStoryProtocol ?? null,
+          chapterIndex: nextChapter.chapterIndex,
         });
         deps.chapterAudits?.save({
           bookId,

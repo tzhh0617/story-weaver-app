@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { ipcInvokeChannels } from '../../src/shared/contracts';
 
 const packageJson = JSON.parse(
   fs.readFileSync(path.resolve(__dirname, '../../package.json'), 'utf8')
@@ -13,6 +14,10 @@ const viteConfigSource = fs.readFileSync(
 );
 const electronMainSource = fs.readFileSync(
   path.resolve(__dirname, '../../electron/main.ts'),
+  'utf8'
+);
+const electronPreloadSource = fs.readFileSync(
+  path.resolve(__dirname, '../../electron/preload.cts'),
   'utf8'
 );
 const electronTsConfigSource = fs.readFileSync(
@@ -46,6 +51,27 @@ describe('desktop runtime config', () => {
       "'dist-electron/electron/preload.cjs'"
     );
     expect(electronTsConfigSource).toContain('"electron/**/*.cts"');
+  });
+
+  it('restricts renderer invoke calls to explicit IPC channels in preload', () => {
+    expect(electronPreloadSource).toContain('allowedInvokeChannels');
+    expect(electronPreloadSource).toContain("'book:list'");
+    expect(electronPreloadSource).toContain("'settings:set'");
+    expect(electronPreloadSource).toContain('Unsupported IPC channel');
+  });
+
+  it('keeps the preload invoke whitelist aligned with shared IPC contracts', () => {
+    const match = electronPreloadSource.match(
+      /allowedInvokeChannels = new Set\(\[([\s\S]*?)\]\)/
+    );
+    expect(match?.[1]).toBeTruthy();
+
+    const preloadChannels = Array.from(
+      match?.[1].matchAll(/'([^']+)'/g) ?? [],
+      (channelMatch) => channelMatch[1]
+    ).sort();
+
+    expect(preloadChannels).toEqual([...ipcInvokeChannels].sort());
   });
 
   it('uses the generated icon for the macOS development dock', () => {

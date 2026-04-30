@@ -338,6 +338,29 @@ export function createMockOutlineService() {
           themeAnswer: '自由不是没有代价，而是愿意承担代价。',
         },
         voiceGuide: '中文网文节奏，章末有钩子，冲突推进清楚。',
+        viralStoryProtocol: {
+          readerPromise: `${genre.tone}，以阶段翻盘和真相突破维持追读。`,
+          targetEmotion:
+            genre.id === 'urban-ability' ? 'mystery_breakthrough' : 'revenge',
+          coreDesire: genre.conflict,
+          protagonistDrive: '每个线索都会带来更高代价，迫使主角主动行动。',
+          hookEngine: genre.pressureSources.join('、'),
+          payoffCadence: {
+            mode: 'steady',
+            minorPayoffEveryChapters: 2,
+            majorPayoffEveryChapters: 8,
+            payoffTypes: ['truth_reveal', 'local_victory', 'enemy_setback'],
+          },
+          tropeContract:
+            genre.id === 'urban-ability'
+              ? ['case_breaking', 'business_or_power_game']
+              : ['revenge_payback', 'weak_to_strong', 'sect_or_family_pressure'],
+          antiClicheRules: [
+            '反派不能无理由降智。',
+            '每次翻盘都必须付出资源、关系或身份代价。',
+          ],
+          longTermQuestion: genre.conflict,
+        },
         characterArcs: [
           {
             id: protagonistId,

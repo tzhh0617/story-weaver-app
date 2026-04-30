@@ -29,6 +29,7 @@ export function createStoryBibleRepository(
             central_dramatic_question,
             ending_state_json,
             voice_guide,
+            viral_protocol_json,
             created_at,
             updated_at
           )
@@ -42,6 +43,7 @@ export function createStoryBibleRepository(
             @centralDramaticQuestion,
             @endingStateJson,
             @voiceGuide,
+            @viralProtocolJson,
             @createdAt,
             @updatedAt
           )
@@ -54,6 +56,7 @@ export function createStoryBibleRepository(
             central_dramatic_question = excluded.central_dramatic_question,
             ending_state_json = excluded.ending_state_json,
             voice_guide = excluded.voice_guide,
+            viral_protocol_json = excluded.viral_protocol_json,
             updated_at = excluded.updated_at
         `
       ).run({
@@ -66,6 +69,9 @@ export function createStoryBibleRepository(
         centralDramaticQuestion: bible.centralDramaticQuestion,
         endingStateJson: JSON.stringify(bible.endingState),
         voiceGuide: bible.voiceGuide,
+        viralProtocolJson: bible.viralStoryProtocol
+          ? JSON.stringify(bible.viralStoryProtocol)
+          : null,
         createdAt: now,
         updatedAt: now,
       });
@@ -88,7 +94,8 @@ export function createStoryBibleRepository(
               theme_answer_direction AS themeAnswerDirection,
               central_dramatic_question AS centralDramaticQuestion,
               ending_state_json AS endingStateJson,
-              voice_guide AS voiceGuide
+              voice_guide AS voiceGuide,
+              viral_protocol_json AS viralProtocolJson
             FROM story_bibles
             WHERE book_id = ?
           `
@@ -103,6 +110,7 @@ export function createStoryBibleRepository(
             centralDramaticQuestion: string;
             endingStateJson: string;
             voiceGuide: string;
+            viralProtocolJson: string | null;
           }
         | undefined;
 
@@ -117,6 +125,9 @@ export function createStoryBibleRepository(
         centralDramaticQuestion: row.centralDramaticQuestion,
         endingState: JSON.parse(row.endingStateJson) as NarrativeBible['endingState'],
         voiceGuide: row.voiceGuide,
+        viralStoryProtocol: row.viralProtocolJson
+          ? (JSON.parse(row.viralProtocolJson) as NarrativeBible['viralStoryProtocol'])
+          : undefined,
       };
     },
   };

@@ -20,7 +20,7 @@ export function useProgress() {
     let isMounted = true;
 
     void ipc
-      .invoke<SchedulerStatus>(ipcChannels.schedulerStatus)
+      .invoke(ipcChannels.schedulerStatus)
       .then((payload) => {
         if (isMounted && payload) {
           setStatus(payload);

@@ -138,6 +138,11 @@ describe('runtime mock fallback', () => {
     const detail = services.bookService.getBookDetail(bookId);
     expect(detail?.narrative?.storyBible).toMatchObject({
       themeQuestion: '人能不能摆脱命运？',
+      viralStoryProtocol: {
+        readerPromise: expect.any(String),
+        coreDesire: expect.any(String),
+        hookEngine: expect.any(String),
+      },
     });
     expect(detail?.narrative?.chapterCards).toHaveLength(3);
     expect(detail?.narrative?.chapterCards[0]).toMatchObject({

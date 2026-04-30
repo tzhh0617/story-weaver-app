@@ -35,6 +35,28 @@ function shouldResetDevelopmentStorySchema(db: SqliteDatabase) {
   return columnNames.has('outline') || !columnNames.has('audit_score');
 }
 
+function ensureBookViralStrategyColumn(db: SqliteDatabase) {
+  const columns = db
+    .prepare('PRAGMA table_info(books)')
+    .all() as Array<{ name: string }>;
+  const columnNames = new Set(columns.map((column) => column.name));
+
+  if (!columnNames.has('viral_strategy_json')) {
+    db.prepare('ALTER TABLE books ADD COLUMN viral_strategy_json TEXT').run();
+  }
+}
+
+function ensureStoryBibleViralProtocolColumn(db: SqliteDatabase) {
+  const columns = db
+    .prepare('PRAGMA table_info(story_bibles)')
+    .all() as Array<{ name: string }>;
+  const columnNames = new Set(columns.map((column) => column.name));
+
+  if (!columnNames.has('viral_protocol_json')) {
+    db.prepare('ALTER TABLE story_bibles ADD COLUMN viral_protocol_json TEXT').run();
+  }
+}
+
 function resetDevelopmentStorySchema(db: SqliteDatabase) {
   db.exec(`
     DROP TABLE IF EXISTS narrative_checkpoints;
@@ -63,6 +85,9 @@ export function runMigrations(db: SqliteDatabase) {
   for (const migration of migrations) {
     db.exec(migration);
   }
+
+  ensureBookViralStrategyColumn(db);
+  ensureStoryBibleViralProtocolColumn(db);
 
   if (shouldResetDevelopmentStorySchema(db)) {
     resetDevelopmentStorySchema(db);

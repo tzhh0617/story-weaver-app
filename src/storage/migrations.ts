@@ -8,6 +8,7 @@ export const migrations = [
     model_id TEXT NOT NULL,
     target_chapters INTEGER NOT NULL,
     words_per_chapter INTEGER NOT NULL,
+    viral_strategy_json TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   );
@@ -30,6 +31,7 @@ export const migrations = [
     central_dramatic_question TEXT NOT NULL,
     ending_state_json TEXT NOT NULL,
     voice_guide TEXT NOT NULL,
+    viral_protocol_json TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     FOREIGN KEY (book_id) REFERENCES books(id)

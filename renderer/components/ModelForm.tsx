@@ -16,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from './ui/select';
+import type { ModelSavePayload } from '../../src/shared/contracts';
 
 const supportedProviders = ['openai', 'anthropic'] as const;
 type SupportedProvider = (typeof supportedProviders)[number];
@@ -46,22 +47,8 @@ export default function ModelForm({
   onClearSelection,
   variant = 'card',
 }: {
-  onSave: (input: {
-    id: string;
-    provider: string;
-    modelName: string;
-    apiKey: string;
-    baseUrl: string;
-    config: Record<string, unknown>;
-  }) => void | Promise<void>;
-  onTest: (input: {
-    id: string;
-    provider: string;
-    modelName: string;
-    apiKey: string;
-    baseUrl: string;
-    config: Record<string, unknown>;
-  }) => void | Promise<void>;
+  onSave: (input: ModelSavePayload) => void | Promise<void>;
+  onTest: (input: ModelSavePayload) => void | Promise<void>;
   selectedModel?: {
     provider: string;
     modelName: string;
@@ -101,7 +88,7 @@ export default function ModelForm({
   }, [selectedModel]);
 
   const effectiveProvider = getSupportedProvider(provider);
-  const currentConfig = {
+  const currentConfig: ModelSavePayload = {
     id: `${effectiveProvider}:${modelName}`,
     provider: effectiveProvider,
     modelName,

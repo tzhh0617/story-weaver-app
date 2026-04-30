@@ -132,6 +132,45 @@ export function createChapterRepository(db: SqliteDatabase) {
       }>;
     },
 
+    listProgressByBookIds(bookIds: string[]) {
+      if (!bookIds.length) {
+        return new Map<
+          string,
+          { completedChapters: number; totalChapters: number }
+        >();
+      }
+
+      const placeholders = bookIds.map(() => '?').join(', ');
+      const rows = db
+        .prepare(
+          `
+            SELECT
+              book_id AS bookId,
+              COUNT(*) AS totalChapters,
+              SUM(CASE WHEN content IS NOT NULL AND content != '' THEN 1 ELSE 0 END)
+                AS completedChapters
+            FROM chapters
+            WHERE book_id IN (${placeholders})
+            GROUP BY book_id
+          `
+        )
+        .all(...bookIds) as Array<{
+        bookId: string;
+        completedChapters: number | null;
+        totalChapters: number;
+      }>;
+
+      return new Map(
+        rows.map((row) => [
+          row.bookId,
+          {
+            completedChapters: row.completedChapters ?? 0,
+            totalChapters: row.totalChapters,
+          },
+        ])
+      );
+    },
+
     saveContent(input: {
       bookId: string;
       volumeIndex: number;

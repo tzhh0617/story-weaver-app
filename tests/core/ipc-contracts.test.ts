@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { ipcChannels, type BookDetail } from '../../src/shared/contracts';
+import {
+  assertIpcPayload,
+  ipcChannels,
+  type BookDetail,
+} from '../../src/shared/contracts';
 
 function makeBookDetailContractFixture(): BookDetail {
   return {
@@ -109,6 +113,67 @@ describe('ipcChannels', () => {
     expect(ipcChannels.bookError).toBe('book:error');
     expect(ipcChannels.executionLog).toBe('logs:event');
     expect('logsList' in ipcChannels).toBe(false);
+  });
+
+  it('validates payload-bearing IPC channels at runtime', () => {
+    expect(() =>
+      assertIpcPayload(ipcChannels.bookDetail, { bookId: 'book-1' })
+    ).not.toThrow();
+    expect(() =>
+      assertIpcPayload(ipcChannels.bookExport, {
+        bookId: 'book-1',
+        format: 'md',
+      })
+    ).not.toThrow();
+    expect(() =>
+      assertIpcPayload(ipcChannels.bookList, undefined)
+    ).not.toThrow();
+
+    expect(() =>
+      assertIpcPayload(ipcChannels.bookDetail, { bookId: '' })
+    ).toThrow('Invalid payload for book:detail');
+    expect(() =>
+      assertIpcPayload(ipcChannels.bookExport, {
+        bookId: 'book-1',
+        format: 'pdf',
+      })
+    ).toThrow('Invalid payload for book:export');
+    expect(() =>
+      assertIpcPayload(ipcChannels.settingsSet, {
+        key: 'scheduler.concurrencyLimit',
+        value: 2,
+      })
+    ).toThrow('Invalid payload for settings:set');
+  });
+
+  it('accepts optional viral strategy in book creation payloads', () => {
+    expect(() =>
+      assertIpcPayload(ipcChannels.bookCreate, {
+        idea: '旧案复仇',
+        targetChapters: 500,
+        wordsPerChapter: 2500,
+        viralStrategy: {
+          readerPayoff: 'revenge',
+          protagonistDesire: '洗清旧案',
+          tropeContracts: ['revenge_payback'],
+          cadenceMode: 'steady',
+          antiClicheDirection: '反派不降智',
+        },
+      })
+    ).not.toThrow();
+
+    expect(() =>
+      assertIpcPayload(ipcChannels.bookCreate, {
+        idea: '旧案复仇',
+        targetChapters: 500,
+        wordsPerChapter: 2500,
+        viralStrategy: {
+          readerPayoff: 'revenge',
+          tropeContracts: ['revenge_payback'],
+          cadenceMode: 'not-a-mode',
+        },
+      })
+    ).toThrow('Invalid payload for book:create');
   });
 
   it('book detail supports narrative records while retaining existing display fields', () => {

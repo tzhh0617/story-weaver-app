@@ -1,39 +1,14 @@
 import { mkdirSync } from 'node:fs';
-import { generateText, streamText as streamModelText } from 'ai';
 import os from 'node:os';
 import path from 'node:path';
-import { createAiOutlineService } from '../src/core/ai-outline.js';
 import {
   parseBooleanSetting,
   SHORT_CHAPTER_REVIEW_ENABLED_KEY,
   shouldRewriteShortChapter,
 } from '../src/core/chapter-review.js';
-import {
-  createAiChapterUpdateExtractor,
-  createAiChapterAuditor,
-  createAiChapterRevision,
-  createAiCharacterStateExtractor,
-  createAiNarrativeStateExtractor,
-  createAiPlotThreadExtractor,
-  createAiSceneRecordExtractor,
-  createAiSummaryGenerator,
-} from '../src/core/ai-post-chapter.js';
 import { createBookService } from '../src/core/book-service.js';
-import type { NarrativeAudit } from '../src/core/narrative/types.js';
-import type { OutlineGenerationInput } from '../src/core/types.js';
 import { createNovelEngine } from '../src/core/engine.js';
-import { createModelTestService } from '../src/core/model-test.js';
 import { createScheduler } from '../src/core/scheduler.js';
-import { createChapterWriter } from '../src/core/chapter-writer.js';
-import { type ModelConfigInput } from '../src/models/config.js';
-import { createRuntimeRegistry } from '../src/models/registry.js';
-import {
-  createRuntimeMode,
-  DEFAULT_MOCK_MODEL_ID,
-} from '../src/models/runtime-mode.js';
-import {
-  createMockStoryServices,
-} from '../src/mock/story-services.js';
 import { buildAppPaths } from '../src/shared/paths.js';
 import { createDatabase, createRepositories } from '../src/storage/database.js';
 import { createModelConfigRepository } from '../src/storage/model-configs.js';
@@ -45,6 +20,7 @@ import type {
   ExecutionLogRecord,
 } from '../src/shared/contracts.js';
 import { createSettingsRepository } from '../src/storage/settings.js';
+import { createRuntimeAiServices } from './runtime-ai-services.js';
 
 type RuntimeServices = {
   bookService: ReturnType<typeof createBookService>;
@@ -92,107 +68,6 @@ type RuntimeServices = {
 };
 
 let runtimeServices: RuntimeServices | null = null;
-const DEFAULT_MOCK_RUNTIME_DELAY_MS = 1000;
-const DEFAULT_MOCK_STREAM_TOKENS_PER_SECOND = 200;
-const MOCK_STREAM_CHUNK_TOKENS = 40;
-
-function parseMockRuntimeDelayMs(value: string | undefined) {
-  if (value === undefined) {
-    return DEFAULT_MOCK_RUNTIME_DELAY_MS;
-  }
-
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed < 0) {
-    return DEFAULT_MOCK_RUNTIME_DELAY_MS;
-  }
-
-  return parsed;
-}
-
-function parseMockStreamTokensPerSecond(value: string | undefined) {
-  if (value === undefined) {
-    return DEFAULT_MOCK_STREAM_TOKENS_PER_SECOND;
-  }
-
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    return DEFAULT_MOCK_STREAM_TOKENS_PER_SECOND;
-  }
-
-  return parsed;
-}
-
-function countMockStreamTokens(text: string) {
-  let count = 0;
-
-  for (const character of text) {
-    if (!/\s/u.test(character)) {
-      count += 1;
-    }
-  }
-
-  return count;
-}
-
-function splitMockStreamChunks(text: string, maxTokens: number) {
-  const chunks: string[] = [];
-  let chunk = '';
-  let tokenCount = 0;
-
-  for (const character of text) {
-    chunk += character;
-    if (!/\s/u.test(character)) {
-      tokenCount += 1;
-    }
-
-    if (tokenCount >= maxTokens) {
-      chunks.push(chunk);
-      chunk = '';
-      tokenCount = 0;
-    }
-  }
-
-  if (chunk) {
-    chunks.push(chunk);
-  }
-
-  return chunks;
-}
-
-async function streamMockChapterContent(
-  content: string,
-  onChunk: (chunk: string) => void
-) {
-  const tokensPerSecond = parseMockStreamTokensPerSecond(
-    process.env.STORY_WEAVER_MOCK_STREAM_TOKENS_PER_SECOND
-  );
-  const chunks = splitMockStreamChunks(content, MOCK_STREAM_CHUNK_TOKENS);
-
-  for (const chunk of chunks) {
-    const chunkTokens = countMockStreamTokens(chunk);
-    const delayMs = Math.max(1, (chunkTokens / tokensPerSecond) * 1000);
-    await new Promise((resolve) => setTimeout(resolve, delayMs));
-    onChunk(chunk);
-  }
-}
-
-async function waitForMockRuntimeDelay() {
-  const delayMs = parseMockRuntimeDelayMs(
-    process.env.STORY_WEAVER_MOCK_DELAY_MS
-  );
-
-  if (delayMs <= 0) {
-    return;
-  }
-
-  await new Promise((resolve) => setTimeout(resolve, delayMs));
-}
-
-async function withMockRuntimeDelay<T>(operation: () => Promise<T>) {
-  const result = await operation();
-  await waitForMockRuntimeDelay();
-  return result;
-}
 
 function parseConcurrencyLimit(value: string | null) {
   if (!value) {
@@ -205,62 +80,6 @@ function parseConcurrencyLimit(value: string | null) {
   }
 
   return parsed;
-}
-
-function getEnvironmentModelConfigs(): ModelConfigInput[] {
-  const configs: ModelConfigInput[] = [];
-
-  if (process.env.OPENAI_API_KEY) {
-    configs.push({
-      id: 'openai:gpt-4o-mini',
-      provider: 'openai',
-      modelName: 'gpt-4o-mini',
-      apiKey: process.env.OPENAI_API_KEY,
-      baseUrl: '',
-      config: {},
-    });
-  }
-
-  if (process.env.ANTHROPIC_API_KEY) {
-    configs.push({
-      id: 'anthropic:claude-3-5-sonnet',
-      provider: 'anthropic',
-      modelName: 'claude-3-5-sonnet',
-      apiKey: process.env.ANTHROPIC_API_KEY,
-      baseUrl: '',
-      config: {},
-    });
-  }
-
-  return configs;
-}
-
-function getRuntimeModelMode(persistedConfigs: ModelConfigInput[]) {
-  return createRuntimeMode({
-    persistedConfigs,
-    environmentConfigs: getEnvironmentModelConfigs(),
-    fallbackModelId: DEFAULT_MOCK_MODEL_ID,
-  });
-}
-
-function getRuntimeLanguageModel(input: {
-  persistedConfigs: ModelConfigInput[];
-  modelId: string;
-}) {
-  const runtimeMode = getRuntimeModelMode(input.persistedConfigs);
-
-  if (runtimeMode.kind === 'mock') {
-    throw new Error(`Model not found: ${input.modelId}`);
-  }
-
-  if (!runtimeMode.availableConfigs.some((config) => config.id === input.modelId)) {
-    throw new Error(`Model not found: ${input.modelId}`);
-  }
-
-  const registry = createRuntimeRegistry(runtimeMode.availableConfigs);
-  return (registry as { languageModel: (id: string) => unknown }).languageModel(
-    input.modelId
-  );
 }
 
 export function getRuntimeServices() {
@@ -286,7 +105,7 @@ export function getRuntimeServices() {
   const modelConfigs = repositories.modelConfigs;
   const settings = repositories.settings;
   const logs = createExecutionLogStream();
-  const mockServices = createMockStoryServices();
+  const aiServices = createRuntimeAiServices({ modelConfigs });
   const schedulerListeners = new Set<
     (status: {
       runningBookIds: string[];
@@ -298,301 +117,6 @@ export function getRuntimeServices() {
   const bookGenerationListeners = new Set<
     (event: BookGenerationEvent) => void
   >();
-  const outlineService = {
-    async generateTitleFromIdea(
-      input: OutlineGenerationInput & { modelId: string }
-    ) {
-      const runtimeMode = getRuntimeModelMode(modelConfigs.list());
-      if (runtimeMode.kind === 'mock') {
-        return withMockRuntimeDelay(() =>
-          mockServices.outlineService.generateTitleFromIdea(input)
-        );
-      }
-
-      const registry = createRuntimeRegistry(runtimeMode.availableConfigs);
-      return createAiOutlineService({
-        registry: registry as {
-          languageModel: (modelId: string) => unknown;
-        },
-        generateText: generateText as (input: {
-          model: unknown;
-          prompt: string;
-        }) => Promise<{ text: string }>,
-      }).generateTitleFromIdea(input);
-    },
-
-    async generateFromIdea(
-      input: OutlineGenerationInput & { modelId: string }
-    ) {
-      const runtimeMode = getRuntimeModelMode(modelConfigs.list());
-      if (runtimeMode.kind === 'mock') {
-        return withMockRuntimeDelay(() =>
-          mockServices.outlineService.generateFromIdea(input)
-        );
-      }
-
-      const registry = createRuntimeRegistry(runtimeMode.availableConfigs);
-      return createAiOutlineService({
-        registry: registry as {
-          languageModel: (modelId: string) => unknown;
-        },
-        generateText: generateText as (input: {
-          model: unknown;
-          prompt: string;
-        }) => Promise<{ text: string }>,
-      }).generateFromIdea(input);
-    },
-  };
-  const chapterWriter = {
-    async writeChapter(input: {
-      modelId: string;
-      prompt: string;
-      onChunk?: (chunk: string) => void;
-    }) {
-      const persistedConfigs = modelConfigs.list();
-      const runtimeMode = getRuntimeModelMode(persistedConfigs);
-      if (runtimeMode.kind === 'mock') {
-        return withMockRuntimeDelay(async () => {
-          const result = await mockServices.chapterWriter.writeChapter(input);
-
-          if (input.onChunk) {
-            await streamMockChapterContent(result.content, input.onChunk);
-          }
-
-          return result;
-        });
-      }
-
-      const model = getRuntimeLanguageModel({
-        persistedConfigs,
-        modelId: input.modelId,
-      });
-
-      return createChapterWriter({
-        generateText: (payload: { prompt: string }) =>
-          (generateText({
-            model: model as never,
-            prompt: payload.prompt,
-          }) as Promise<{
-            text: string;
-            usage?: {
-              inputTokens?: number;
-              outputTokens?: number;
-            };
-          }>),
-        streamText: (payload: { prompt: string }) =>
-          streamModelText({
-            model: model as never,
-            prompt: payload.prompt,
-          }).textStream,
-      }).writeChapter({
-        prompt: input.prompt,
-        onChunk: input.onChunk,
-      });
-    },
-  };
-  const summaryGenerator = {
-    async summarizeChapter(input: { modelId: string; content: string }) {
-      const persistedConfigs = modelConfigs.list();
-      const runtimeMode = getRuntimeModelMode(persistedConfigs);
-      if (runtimeMode.kind === 'mock') {
-        return mockServices.summaryGenerator.summarizeChapter(input);
-      }
-
-      const registry = createRuntimeRegistry(runtimeMode.availableConfigs);
-      return createAiSummaryGenerator({
-        registry: registry as {
-          languageModel: (id: string) => unknown;
-        },
-        generateText: generateText as (input: {
-          model: unknown;
-          prompt: string;
-        }) => Promise<{ text: string }>,
-      }).summarizeChapter(input);
-    },
-  };
-  const plotThreadExtractor = {
-    async extractThreads(input: {
-      modelId: string;
-      chapterIndex: number;
-      content: string;
-    }) {
-      const persistedConfigs = modelConfigs.list();
-      const runtimeMode = getRuntimeModelMode(persistedConfigs);
-      if (runtimeMode.kind === 'mock') {
-        return mockServices.plotThreadExtractor.extractThreads(input);
-      }
-
-      const registry = createRuntimeRegistry(runtimeMode.availableConfigs);
-      return createAiPlotThreadExtractor({
-        registry: registry as {
-          languageModel: (id: string) => unknown;
-        },
-        generateText: generateText as (input: {
-          model: unknown;
-          prompt: string;
-        }) => Promise<{ text: string }>,
-      }).extractThreads(input);
-    },
-  };
-  const characterStateExtractor = {
-    async extractStates(input: {
-      modelId: string;
-      chapterIndex: number;
-      content: string;
-    }) {
-      const persistedConfigs = modelConfigs.list();
-      const runtimeMode = getRuntimeModelMode(persistedConfigs);
-      if (runtimeMode.kind === 'mock') {
-        return mockServices.characterStateExtractor.extractStates(input);
-      }
-
-      const registry = createRuntimeRegistry(runtimeMode.availableConfigs);
-      return createAiCharacterStateExtractor({
-        registry: registry as {
-          languageModel: (id: string) => unknown;
-        },
-        generateText: generateText as (input: {
-          model: unknown;
-          prompt: string;
-        }) => Promise<{ text: string }>,
-      }).extractStates(input);
-    },
-  };
-  const sceneRecordExtractor = {
-    async extractScene(input: {
-      modelId: string;
-      chapterIndex: number;
-      content: string;
-    }) {
-      const persistedConfigs = modelConfigs.list();
-      const runtimeMode = getRuntimeModelMode(persistedConfigs);
-      if (runtimeMode.kind === 'mock') {
-        return mockServices.sceneRecordExtractor.extractScene(input);
-      }
-
-      const registry = createRuntimeRegistry(runtimeMode.availableConfigs);
-      return createAiSceneRecordExtractor({
-        registry: registry as {
-          languageModel: (id: string) => unknown;
-        },
-        generateText: generateText as (input: {
-          model: unknown;
-          prompt: string;
-        }) => Promise<{ text: string }>,
-      }).extractScene(input);
-    },
-  };
-  const chapterUpdateExtractor = {
-    async extractChapterUpdate(input: {
-      modelId: string;
-      chapterIndex: number;
-      content: string;
-    }) {
-      const persistedConfigs = modelConfigs.list();
-      const runtimeMode = getRuntimeModelMode(persistedConfigs);
-      if (runtimeMode.kind === 'mock') {
-        return mockServices.chapterUpdateExtractor.extractChapterUpdate(input);
-      }
-
-      const registry = createRuntimeRegistry(runtimeMode.availableConfigs);
-      return createAiChapterUpdateExtractor({
-        registry: registry as {
-          languageModel: (id: string) => unknown;
-        },
-        generateText: generateText as (input: {
-          model: unknown;
-          prompt: string;
-        }) => Promise<{ text: string }>,
-      }).extractChapterUpdate(input);
-    },
-  };
-  const chapterAuditor = {
-    async auditChapter(input: {
-      modelId: string;
-      draft: string;
-      auditContext: string;
-    }) {
-      const persistedConfigs = modelConfigs.list();
-      const runtimeMode = getRuntimeModelMode(persistedConfigs);
-      if (runtimeMode.kind === 'mock') {
-        return mockServices.chapterAuditor.auditChapter(input);
-      }
-
-      const registry = createRuntimeRegistry(runtimeMode.availableConfigs);
-      return createAiChapterAuditor({
-        registry: registry as {
-          languageModel: (id: string) => unknown;
-        },
-        generateText: generateText as (input: {
-          model: unknown;
-          prompt: string;
-        }) => Promise<{ text: string }>,
-      }).auditChapter(input);
-    },
-  };
-  const chapterRevision = {
-    async reviseChapter(input: {
-      modelId: string;
-      originalPrompt: string;
-      draft: string;
-      issues: NarrativeAudit['issues'];
-    }) {
-      const persistedConfigs = modelConfigs.list();
-      const runtimeMode = getRuntimeModelMode(persistedConfigs);
-      if (runtimeMode.kind === 'mock') {
-        return mockServices.chapterRevision.reviseChapter(input);
-      }
-
-      const registry = createRuntimeRegistry(runtimeMode.availableConfigs);
-      return createAiChapterRevision({
-        registry: registry as {
-          languageModel: (id: string) => unknown;
-        },
-        generateText: generateText as (input: {
-          model: unknown;
-          prompt: string;
-        }) => Promise<{ text: string }>,
-      }).reviseChapter(input);
-    },
-  };
-  const narrativeStateExtractor = {
-    async extractState(input: { modelId: string; content: string }) {
-      const persistedConfigs = modelConfigs.list();
-      const runtimeMode = getRuntimeModelMode(persistedConfigs);
-      if (runtimeMode.kind === 'mock') {
-        return mockServices.narrativeStateExtractor.extractState(input);
-      }
-
-      const registry = createRuntimeRegistry(runtimeMode.availableConfigs);
-      return createAiNarrativeStateExtractor({
-        registry: registry as {
-          languageModel: (id: string) => unknown;
-        },
-        generateText: generateText as (input: {
-          model: unknown;
-          prompt: string;
-        }) => Promise<{ text: string }>,
-      }).extractState(input);
-    },
-  };
-  const narrativeCheckpoint = {
-    async reviewCheckpoint(input: { bookId: string; chapterIndex: number }) {
-      const persistedConfigs = modelConfigs.list();
-      const runtimeMode = getRuntimeModelMode(persistedConfigs);
-      if (runtimeMode.kind === 'mock') {
-        return mockServices.narrativeCheckpoint.reviewCheckpoint(input);
-      }
-
-      return {
-        checkpointType: 'arc',
-        arcReport: {},
-        threadDebt: {},
-        pacingReport: {},
-        replanningNotes: null,
-      };
-    },
-  };
   const runningBookIds = new Set<string>();
   let bookService!: ReturnType<typeof createBookService>;
 
@@ -810,17 +334,17 @@ export function getRuntimeServices() {
     narrativeCheckpoints: repositories.narrativeCheckpoints,
     sceneRecords,
     progress,
-    outlineService,
-    chapterWriter,
-    summaryGenerator,
-    characterStateExtractor,
-    plotThreadExtractor,
-    sceneRecordExtractor,
-    chapterUpdateExtractor,
-    chapterAuditor,
-    chapterRevision,
-    narrativeStateExtractor,
-    narrativeCheckpoint,
+    outlineService: aiServices.outlineService,
+    chapterWriter: aiServices.chapterWriter,
+    summaryGenerator: aiServices.summaryGenerator,
+    characterStateExtractor: aiServices.characterStateExtractor,
+    plotThreadExtractor: aiServices.plotThreadExtractor,
+    sceneRecordExtractor: aiServices.sceneRecordExtractor,
+    chapterUpdateExtractor: aiServices.chapterUpdateExtractor,
+    chapterAuditor: aiServices.chapterAuditor,
+    chapterRevision: aiServices.chapterRevision,
+    narrativeStateExtractor: aiServices.narrativeStateExtractor,
+    narrativeCheckpoint: aiServices.narrativeCheckpoint,
     shouldRewriteShortChapter: ({ content, wordsPerChapter }) =>
       shouldRewriteShortChapter({
         enabled: parseBooleanSetting(
@@ -829,10 +353,7 @@ export function getRuntimeServices() {
         content,
         wordsPerChapter,
       }),
-    resolveModelId: () => {
-      const runtimeMode = getRuntimeModelMode(modelConfigs.list());
-      return runtimeMode.resolveModelId();
-    },
+    resolveModelId: aiServices.resolveModelId,
     onBookUpdated: () => {
       emitSchedulerStatus();
     },
@@ -1064,31 +585,7 @@ export function getRuntimeServices() {
       };
     },
     subscribeExecutionLogs: (listener) => logs.subscribe(listener),
-    testModel: async (modelId: string) => {
-      const runtimeMode = getRuntimeModelMode(modelConfigs.list());
-
-      if (
-        runtimeMode.kind === 'mock' ||
-        !runtimeMode.availableConfigs.some((config) => config.id === modelId)
-      ) {
-        return {
-          ok: false,
-          latency: 0,
-          error: `Model not found: ${modelId}`,
-        };
-      }
-
-      const registry = createRuntimeRegistry(runtimeMode.availableConfigs);
-      return createModelTestService({
-        registry: registry as {
-          languageModel: (id: string) => unknown;
-        },
-        generateText: generateText as (input: {
-          model: unknown;
-          prompt: string;
-        }) => Promise<{ text: string }>,
-      }).testModel(modelId);
-    },
+    testModel: aiServices.testModel,
   };
 
   return runtimeServices;
