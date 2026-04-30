@@ -119,6 +119,70 @@ describe('BookDetail', () => {
     );
   });
 
+  it('shows viral story protocol and selected chapter viral audit', () => {
+    render(
+      <BookDetail
+        book={{ title: 'Book 1', status: 'writing', wordCount: 1200 }}
+        progress={{ phase: 'writing' }}
+        narrative={{
+          storyBible: {
+            themeQuestion: '荣耀是否值得牺牲自由？',
+            themeAnswerDirection: '真正的荣耀来自重新选择。',
+            centralDramaticQuestion: '林牧能否改写命运契约？',
+            viralStoryProtocol: {
+              readerPromise: '每三章兑现一次反杀或身份抬升',
+              targetEmotion: '爽感',
+              coreDesire: '夺回被偷走的人生署名权',
+              protagonistDrive: '证明自己不是命运脚注',
+              hookEngine: '每次胜利都会暴露更高层级的债主',
+              payoffCadence: {
+                mode: 'fast',
+                minorPayoffEveryChapters: 2,
+                majorPayoffEveryChapters: 6,
+                payoffTypes: ['反杀', '揭露', '身份抬升'],
+              },
+              tropeContract: ['废柴逆袭', '契约悬疑'],
+              antiClicheRules: ['每次变强都暴露新债务'],
+              longTermQuestion: '谁偷走了林牧的命运署名？',
+            },
+          },
+        }}
+        chapters={[
+          {
+            id: '1-1',
+            volumeIndex: 1,
+            chapterIndex: 1,
+            title: 'Chapter 1',
+            wordCount: 1200,
+            status: 'done',
+            content: 'Generated chapter content',
+            auditViralScore: 72,
+            auditViralIssues: [
+              {
+                type: 'payoff_without_cost',
+                severity: 'major',
+                evidence: '主角直接得到线索。',
+                fixInstruction: '让线索交换掉一个关系筹码。',
+              },
+            ],
+          },
+        ]}
+      />
+    );
+
+    const contextPanel = screen.getByLabelText('上下文面板');
+
+    expect(within(contextPanel).getByText('爆款策略')).toBeInTheDocument();
+    expect(
+      within(contextPanel).getByText('每三章兑现一次反杀或身份抬升')
+    ).toBeInTheDocument();
+    expect(within(contextPanel).getByText('fast · 每 2 章小回报')).toBeInTheDocument();
+    expect(within(contextPanel).getByText('爆款审计')).toBeInTheDocument();
+    expect(within(contextPanel).getByText('爆款分 72')).toBeInTheDocument();
+    expect(within(contextPanel).getByText('回报无代价 · major')).toBeInTheDocument();
+    expect(within(contextPanel).getByText('让线索交换掉一个关系筹码。')).toBeInTheDocument();
+  });
+
   it('shows the selected chapter tension budget in the context outline tab', async () => {
     render(
       <BookDetail

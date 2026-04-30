@@ -63,6 +63,30 @@ type ChapterFlatnessIssueView = {
   fixInstruction: string;
 };
 
+type ChapterViralIssueView = {
+  type: string;
+  severity: string;
+  evidence: string;
+  fixInstruction: string;
+};
+
+type ViralStoryProtocolView = {
+  readerPromise: string;
+  targetEmotion: string;
+  coreDesire: string;
+  protagonistDrive: string;
+  hookEngine: string;
+  payoffCadence: {
+    mode: string;
+    minorPayoffEveryChapters: number;
+    majorPayoffEveryChapters: number;
+    payoffTypes: string[];
+  };
+  tropeContract: string[];
+  antiClicheRules: string[];
+  longTermQuestion: string;
+};
+
 type StoryRoutePlanView = {
   taskType: string;
   requiredSkills: Array<{
@@ -89,6 +113,16 @@ const flatnessIssueLabels: Record<string, string> = {
   missing_consequence: '缺少代价',
   soft_hook: '软钩子',
   repeated_tension_pattern: '张力重复',
+};
+
+const viralIssueLabels: Record<string, string> = {
+  weak_reader_promise: '读者承诺弱',
+  unclear_desire: '欲望不清',
+  missing_payoff: '缺少回报',
+  payoff_without_cost: '回报无代价',
+  generic_trope: '套路泛化',
+  weak_reader_question: '读者问题弱',
+  stale_hook_engine: '钩子陈旧',
 };
 
 const openingRetentionLabels: Record<number, string> = {
@@ -331,6 +365,51 @@ function StoryRouteSection({ plan }: { plan: StoryRoutePlanView }) {
   );
 }
 
+function ViralProtocolSection({
+  protocol,
+}: {
+  protocol: ViralStoryProtocolView;
+}) {
+  return (
+    <DetailSection title="爆款策略">
+      <div className="grid gap-3">
+        <dl className="grid gap-2">
+          <div>
+            <dt className="text-xs font-semibold text-foreground">读者承诺</dt>
+            <dd>{protocol.readerPromise}</dd>
+          </div>
+          <div>
+            <dt className="text-xs font-semibold text-foreground">核心欲望</dt>
+            <dd>{protocol.coreDesire}</dd>
+          </div>
+          <div>
+            <dt className="text-xs font-semibold text-foreground">钩子引擎</dt>
+            <dd>{protocol.hookEngine}</dd>
+          </div>
+        </dl>
+        <div className="grid gap-1">
+          <p className="text-xs font-semibold text-foreground">
+            {`${protocol.payoffCadence.mode} · 每 ${protocol.payoffCadence.minorPayoffEveryChapters} 章小回报`}
+          </p>
+          <p>
+            {`每 ${protocol.payoffCadence.majorPayoffEveryChapters} 章大回报`}
+          </p>
+          {protocol.payoffCadence.payoffTypes.length ? (
+            <p>{protocol.payoffCadence.payoffTypes.join(' / ')}</p>
+          ) : null}
+        </div>
+        {protocol.antiClicheRules.length ? (
+          <ul className="m-0 grid gap-1 pl-4">
+            {protocol.antiClicheRules.slice(0, 3).map((rule) => (
+              <li key={rule}>{rule}</li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
+    </DetailSection>
+  );
+}
+
 function TensionCurveSection({
   budgets,
 }: {
@@ -442,6 +521,46 @@ function FlatnessAuditSection({
               >
                 <p className="text-xs font-semibold text-foreground">
                   {`${flatnessIssueLabels[issue.type] ?? issue.type} · ${issue.severity}`}
+                </p>
+                <p>{issue.evidence}</p>
+                <p>{issue.fixInstruction}</p>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
+    </DetailSection>
+  );
+}
+
+function ViralAuditSection({
+  score,
+  issues,
+}: {
+  score: number | null;
+  issues: ChapterViralIssueView[];
+}) {
+  if (score === null && !issues.length) {
+    return null;
+  }
+
+  return (
+    <DetailSection title="爆款审计">
+      <div className="grid gap-3">
+        {score !== null ? (
+          <p className="text-xs font-semibold text-foreground">
+            {`爆款分 ${score}`}
+          </p>
+        ) : null}
+        {issues.length ? (
+          <ul className="m-0 grid gap-3 p-0">
+            {issues.map((issue) => (
+              <li
+                key={`${issue.type}-${issue.fixInstruction}`}
+                className="grid gap-1 border-l-2 border-border/70 pl-3"
+              >
+                <p className="text-xs font-semibold text-foreground">
+                  {`${viralIssueLabels[issue.type] ?? issue.type} · ${issue.severity}`}
                 </p>
                 <p>{issue.evidence}</p>
                 <p>{issue.fixInstruction}</p>
@@ -652,6 +771,12 @@ export default function BookDetail({
     events: string | null;
   } | null;
   narrative?: {
+    storyBible?: {
+      themeQuestion: string;
+      themeAnswerDirection: string;
+      centralDramaticQuestion: string;
+      viralStoryProtocol?: ViralStoryProtocolView | null;
+    } | null;
     chapterTensionBudgets?: ChapterTensionBudgetView[];
     narrativeCheckpoints?: NarrativeCheckpointView[];
   } | null;
@@ -687,6 +812,8 @@ export default function BookDetail({
     auditScore?: number | null;
     auditFlatnessScore?: number | null;
     auditFlatnessIssues?: ChapterFlatnessIssueView[];
+    auditViralScore?: number | null;
+    auditViralIssues?: ChapterViralIssueView[];
     storyRoutePlan?: StoryRoutePlanView | null;
     draftAttempts?: number;
   }>;
@@ -727,6 +854,8 @@ export default function BookDetail({
       auditScore: chapter.auditScore,
       auditFlatnessScore: chapter.auditFlatnessScore,
       auditFlatnessIssues: chapter.auditFlatnessIssues,
+      auditViralScore: chapter.auditViralScore,
+      auditViralIssues: chapter.auditViralIssues,
       storyRoutePlan: chapter.storyRoutePlan,
       draftAttempts: chapter.draftAttempts,
     })) ?? [];
@@ -780,10 +909,17 @@ export default function BookDetail({
       ? selectedChapter.auditFlatnessScore
       : null;
   const selectedFlatnessIssues = selectedChapter?.auditFlatnessIssues ?? [];
+  const selectedViralScore =
+    typeof selectedChapter?.auditViralScore === 'number'
+      ? selectedChapter.auditViralScore
+      : null;
+  const selectedViralIssues = selectedChapter?.auditViralIssues ?? [];
   const selectedOpeningRetentionLabel = getOpeningRetentionLabel(
     selectedChapter?.chapterIndex
   );
   const selectedStoryRoutePlan = selectedChapter?.storyRoutePlan ?? null;
+  const viralStoryProtocol =
+    narrative?.storyBible?.viralStoryProtocol ?? null;
   const selectedTensionBudget =
     selectedChapter && narrative?.chapterTensionBudgets
       ? narrative.chapterTensionBudgets.find(
@@ -810,6 +946,9 @@ export default function BookDetail({
       chapterTensionBudgets.length >= 2 ||
       selectedFlatnessScore !== null ||
       selectedFlatnessIssues.length > 0 ||
+      selectedViralScore !== null ||
+      selectedViralIssues.length > 0 ||
+      viralStoryProtocol ||
       hasTensionCheckpointContent
   );
   useEffect(() => {
@@ -1059,12 +1198,19 @@ export default function BookDetail({
                           budget={selectedTensionBudget}
                         />
                       ) : null}
+                      {viralStoryProtocol ? (
+                        <ViralProtocolSection protocol={viralStoryProtocol} />
+                      ) : null}
                       {selectedStoryRoutePlan ? (
                         <StoryRouteSection plan={selectedStoryRoutePlan} />
                       ) : null}
                       {selectedTensionBudget ? (
                         <TensionBudgetSection budget={selectedTensionBudget} />
                       ) : null}
+                      <ViralAuditSection
+                        score={selectedViralScore}
+                        issues={selectedViralIssues}
+                      />
                       <FlatnessAuditSection
                         score={selectedFlatnessScore}
                         issues={selectedFlatnessIssues}

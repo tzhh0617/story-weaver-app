@@ -35,6 +35,41 @@ describe('NewBook', () => {
     });
   });
 
+  it('submits optional viral strategy fields when provided', () => {
+    const onCreate = vi.fn();
+
+    render(<NewBook onCreate={onCreate} />);
+
+    fireEvent.change(screen.getByLabelText('故事设想'), {
+      target: { value: 'A map eats its explorers.' },
+    });
+    fireEvent.change(screen.getByLabelText('读者爽点'), {
+      target: { value: '弱者反杀规则制定者' },
+    });
+    fireEvent.change(screen.getByLabelText('主角欲望'), {
+      target: { value: '夺回被偷走的人生署名权' },
+    });
+    fireEvent.change(screen.getByLabelText('节奏偏好'), {
+      target: { value: 'fast' },
+    });
+    fireEvent.change(screen.getByLabelText('反套路方向'), {
+      target: { value: '每次变强都暴露新债务' },
+    });
+    fireEvent.click(screen.getByText('开始写作'));
+
+    expect(onCreate).toHaveBeenCalledWith({
+      idea: 'A map eats its explorers.',
+      targetChapters: 500,
+      wordsPerChapter: 2500,
+      viralStrategy: {
+        readerPayoff: '弱者反杀规则制定者',
+        protagonistDesire: '夺回被偷走的人生署名权',
+        cadenceMode: 'fast',
+        antiClicheDirection: '每次变强都暴露新债务',
+      },
+    });
+  });
+
   it('defaults to 500 chapters and 2500 words per chapter', () => {
     const onCreate = vi.fn();
 
