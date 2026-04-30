@@ -10,6 +10,7 @@ import {
   type BookGenerationEvent,
   type BookExportFormat,
   type BookRecord,
+  type ExecutionLogRecord,
   type SchedulerStatus,
 } from '../src/shared/contracts';
 import { useIpc } from './hooks/useIpc';
@@ -19,6 +20,7 @@ import { Alert } from './components/ui/alert';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import BookDetail from './pages/BookDetail';
 import Library from './pages/Library';
+import Logs from './pages/Logs';
 import NewBook from './pages/NewBook';
 import Settings from './pages/Settings';
 import type { BookDetailData } from './types/book-detail';
@@ -70,6 +72,7 @@ export default function App() {
   } | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [currentView, setCurrentView] = useState<AppView>('library');
+  const [executionLogs, setExecutionLogs] = useState<ExecutionLogRecord[]>([]);
   const [selectedBookId, setSelectedBookId] = useState<string | null>(null);
   const selectedBookIdRef = useRef<string | null>(null);
   const [selectedBookDetail, setSelectedBookDetail] = useState<BookDetailData | null>(
@@ -197,8 +200,20 @@ export default function App() {
           preserveExistingOnMissing: true,
         });
       }
+
     })();
   }, [progress, selectedBookId]);
+
+  useEffect(() => {
+    const unsubscribe = ipc.onExecutionLog((payload) => {
+      setExecutionLogs((currentLogs) => [
+        ...currentLogs,
+        payload as ExecutionLogRecord,
+      ]);
+    });
+
+    return unsubscribe;
+  }, [ipc]);
 
   useEffect(() => {
     if (!books.length) {
@@ -611,6 +626,12 @@ export default function App() {
                 });
                 setCurrentView('library');
               }}
+            />
+          ) : null}
+          {currentView === 'logs' ? (
+            <Logs
+              logs={executionLogs}
+              books={books}
             />
           ) : null}
           {currentView === 'new-book' ? (

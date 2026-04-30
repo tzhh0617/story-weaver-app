@@ -22,8 +22,15 @@ function installIpcMock(
       bookGenerationListener = null;
     };
   });
+  const onExecutionLog = vi.fn((listener: (payload: unknown) => void) => {
+    executionLogListener = listener;
+    return () => {
+      executionLogListener = null;
+    };
+  });
   let progressListener: ((payload: unknown) => void) | null = null;
   let bookGenerationListener: ((payload: unknown) => void) | null = null;
+  let executionLogListener: ((payload: unknown) => void) | null = null;
   function invokeTyped<T>(channel: string, payload?: unknown) {
     return invoke(channel, payload) as Promise<T>;
   }
@@ -32,22 +39,27 @@ function installIpcMock(
     invoke: invokeTyped,
     onProgress,
     onBookGeneration,
+    onExecutionLog,
   };
 
   return {
     invoke,
     onProgress,
     onBookGeneration,
+    onExecutionLog,
     emitProgress(payload: unknown) {
       progressListener?.(payload);
     },
     emitBookGeneration(payload: unknown) {
       bookGenerationListener?.(payload);
     },
+    emitExecutionLog(payload: unknown) {
+      executionLogListener?.(payload);
+    },
   };
 }
 
-async function openView(name: '作品' | '设置') {
+async function openView(name: '作品' | '设置' | '日志') {
   fireEvent.click(await screen.findByRole('button', { name }));
 }
 
@@ -61,6 +73,10 @@ async function openNewBookView() {
 
 async function openSettingsView() {
   await openView('设置');
+}
+
+async function openLogsView() {
+  await openView('日志');
 }
 
 async function selectBook(title: string) {
@@ -126,8 +142,211 @@ describe('App shell', () => {
     );
     expect(screen.getByRole('button', { name: '作品' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '设置' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '日志' })).toBeInTheDocument();
     expect(await screen.findByText('暂无作品')).toBeInTheDocument();
     expect(await screen.findByText('全部开始')).toBeDisabled();
+  });
+
+  it('opens a realtime-only logs workspace and appends incoming events', async () => {
+    const scrollIntoView = vi.fn();
+    HTMLElement.prototype.scrollIntoView = scrollIntoView;
+    const ipc = installIpcMock(async (channel) => {
+      switch (channel) {
+        case 'book:list':
+          return [];
+        case 'model:list':
+          return [];
+        default:
+          return null;
+      }
+    });
+
+    render(<App />);
+
+    await openLogsView();
+
+    expect(
+      await screen.findByRole('heading', { name: '后台日志' })
+    ).toBeInTheDocument();
+    expect(screen.getByText('暂无实时日志')).toBeInTheDocument();
+    expect(ipc.invoke).not.toHaveBeenCalledWith('logs:list', expect.anything());
+
+    ipc.emitExecutionLog({
+      id: 1,
+      bookId: 'book-1',
+      bookTitle: 'Archive',
+      level: 'info',
+      eventType: 'book_started',
+      phase: 'writing',
+      message: '开始后台写作',
+      volumeIndex: null,
+      chapterIndex: null,
+      errorMessage: null,
+      createdAt: '2026-04-30T01:00:00.000Z',
+    });
+
+    expect(await screen.findByText('开始后台写作')).toBeInTheDocument();
+    expect(scrollIntoView).toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: '日志' })).toHaveAttribute(
+      'data-active',
+      'true'
+    );
+  });
+
+  it('filters realtime logs by level and book', async () => {
+    const books = [
+      {
+        id: 'book-1',
+        title: 'Archive',
+        idea: 'First idea',
+        status: 'writing',
+        targetChapters: 500,
+        wordsPerChapter: 2500,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      {
+        id: 'book-2',
+        title: 'Compass',
+        idea: 'Second idea',
+        status: 'writing',
+        targetChapters: 500,
+        wordsPerChapter: 2500,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    ];
+    const ipc = installIpcMock(async (channel, payload) => {
+      switch (channel) {
+        case 'book:list':
+          return copy(books);
+        case 'book:detail': {
+          const { bookId } = payload as { bookId: string };
+          const book = books.find((item) => item.id === bookId) ?? books[0];
+          return {
+            book,
+            context: null,
+            latestScene: null,
+            characterStates: [],
+            plotThreads: [],
+            chapters: [],
+            progress: {
+              phase: book.status,
+            },
+          };
+        }
+        case 'model:list':
+          return [];
+        default:
+          return null;
+      }
+    });
+
+    render(<App />);
+
+    await openLogsView();
+    ipc.emitExecutionLog({
+      id: 1,
+      bookId: 'book-1',
+      bookTitle: 'Archive',
+      level: 'info',
+      eventType: 'book_started',
+      phase: 'writing',
+      message: '开始后台写作',
+      volumeIndex: null,
+      chapterIndex: null,
+      errorMessage: null,
+      createdAt: '2026-04-30T01:00:00.000Z',
+    });
+    ipc.emitExecutionLog({
+      id: 2,
+      bookId: 'book-2',
+      bookTitle: 'Compass',
+      level: 'error',
+      eventType: 'book_failed',
+      phase: 'writing',
+      message: '后台写作失败',
+      volumeIndex: null,
+      chapterIndex: null,
+      errorMessage: 'Model timeout',
+      createdAt: '2026-04-30T02:00:00.000Z',
+    });
+    fireEvent.change(await screen.findByLabelText('日志级别'), {
+      target: { value: 'error' },
+    });
+
+    expect(await screen.findByText('后台写作失败')).toBeInTheDocument();
+    expect(screen.queryByText('开始后台写作')).toBeNull();
+    expect(screen.getByText('Model timeout')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('书本'), {
+      target: { value: 'book-1' },
+    });
+
+    expect(await screen.findByText('暂无匹配日志')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('日志级别'), {
+      target: { value: 'all' },
+    });
+
+    expect(await screen.findByText('开始后台写作')).toBeInTheDocument();
+    expect(screen.queryByText('后台写作失败')).toBeNull();
+  });
+
+  it('searches realtime logs by book title, message, and error text', async () => {
+    const ipc = installIpcMock(async (channel) => {
+      switch (channel) {
+        case 'book:list':
+          return [];
+        case 'model:list':
+          return [];
+        default:
+          return null;
+      }
+    });
+
+    render(<App />);
+
+    await openLogsView();
+    ipc.emitExecutionLog({
+      id: 1,
+      bookId: 'book-1',
+      bookTitle: 'Archive',
+      level: 'info',
+      eventType: 'book_started',
+      phase: 'writing',
+      message: '开始后台写作',
+      volumeIndex: null,
+      chapterIndex: null,
+      errorMessage: null,
+      createdAt: '2026-04-30T01:00:00.000Z',
+    });
+    ipc.emitExecutionLog({
+      id: 2,
+      bookId: 'book-2',
+      bookTitle: 'Compass',
+      level: 'error',
+      eventType: 'book_failed',
+      phase: 'writing',
+      message: '后台写作失败',
+      volumeIndex: null,
+      chapterIndex: null,
+      errorMessage: 'Model timeout',
+      createdAt: '2026-04-30T02:00:00.000Z',
+    });
+    fireEvent.change(await screen.findByLabelText('搜索日志'), {
+      target: { value: 'timeout' },
+    });
+
+    expect(await screen.findByText('后台写作失败')).toBeInTheDocument();
+    expect(screen.queryByText('开始后台写作')).toBeNull();
+
+    fireEvent.change(screen.getByLabelText('搜索日志'), {
+      target: { value: 'Archive' },
+    });
+
+    expect(await screen.findByText('开始后台写作')).toBeInTheDocument();
+    expect(screen.queryByText('后台写作失败')).toBeNull();
   });
 
   it('keeps the new-book form open and explains when IPC is unavailable', async () => {

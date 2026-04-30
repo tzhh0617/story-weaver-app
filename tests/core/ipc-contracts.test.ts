@@ -6,5 +6,7 @@ describe('ipcChannels', () => {
     expect(ipcChannels.bookCreate).toBe('book:create');
     expect(ipcChannels.schedulerStatus).toBe('scheduler:status');
     expect(ipcChannels.bookError).toBe('book:error');
+    expect(ipcChannels.executionLog).toBe('logs:event');
+    expect('logsList' in ipcChannels).toBe(false);
   });
 });

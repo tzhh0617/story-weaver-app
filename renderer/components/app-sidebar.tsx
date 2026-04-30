@@ -1,5 +1,5 @@
 import logoImage from '@/assets/story-weaver-logo-white.png';
-import { BookOpen, Settings2, type LucideIcon } from 'lucide-react';
+import { BookOpen, ScrollText, Settings2, type LucideIcon } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/sidebar';
 import { cn } from '@/lib/utils';
 
-export type AppView = 'library' | 'book-detail' | 'new-book' | 'settings';
+export type AppView = 'library' | 'book-detail' | 'new-book' | 'logs' | 'settings';
 
 const navigationItems: Array<{
   label: string;
@@ -20,6 +20,7 @@ const navigationItems: Array<{
   Icon: LucideIcon;
 }> = [
   { label: '作品', view: 'library', Icon: BookOpen },
+  { label: '日志', view: 'logs', Icon: ScrollText },
   { label: '设置', view: 'settings', Icon: Settings2 },
 ];
 

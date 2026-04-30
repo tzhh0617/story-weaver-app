@@ -60,6 +60,22 @@ export type BookGenerationEvent =
       currentChapter?: number | null;
     };
 
+export type ExecutionLogLevel = 'info' | 'success' | 'error';
+
+export type ExecutionLogRecord = {
+  id: number;
+  bookId: string | null;
+  bookTitle: string | null;
+  level: ExecutionLogLevel;
+  eventType: string;
+  phase: string | null;
+  message: string;
+  volumeIndex: number | null;
+  chapterIndex: number | null;
+  errorMessage: string | null;
+  createdAt: string;
+};
+
 export type BookExportFormat = 'txt' | 'md';
 
 export const ipcChannels = {
@@ -86,4 +102,5 @@ export const ipcChannels = {
   modelTest: 'model:test',
   settingsGet: 'settings:get',
   settingsSet: 'settings:set',
+  executionLog: 'logs:event',
 } as const;

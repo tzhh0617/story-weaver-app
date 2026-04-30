@@ -24,6 +24,7 @@ describe('renderer entry styling', () => {
       },
       onProgress: () => () => undefined,
       onBookGeneration: () => () => undefined,
+      onExecutionLog: () => () => undefined,
     };
 
     const { container } = render(<App />);

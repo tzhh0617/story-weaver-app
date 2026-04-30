@@ -164,6 +164,43 @@ describe('runtime mock fallback', () => {
     expect(generateText).not.toHaveBeenCalled();
   });
 
+  it('records command-level logs for direct write next and write all actions', async () => {
+    const generateText = vi.fn().mockResolvedValue({
+      text: 'should not be used',
+    });
+    const services = await loadRuntimeServices({
+      tempHome,
+      generateTextImpl: generateText,
+      mockDelayMs: 0,
+    });
+    const logs: Array<{ eventType: string }> = [];
+    const unsubscribe = services.subscribeExecutionLogs((log) => {
+      logs.push(log);
+    });
+
+    const writeNextBookId = services.bookService.createBook({
+      idea: '一个被宗门逐出的少年，意外继承了会吞噬因果的古镜。',
+      targetChapters: 1,
+      wordsPerChapter: 90,
+    });
+    await services.bookService.startBook(writeNextBookId);
+    await services.writeNextChapter(writeNextBookId);
+
+    const writeAllBookId = services.bookService.createBook({
+      idea: '一座海底城用潮汐审判所有归来的船。',
+      targetChapters: 1,
+      wordsPerChapter: 90,
+    });
+    await services.bookService.startBook(writeAllBookId);
+    await services.writeRemainingChapters(writeAllBookId);
+    unsubscribe();
+
+    expect(logs.map((log) => log.eventType)).toEqual(
+      expect.arrayContaining(['book_write_next', 'book_write_all'])
+    );
+    expect('logs' in services).toBe(false);
+  });
+
   it('keeps mock runtime generation within the original chapter and word limits', async () => {
     const generateText = vi.fn().mockResolvedValue({
       text: 'should not be used',

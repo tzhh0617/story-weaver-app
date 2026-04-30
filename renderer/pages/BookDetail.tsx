@@ -292,6 +292,10 @@ export default function BookDetail({
   const selectedContent = selectedHasLiveOutput
     ? null
     : selectedChapter?.content;
+  const readingPanelTitle =
+    typeof selectedChapter?.chapterIndex === 'number'
+      ? `第 ${selectedChapter.chapterIndex} 章 正文`
+      : '正文';
   useEffect(() => {
     if (activeChapterId) {
       if (shouldAutoFollowActiveChapterRef.current) {
@@ -426,7 +430,7 @@ export default function BookDetail({
         >
           <header className="border-b border-border/60 px-5 py-3">
             <h2 className="text-sm font-semibold tracking-tight text-foreground">
-              正文
+              {readingPanelTitle}
             </h2>
           </header>
           <div data-testid="chapter-stream-pane" className="min-h-0">

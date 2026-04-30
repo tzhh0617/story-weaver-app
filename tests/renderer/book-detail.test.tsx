@@ -423,6 +423,43 @@ describe('BookDetail', () => {
     expect(screen.getByRole('button', { name: /第 3 章 · Chapter 3/ })).toBeInTheDocument();
   });
 
+  it('labels the reading panel with the selected chapter number when available', async () => {
+    render(
+      <BookDetail
+        book={{ title: 'Book 1', status: 'writing', wordCount: 1200 }}
+        progress={{ phase: 'writing' }}
+        chapters={[
+          {
+            id: '1-1',
+            volumeIndex: 1,
+            chapterIndex: 1,
+            title: 'Chapter 1',
+            wordCount: 1200,
+            status: 'done',
+            content: '第一章正文',
+          },
+          {
+            id: '1-2',
+            volumeIndex: 1,
+            chapterIndex: 2,
+            title: 'Chapter 2',
+            wordCount: 1200,
+            status: 'done',
+            content: '第二章正文',
+          },
+        ]}
+      />
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: /第 2 章 · Chapter 2/ }));
+
+    expect(
+      within(screen.getByLabelText('正文面板')).getByRole('heading', {
+        name: '第 2 章 正文',
+      })
+    ).toBeInTheDocument();
+  });
+
   it('selects an outline-only chapter and shows an empty manuscript state', async () => {
     render(
       <BookDetail
@@ -501,7 +538,9 @@ describe('BookDetail', () => {
     const readingPanel = screen.getByLabelText('正文面板');
 
     expect(readingPanel.className).toContain('grid-rows-[auto_minmax(0,1fr)]');
-    expect(within(readingPanel).getByRole('heading', { name: '正文' })).toBeInTheDocument();
+    expect(
+      within(readingPanel).getByRole('heading', { name: '第 2 章 正文' })
+    ).toBeInTheDocument();
     expect(within(readingPanel).queryByText('Chapter 2')).toBeNull();
     expect(within(readingPanel).queryByText('当前步骤')).toBeNull();
     expect(within(readingPanel).queryByText(/当前查看/)).toBeNull();

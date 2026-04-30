@@ -1,6 +1,7 @@
 import { app, BrowserWindow, nativeImage } from 'electron';
 import path from 'node:path';
 import { registerBookHandlers } from './ipc/books.js';
+import { registerLogHandlers } from './ipc/logs.js';
 import { registerModelHandlers } from './ipc/models.js';
 import { registerSchedulerHandlers } from './ipc/scheduler.js';
 import { registerSettingsHandlers } from './ipc/settings.js';
@@ -39,6 +40,7 @@ async function createWindow() {
 
 app.whenReady().then(async () => {
   registerBookHandlers();
+  registerLogHandlers();
   registerModelHandlers();
   registerSchedulerHandlers();
   registerSettingsHandlers();

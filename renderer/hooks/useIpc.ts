@@ -6,6 +6,7 @@ declare global {
       invoke: <T>(channel: string, payload?: unknown) => Promise<T>;
       onProgress: (listener: (payload: unknown) => void) => () => void;
       onBookGeneration: (listener: (payload: unknown) => void) => () => void;
+      onExecutionLog: (listener: (payload: unknown) => void) => () => void;
     };
   }
 }
@@ -15,6 +16,7 @@ const unavailableIpc = {
   invoke: async <T>() => undefined as T,
   onProgress: () => () => undefined,
   onBookGeneration: () => () => undefined,
+  onExecutionLog: () => () => undefined,
 };
 
 export function useIpc() {

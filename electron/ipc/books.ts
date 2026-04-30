@@ -9,6 +9,9 @@ export function registerBookHandlers() {
   const {
     bookService,
     startBook,
+    pauseBook,
+    writeNextChapter,
+    writeRemainingChapters,
     resumeBook,
     restartBook,
     deleteBook,
@@ -40,17 +43,17 @@ export function registerBookHandlers() {
   ipcMain.handle(
     ipcChannels.bookPause,
     async (_event, payload: { bookId: string }) =>
-      bookService.pauseBook(payload.bookId)
+      pauseBook(payload.bookId)
   );
   ipcMain.handle(
     ipcChannels.bookWriteNext,
     async (_event, payload: { bookId: string }) =>
-      bookService.writeNextChapter(payload.bookId)
+      writeNextChapter(payload.bookId)
   );
   ipcMain.handle(
     ipcChannels.bookWriteAll,
     async (_event, payload: { bookId: string }) =>
-      bookService.writeRemainingChapters(payload.bookId)
+      writeRemainingChapters(payload.bookId)
   );
   ipcMain.handle(
     ipcChannels.bookResume,

@@ -11,6 +11,7 @@ describe('createDatabase', () => {
 
     expect(tableNames).toContain('books');
     expect(tableNames).toContain('writing_progress');
+    expect(tableNames).not.toContain('execution_logs');
     expect(tableNames).toContain('model_configs');
   });
 });

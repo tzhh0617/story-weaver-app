@@ -40,9 +40,11 @@ import { createPlotThreadRepository } from '../src/storage/plot-threads.js';
 import { createProgressRepository } from '../src/storage/progress.js';
 import { createSceneRecordRepository } from '../src/storage/scene-records.js';
 import { exportBookToFile } from '../src/storage/export.js';
+import { createExecutionLogStream } from '../src/storage/logs.js';
 import type {
   BookExportFormat,
   BookGenerationEvent,
+  ExecutionLogRecord,
 } from '../src/shared/contracts.js';
 import { createSettingsRepository } from '../src/storage/settings.js';
 
@@ -51,6 +53,12 @@ type RuntimeServices = {
   modelConfigs: ReturnType<typeof createModelConfigRepository>;
   settings: ReturnType<typeof createSettingsRepository>;
   startBook: (bookId: string) => Promise<void>;
+  pauseBook: (bookId: string) => void;
+  writeNextChapter: (bookId: string) => Promise<unknown>;
+  writeRemainingChapters: (bookId: string) => Promise<{
+    completedChapters: number;
+    status: 'completed' | 'paused' | 'deleted';
+  }>;
   resumeBook: (bookId: string) => Promise<void>;
   restartBook: (bookId: string) => Promise<void>;
   deleteBook: (bookId: string) => Promise<void>;
@@ -74,6 +82,9 @@ type RuntimeServices = {
   ) => () => void;
   subscribeBookGeneration: (
     listener: (event: BookGenerationEvent) => void
+  ) => () => void;
+  subscribeExecutionLogs: (
+    listener: (event: ExecutionLogRecord) => void
   ) => () => void;
   testModel: (modelId: string) => Promise<{
     ok: boolean;
@@ -275,6 +286,7 @@ export function getRuntimeServices() {
   const progress = createProgressRepository(db);
   const modelConfigs = createModelConfigRepository(db);
   const settings = createSettingsRepository(db);
+  const logs = createExecutionLogStream();
   const mockServices = createMockStoryServices();
   const schedulerListeners = new Set<
     (status: {
@@ -499,6 +511,78 @@ export function getRuntimeServices() {
   const runningBookIds = new Set<string>();
   let bookService!: ReturnType<typeof createBookService>;
 
+  function getBookSnapshot(bookId: string) {
+    const book = books.getById(bookId);
+
+    return {
+      bookId,
+      bookTitle: book?.title ?? null,
+    };
+  }
+
+  function logExecution(input: {
+    bookId?: string | null;
+    level: 'info' | 'success' | 'error';
+    eventType: string;
+    phase?: string | null;
+    message: string;
+    volumeIndex?: number | null;
+    chapterIndex?: number | null;
+    errorMessage?: string | null;
+  }) {
+    logs.emit({
+      ...(input.bookId ? getBookSnapshot(input.bookId) : {}),
+      level: input.level,
+      eventType: input.eventType,
+      phase: input.phase ?? null,
+      message: input.message,
+      volumeIndex: input.volumeIndex ?? null,
+      chapterIndex: input.chapterIndex ?? null,
+      errorMessage: input.errorMessage ?? null,
+    });
+  }
+
+  function logGenerationEvent(event: BookGenerationEvent) {
+    if (event.type === 'progress') {
+      logExecution({
+        bookId: event.bookId,
+        level: 'info',
+        eventType: 'book_progress',
+        phase: event.phase,
+        message: event.stepLabel,
+        volumeIndex: event.currentVolume ?? null,
+        chapterIndex: event.currentChapter ?? null,
+      });
+      return;
+    }
+
+    if (event.type === 'chapter-complete') {
+      logExecution({
+        bookId: event.bookId,
+        level: 'success',
+        eventType: 'chapter_completed',
+        phase: 'writing',
+        message: `第 ${event.chapterIndex} 章完成`,
+        volumeIndex: event.volumeIndex,
+        chapterIndex: event.chapterIndex,
+      });
+      return;
+    }
+
+    if (event.type === 'error') {
+      logExecution({
+        bookId: event.bookId,
+        level: 'error',
+        eventType: 'book_failed',
+        phase: event.phase,
+        message: event.stepLabel,
+        volumeIndex: event.currentVolume ?? null,
+        chapterIndex: event.currentChapter ?? null,
+        errorMessage: event.error,
+      });
+    }
+  }
+
   function currentSchedulerStatus() {
     const schedulerStatus = scheduler.getStatus();
     return {
@@ -518,6 +602,8 @@ export function getRuntimeServices() {
   }
 
   function emitBookGeneration(event: BookGenerationEvent) {
+    logGenerationEvent(event);
+
     for (const listener of bookGenerationListeners) {
       listener(event);
     }
@@ -549,7 +635,36 @@ export function getRuntimeServices() {
   async function runBook(bookId: string) {
     runningBookIds.add(bookId);
     try {
+      logExecution({
+        bookId,
+        level: 'info',
+        eventType: 'book_started',
+        phase: 'building_world',
+        message: '开始后台执行作品',
+      });
       await createEngineForBook(bookId).start();
+
+      const book = books.getById(bookId);
+      if (book?.status === 'completed') {
+        logExecution({
+          bookId,
+          level: 'success',
+          eventType: 'book_completed',
+          phase: 'completed',
+          message: '后台执行完成',
+        });
+      }
+    } catch (error) {
+      const currentProgress = progress.getByBookId(bookId);
+      logExecution({
+        bookId,
+        level: 'error',
+        eventType: 'book_failed',
+        phase: currentProgress?.phase ?? null,
+        message: currentProgress?.stepLabel ?? '后台执行失败',
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
     } finally {
       runningBookIds.delete(bookId);
     }
@@ -592,18 +707,126 @@ export function getRuntimeServices() {
     modelConfigs,
     settings,
     startBook: async (bookId: string) => {
+      logExecution({
+        bookId,
+        level: 'info',
+        eventType: 'book_queued',
+        message: '作品已加入后台执行队列',
+      });
       scheduler.register({
         bookId,
         start: async () => runBook(bookId),
       });
       await scheduler.start(bookId);
     },
+    pauseBook: (bookId: string) => {
+      bookService.pauseBook(bookId);
+      logExecution({
+        bookId,
+        level: 'info',
+        eventType: 'book_paused',
+        phase: 'paused',
+        message: '作品已暂停',
+      });
+      emitSchedulerStatus();
+    },
+    writeNextChapter: async (bookId: string) => {
+      logExecution({
+        bookId,
+        level: 'info',
+        eventType: 'book_write_next',
+        phase: 'writing',
+        message: '开始手动写下一章',
+      });
+
+      try {
+        return await bookService.writeNextChapter(bookId);
+      } catch (error) {
+        const currentProgress = progress.getByBookId(bookId);
+        logExecution({
+          bookId,
+          level: 'error',
+          eventType: 'book_failed',
+          phase: currentProgress?.phase ?? null,
+          message: currentProgress?.stepLabel ?? '手动写下一章失败',
+          errorMessage: error instanceof Error ? error.message : String(error),
+        });
+        throw error;
+      }
+    },
+    writeRemainingChapters: async (bookId: string) => {
+      logExecution({
+        bookId,
+        level: 'info',
+        eventType: 'book_write_all',
+        phase: 'writing',
+        message: '开始手动写完剩余章节',
+      });
+
+      try {
+        const result = await bookService.writeRemainingChapters(bookId);
+        if (result.status === 'completed') {
+          logExecution({
+            bookId,
+            level: 'success',
+            eventType: 'book_completed',
+            phase: 'completed',
+            message: '后台执行完成',
+          });
+        }
+
+        return result;
+      } catch (error) {
+        const currentProgress = progress.getByBookId(bookId);
+        logExecution({
+          bookId,
+          level: 'error',
+          eventType: 'book_failed',
+          phase: currentProgress?.phase ?? null,
+          message: currentProgress?.stepLabel ?? '手动写完剩余章节失败',
+          errorMessage: error instanceof Error ? error.message : String(error),
+        });
+        throw error;
+      }
+    },
     resumeBook: async (bookId: string) => {
-      await bookService.resumeBook(bookId);
+      logExecution({
+        bookId,
+        level: 'info',
+        eventType: 'book_resumed',
+        phase: 'writing',
+        message: '作品已恢复后台执行',
+      });
+      const result = await bookService.resumeBook(bookId);
+      if (result?.status === 'completed') {
+        logExecution({
+          bookId,
+          level: 'success',
+          eventType: 'book_completed',
+          phase: 'completed',
+          message: '后台执行完成',
+        });
+      }
       emitSchedulerStatus();
     },
     restartBook: async (bookId: string) => {
-      await bookService.restartBook(bookId);
+      logExecution({
+        bookId,
+        level: 'info',
+        eventType: 'book_restarted',
+        phase: 'building_outline',
+        message: '作品已重新开始后台执行',
+      });
+      const result = await bookService.restartBook(bookId);
+      if (result?.status === 'completed') {
+        logExecution({
+          bookId,
+          level: 'success',
+          eventType: 'book_completed',
+          phase: 'completed',
+          message: '后台执行完成',
+        });
+      }
       emitSchedulerStatus();
     },
     deleteBook: async (bookId: string) => {
@@ -636,7 +859,19 @@ export function getRuntimeServices() {
         .listBooks()
         .filter((book) => book.status !== 'completed' && book.status !== 'paused');
 
+      logExecution({
+        level: 'info',
+        eventType: 'scheduler_start_all',
+        message: `批量开始 ${runnableBooks.length} 本作品`,
+      });
+
       for (const book of runnableBooks) {
+        logExecution({
+          bookId: book.id,
+          level: 'info',
+          eventType: 'book_queued',
+          message: '作品已加入后台执行队列',
+        });
         scheduler.register({
           bookId: book.id,
           start: async () => runBook(book.id),
@@ -654,8 +889,21 @@ export function getRuntimeServices() {
           (book) => book.status !== 'completed' && book.status !== 'paused'
         );
 
+      logExecution({
+        level: 'info',
+        eventType: 'scheduler_pause_all',
+        message: `批量暂停 ${pausableBooks.length} 本作品`,
+      });
+
       for (const book of pausableBooks) {
         bookService.pauseBook(book.id);
+        logExecution({
+          bookId: book.id,
+          level: 'info',
+          eventType: 'book_paused',
+          phase: 'paused',
+          message: '作品已暂停',
+        });
       }
 
       emitSchedulerStatus();
@@ -678,6 +926,7 @@ export function getRuntimeServices() {
         bookGenerationListeners.delete(listener);
       };
     },
+    subscribeExecutionLogs: (listener) => logs.subscribe(listener),
     testModel: async (modelId: string) => {
       const runtimeMode = getRuntimeModelMode(modelConfigs.list());
 
