@@ -168,8 +168,81 @@ describe('BookDetail', () => {
     expect(
       within(contextPanel).getByText('保住证据，或救下同伴。')
     ).toBeInTheDocument();
-    expect(within(contextPanel).getByText('代价')).toBeInTheDocument();
-    expect(within(contextPanel).getByText('失去同伴信任。')).toBeInTheDocument();
+    expect(within(contextPanel).getAllByText('代价').length).toBeGreaterThan(0);
+    expect(
+      within(contextPanel).getAllByText('失去同伴信任。').length
+    ).toBeGreaterThan(0);
+  });
+
+  it('shows opening retention guidance for selected opening chapters', () => {
+    render(
+      <BookDetail
+        book={{ title: 'Book 1', status: 'writing', wordCount: 1200 }}
+        progress={{ phase: 'writing' }}
+        narrative={{
+          chapterTensionBudgets: [
+            {
+              bookId: 'book-1',
+              volumeIndex: 1,
+              chapterIndex: 1,
+              pressureLevel: 'medium',
+              dominantTension: 'mystery',
+              requiredTurn: '旧页主动回应林牧。',
+              forcedChoice: '隐藏旧页或求助。',
+              costToPay: '失去安全感。',
+              irreversibleChange: '林牧开始追查。',
+              readerQuestion: '为什么偏偏是林牧？',
+              hookPressure: '有人知道旧页在他手里。',
+              flatnessRisks: ['不要解释开局。'],
+            },
+          ],
+        }}
+        chapters={[
+          {
+            id: '1-1',
+            volumeIndex: 1,
+            chapterIndex: 1,
+            title: 'Chapter 1',
+            wordCount: 1200,
+            status: 'done',
+            content: '第一章正文',
+          },
+        ]}
+      />
+    );
+
+    const contextPanel = screen.getByLabelText('上下文面板');
+
+    expect(within(contextPanel).getByText('开篇留存')).toBeInTheDocument();
+    expect(within(contextPanel).getByText('第 1 章 · 异常入场')).toBeInTheDocument();
+    expect(within(contextPanel).getByText('读者问题')).toBeInTheDocument();
+    expect(within(contextPanel).getByText('为什么偏偏是林牧？')).toBeInTheDocument();
+    expect(within(contextPanel).getAllByText('章末压力').length).toBeGreaterThan(0);
+    expect(
+      within(contextPanel).getAllByText('有人知道旧页在他手里。').length
+    ).toBeGreaterThan(0);
+  });
+
+  it('does not show opening retention guidance after chapter five', () => {
+    render(
+      <BookDetail
+        book={{ title: 'Book 1', status: 'writing', wordCount: 1200 }}
+        progress={{ phase: 'writing' }}
+        chapters={[
+          {
+            id: '1-6',
+            volumeIndex: 1,
+            chapterIndex: 6,
+            title: 'Chapter 6',
+            wordCount: 1200,
+            status: 'done',
+            content: '第六章正文',
+          },
+        ]}
+      />
+    );
+
+    expect(screen.getByLabelText('上下文面板')).not.toHaveTextContent('开篇留存');
   });
 
   it('shows the selected chapter story route summary in the context panel', () => {

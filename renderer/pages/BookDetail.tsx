@@ -91,6 +91,14 @@ const flatnessIssueLabels: Record<string, string> = {
   repeated_tension_pattern: '张力重复',
 };
 
+const openingRetentionLabels: Record<number, string> = {
+  1: '异常入场',
+  2: '问题变贵',
+  3: '不可逆入局',
+  4: '首次明确回报',
+  5: '长线敌意',
+};
+
 const contextPanelTabTriggerClassName =
   'rounded-none border-b-2 border-transparent bg-transparent px-2 shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none';
 
@@ -123,6 +131,14 @@ function getTensionRebalanceInstructions(checkpoint: NarrativeCheckpointView) {
       (instruction): instruction is string =>
         typeof instruction === 'string' && instruction.trim().length > 0
     );
+}
+
+function getOpeningRetentionLabel(chapterIndex?: number | null) {
+  if (typeof chapterIndex !== 'number') {
+    return null;
+  }
+
+  return openingRetentionLabels[chapterIndex] ?? null;
 }
 
 function getLatestNarrativeCheckpoint(checkpoints: NarrativeCheckpointView[]) {
@@ -233,6 +249,52 @@ function TensionBudgetSection({
             <dd>{budget.hookPressure}</dd>
           </div>
         </dl>
+      </div>
+    </DetailSection>
+  );
+}
+
+function OpeningRetentionSection({
+  chapterIndex,
+  budget,
+}: {
+  chapterIndex: number;
+  budget: ChapterTensionBudgetView | null;
+}) {
+  const label = getOpeningRetentionLabel(chapterIndex);
+
+  if (!label) {
+    return null;
+  }
+
+  return (
+    <DetailSection title="开篇留存">
+      <div className="grid gap-3">
+        <p className="text-xs font-semibold text-foreground">
+          {`第 ${chapterIndex} 章 · ${label}`}
+        </p>
+        {budget ? (
+          <dl className="grid gap-2">
+            <div>
+              <dt className="text-xs font-semibold text-foreground">读者问题</dt>
+              <dd>{budget.readerQuestion}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-semibold text-foreground">章末压力</dt>
+              <dd>{budget.hookPressure}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-semibold text-foreground">代价</dt>
+              <dd>{budget.costToPay}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-semibold text-foreground">不可逆变化</dt>
+              <dd>{budget.irreversibleChange}</dd>
+            </div>
+          </dl>
+        ) : (
+          <p>等待张力预算生成后显示读者问题、代价和章末压力。</p>
+        )}
       </div>
     </DetailSection>
   );
@@ -718,6 +780,9 @@ export default function BookDetail({
       ? selectedChapter.auditFlatnessScore
       : null;
   const selectedFlatnessIssues = selectedChapter?.auditFlatnessIssues ?? [];
+  const selectedOpeningRetentionLabel = getOpeningRetentionLabel(
+    selectedChapter?.chapterIndex
+  );
   const selectedStoryRoutePlan = selectedChapter?.storyRoutePlan ?? null;
   const selectedTensionBudget =
     selectedChapter && narrative?.chapterTensionBudgets
@@ -739,6 +804,7 @@ export default function BookDetail({
     : false;
   const hasOutlineTabContent = Boolean(
     hasOutlineContent ||
+      selectedOpeningRetentionLabel ||
       selectedStoryRoutePlan ||
       selectedTensionBudget ||
       chapterTensionBudgets.length >= 2 ||
@@ -986,6 +1052,13 @@ export default function BookDetail({
                   </TabsContent>
                   <TabsContent value="outline" className="mt-0">
                     <div className="grid content-start gap-4">
+                      {selectedChapter?.chapterIndex &&
+                      selectedOpeningRetentionLabel ? (
+                        <OpeningRetentionSection
+                          chapterIndex={selectedChapter.chapterIndex}
+                          budget={selectedTensionBudget}
+                        />
+                      ) : null}
                       {selectedStoryRoutePlan ? (
                         <StoryRouteSection plan={selectedStoryRoutePlan} />
                       ) : null}
