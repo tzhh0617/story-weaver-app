@@ -1,5 +1,4 @@
 import type { StoryRoutePlan, StorySkill } from './types.js';
-import { buildOpeningRetentionProtocolLines } from '../narrative/opening-retention.js';
 
 function renderSkills(skills: StorySkill[]) {
   return skills.map(
@@ -38,13 +37,12 @@ export function formatStoryRoutePlanForPrompt(plan: StoryRoutePlan) {
     '',
     ...renderSection('Checklist', plan.checklist),
     '',
-    ...renderSection(
-      'Opening Retention',
-      plan.openingRetentionLines?.length
-        ? plan.openingRetentionLines
-        : buildOpeningRetentionProtocolLines({ targetChapters: 5 })
-    ),
-    '',
+    ...(plan.openingRetentionLines?.length
+      ? [
+          ...renderSection('Opening Retention', plan.openingRetentionLines),
+          '',
+        ]
+      : []),
     ...renderSection('Warnings', plan.warnings),
   ].join('\n');
 }

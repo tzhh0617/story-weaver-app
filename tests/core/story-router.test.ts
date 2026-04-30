@@ -131,6 +131,28 @@ describe('story skill router', () => {
     expect(text).toContain('Hard Constraints');
     expect(text).toContain('Red Flags');
     expect(text).toContain('Checklist');
+    expect(text).not.toContain('Opening Retention');
+  });
+
+  it('formats opening retention lines only when provided', () => {
+    const plan = routeStoryTask({
+      taskType: 'write_chapter',
+      context: {
+        hasNarrativeBible: true,
+        hasChapterCard: true,
+        hasTensionBudget: true,
+      },
+    });
+
+    const text = formatStoryRoutePlanForPrompt({
+      ...plan,
+      openingRetentionLines: [
+        'Opening retention phase:',
+        'Current opening phase: chapter 1 - 异常入场 (abnormal entry)',
+      ],
+    });
+
     expect(text).toContain('Opening Retention');
+    expect(text).toContain('Current opening phase: chapter 1');
   });
 });
