@@ -2,6 +2,7 @@ import type {
   ChapterCard,
   ChapterCharacterPressure,
   ChapterRelationshipAction,
+  ChapterTensionBudget,
   ChapterThreadAction,
   NarrativeBible,
   VolumePlan,
@@ -33,6 +34,7 @@ export type OutlineBundle = {
   narrativeBible?: NarrativeBible;
   volumePlans?: VolumePlan[];
   chapterCards?: ChapterCard[];
+  chapterTensionBudgets?: ChapterTensionBudget[];
   chapterThreadActions?: ChapterThreadAction[];
   chapterCharacterPressures?: ChapterCharacterPressure[];
   chapterRelationshipActions?: ChapterRelationshipAction[];

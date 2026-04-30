@@ -38,6 +38,76 @@ describe('narrative audit helpers', () => {
       })
     ).toBe('rewrite');
   });
+
+  it('rewrites drafts with very low flatness average', () => {
+    expect(
+      decideAuditAction({
+        passed: true,
+        score: 88,
+        decision: 'accept',
+        issues: [],
+        scoring: {
+          characterLogic: 18,
+          mainlineProgress: 13,
+          relationshipChange: 13,
+          conflictDepth: 14,
+          worldRuleCost: 9,
+          threadManagement: 8,
+          pacingReward: 9,
+          themeAlignment: 4,
+          flatness: {
+            conflictEscalation: 50,
+            choicePressure: 55,
+            consequenceVisibility: 50,
+            irreversibleChange: 55,
+            hookStrength: 50,
+          },
+        },
+        stateUpdates: {
+          characterArcUpdates: [],
+          relationshipUpdates: [],
+          threadUpdates: [],
+          worldKnowledgeUpdates: [],
+          themeUpdate: '',
+        },
+      })
+    ).toBe('rewrite');
+  });
+
+  it('revises drafts with weak choice pressure even when the total audit score is acceptable', () => {
+    expect(
+      decideAuditAction({
+        passed: true,
+        score: 88,
+        decision: 'accept',
+        issues: [],
+        scoring: {
+          characterLogic: 18,
+          mainlineProgress: 13,
+          relationshipChange: 13,
+          conflictDepth: 14,
+          worldRuleCost: 9,
+          threadManagement: 8,
+          pacingReward: 9,
+          themeAlignment: 4,
+          flatness: {
+            conflictEscalation: 75,
+            choicePressure: 55,
+            consequenceVisibility: 80,
+            irreversibleChange: 80,
+            hookStrength: 80,
+          },
+        },
+        stateUpdates: {
+          characterArcUpdates: [],
+          relationshipUpdates: [],
+          threadUpdates: [],
+          worldKnowledgeUpdates: [],
+          themeUpdate: '',
+        },
+      })
+    ).toBe('revise');
+  });
 });
 
 describe('normalizeNarrativeStateDelta', () => {

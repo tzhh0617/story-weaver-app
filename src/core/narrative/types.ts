@@ -64,6 +64,18 @@ export type RelationshipAction =
   | 'deepen'
   | 'reverse';
 
+export type TensionPressureLevel = 'low' | 'medium' | 'high' | 'peak';
+
+export type DominantTension =
+  | 'danger'
+  | 'desire'
+  | 'relationship'
+  | 'mystery'
+  | 'moral_choice'
+  | 'deadline'
+  | 'status_loss'
+  | 'resource_cost';
+
 export type AuditIssueType =
   | 'character_logic'
   | 'relationship_static'
@@ -74,7 +86,12 @@ export type AuditIssueType =
   | 'theme_drift'
   | 'chapter_too_empty'
   | 'forbidden_move'
-  | 'missing_reader_reward';
+  | 'missing_reader_reward'
+  | 'flat_chapter'
+  | 'weak_choice_pressure'
+  | 'missing_consequence'
+  | 'soft_hook'
+  | 'repeated_tension_pattern';
 
 export type AuditSeverity = 'blocker' | 'major' | 'minor';
 export type AuditDecision = 'accept' | 'revise' | 'rewrite';
@@ -226,6 +243,29 @@ export type ChapterRelationshipAction = {
   requiredChange: string;
 };
 
+export type ChapterTensionBudget = {
+  bookId: string;
+  volumeIndex: number;
+  chapterIndex: number;
+  pressureLevel: TensionPressureLevel;
+  dominantTension: DominantTension;
+  requiredTurn: string;
+  forcedChoice: string;
+  costToPay: string;
+  irreversibleChange: string;
+  readerQuestion: string;
+  hookPressure: string;
+  flatnessRisks: string[];
+};
+
+export type FlatnessScoring = {
+  conflictEscalation: number;
+  choicePressure: number;
+  consequenceVisibility: number;
+  irreversibleChange: number;
+  hookStrength: number;
+};
+
 export type NarrativeAudit = {
   passed: boolean;
   score: number;
@@ -245,6 +285,7 @@ export type NarrativeAudit = {
     threadManagement: number;
     pacingReward: number;
     themeAlignment: number;
+    flatness?: FlatnessScoring;
   };
   stateUpdates: {
     characterArcUpdates: string[];

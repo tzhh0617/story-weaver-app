@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest';
 import {
   validateChapterCards,
   validateNarrativeBible,
+  validateTensionBudgets,
   validateVolumePlans,
 } from '../../src/core/narrative/validation';
 import type {
   ChapterCard,
+  ChapterTensionBudget,
   NarrativeBible,
   VolumePlan,
 } from '../../src/core/narrative/types';
@@ -164,5 +166,90 @@ describe('validateChapterCards', () => {
     expect(result.valid).toBe(false);
     expect(result.issues).toContain('Chapter 1 must include externalConflict.');
     expect(result.issues).toContain('Chapter 1 must include mustChange.');
+  });
+});
+
+function validTensionBudget(chapterIndex: number): ChapterTensionBudget {
+  return {
+    bookId: 'book-1',
+    volumeIndex: 1,
+    chapterIndex,
+    pressureLevel: chapterIndex % 3 === 0 ? 'high' : 'medium',
+    dominantTension:
+      chapterIndex % 3 === 0
+        ? 'moral_choice'
+        : chapterIndex % 2 === 0
+          ? 'relationship'
+          : 'mystery',
+    requiredTurn: `第 ${chapterIndex} 章出现不可忽视的局势转向。`,
+    forcedChoice: '林牧必须在公开线索和保护同伴之间选择。',
+    costToPay: '林牧失去一段可验证的记忆。',
+    irreversibleChange: '林牧无法再回到旁观者身份。',
+    readerQuestion: '真正操纵命簿的人是谁？',
+    hookPressure: '章末出现更危险的命簿记录。',
+    flatnessRisks: ['不要用解释代替冲突。'],
+  };
+}
+
+describe('validateTensionBudgets', () => {
+  it('accepts one complete budget per chapter', () => {
+    expect(
+      validateTensionBudgets([validTensionBudget(1), validTensionBudget(2)], {
+        targetChapters: 2,
+      })
+    ).toEqual({ valid: true, issues: [] });
+  });
+
+  it('rejects missing budget and blank required fields', () => {
+    const budget = {
+      ...validTensionBudget(1),
+      requiredTurn: '',
+      costToPay: '',
+      irreversibleChange: '',
+      hookPressure: '',
+      flatnessRisks: [],
+    };
+
+    const result = validateTensionBudgets([budget], { targetChapters: 2 });
+
+    expect(result.valid).toBe(false);
+    expect(result.issues).toContain('Tension budget 2 must exist.');
+    expect(result.issues).toContain('Tension budget 1 must include requiredTurn.');
+    expect(result.issues).toContain('Tension budget 1 must include costToPay.');
+    expect(result.issues).toContain(
+      'Tension budget 1 must include irreversibleChange.'
+    );
+    expect(result.issues).toContain('Tension budget 1 must include hookPressure.');
+    expect(result.issues).toContain(
+      'Tension budget 1 must include at least one flatnessRisk.'
+    );
+  });
+
+  it('rejects more than three repeated dominant tension values', () => {
+    const budgets = [1, 2, 3, 4].map((chapterIndex) => ({
+      ...validTensionBudget(chapterIndex),
+      dominantTension: 'mystery' as const,
+    }));
+
+    const result = validateTensionBudgets(budgets, { targetChapters: 4 });
+
+    expect(result.valid).toBe(false);
+    expect(result.issues).toContain(
+      'Tension budgets must not repeat dominantTension mystery for more than 3 consecutive chapters.'
+    );
+  });
+
+  it('rejects three consecutive low-pressure chapters', () => {
+    const budgets = [1, 2, 3].map((chapterIndex) => ({
+      ...validTensionBudget(chapterIndex),
+      pressureLevel: 'low' as const,
+    }));
+
+    const result = validateTensionBudgets(budgets, { targetChapters: 3 });
+
+    expect(result.valid).toBe(false);
+    expect(result.issues).toContain(
+      'Tension budgets must include medium or higher pressure within every 3 chapters.'
+    );
   });
 });
