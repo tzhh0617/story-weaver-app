@@ -289,6 +289,7 @@ describe('createAiOutlineService', () => {
 
   it('generates tension budgets after chapter cards', async () => {
     const fakeModel = { id: 'model' };
+    const prompts: string[] = [];
     const responses = [
       JSON.stringify(validNarrativeBible()),
       JSON.stringify([
@@ -345,9 +346,12 @@ describe('createAiOutlineService', () => {
     const registry = {
       languageModel: vi.fn().mockReturnValue(fakeModel),
     };
-    const generateText = vi.fn().mockImplementation(async () => ({
-      text: responses.shift() ?? '',
-    }));
+    const generateText = vi.fn().mockImplementation(async ({ prompt }) => {
+      prompts.push(prompt);
+      return {
+        text: responses.shift() ?? '',
+      };
+    });
     const service = createAiOutlineService({
       registry: registry as never,
       generateText: generateText as never,
@@ -361,6 +365,11 @@ describe('createAiOutlineService', () => {
       modelId: 'model-1',
     });
 
+    expect(result.narrativeBible?.viralStoryProtocol).toMatchObject({
+      readerPromise: expect.any(String),
+      coreDesire: expect.any(String),
+      hookEngine: expect.any(String),
+    });
     expect(result.chapterTensionBudgets).toEqual([
       {
         bookId: 'book-1',
@@ -380,6 +389,9 @@ describe('createAiOutlineService', () => {
     expect(result.worldSetting).toContain('目标总章数：1');
     expect(result.worldSetting).toContain('故事前提：被剥夺记忆的档案修复师追查天命账簿。');
     expect(result.worldSetting).not.toContain('Premise:');
+    expect(prompts.some((prompt) => prompt.includes('Viral Story Protocol'))).toBe(
+      true
+    );
     expect(generateText).toHaveBeenCalledTimes(4);
   });
 });

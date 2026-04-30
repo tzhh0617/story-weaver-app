@@ -12,6 +12,7 @@ import {
   buildVolumePlanPrompt,
 } from './narrative/prompts.js';
 import { parseJsonObject } from './narrative/json.js';
+import { deriveViralStoryProtocol } from './narrative/viral-story-protocol.js';
 import {
   validateChapterCards,
   validateNarrativeBible,
@@ -211,6 +212,14 @@ export function createAiOutlineService(deps: {
         if (!bibleValidation.valid) {
           throw new Error(`Invalid narrative bible: ${bibleValidation.issues.join('; ')}`);
         }
+        const viralStoryProtocol = deriveViralStoryProtocol(narrativeBible, {
+          targetChapters: input.targetChapters,
+          viralStrategy: input.viralStrategy ?? null,
+        });
+        narrativeBible = {
+          ...narrativeBible,
+          viralStoryProtocol,
+        };
 
         const worldSetting = renderWorldSettingFromBible(
           narrativeBible,
@@ -225,6 +234,7 @@ export function createAiOutlineService(deps: {
               prompt: buildVolumePlanPrompt({
                 targetChapters: input.targetChapters,
                 bibleSummary: bibleSummary(narrativeBible),
+                viralStoryProtocol,
               }),
             })
           ).text
@@ -256,6 +266,7 @@ export function createAiOutlineService(deps: {
                 targetChapters: input.targetChapters,
                 bibleSummary: bibleSummary(narrativeBible),
                 volumePlansText: volumePlansText(volumePlans),
+                viralStoryProtocol,
               }),
             })
           ).text
@@ -283,6 +294,7 @@ export function createAiOutlineService(deps: {
                 bibleSummary: bibleSummary(narrativeBible),
                 volumePlansText: volumePlansText(volumePlans),
                 chapterCardsText: chapterCardsText(chapterCards),
+                viralStoryProtocol,
               }),
             })
           ).text

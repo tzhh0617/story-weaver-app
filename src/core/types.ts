@@ -5,6 +5,7 @@ import type {
   ChapterTensionBudget,
   ChapterThreadAction,
   NarrativeBible,
+  ViralStrategyInput,
   VolumePlan,
 } from './narrative/types.js';
 
@@ -14,6 +15,7 @@ export type OutlineGenerationInput = {
   targetChapters: number;
   wordsPerChapter: number;
   modelId?: string;
+  viralStrategy?: ViralStrategyInput | null;
   onWorldSetting?: (worldSetting: string) => void;
   onMasterOutline?: (masterOutline: string) => void;
   onChapterOutlines?: (chapterOutlines: ChapterOutline[]) => void;

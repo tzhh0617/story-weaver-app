@@ -131,4 +131,57 @@ describe('buildNarrativeCommandContext', () => {
     expect(result).toContain('mustChange: 林牧从逃避变为主动追查。');
     expect(result.length).toBeLessThanOrEqual(900);
   });
+
+  it('includes viral protocol in the command context and preserves it when trimmed', () => {
+    const result = buildNarrativeCommandContext({
+      bible: {
+        themeQuestion: '弱者能否夺回命运解释权？',
+        themeAnswerDirection: '自由需要承担代价。',
+        voiceGuide: '紧凑中文网文。',
+        viralStoryProtocol: {
+          readerPromise: '压抑后翻盘。',
+          targetEmotion: 'revenge',
+          coreDesire: '洗清旧案。',
+          protagonistDrive: '每个证据都逼主角行动。',
+          hookEngine: '旧案证据递进。',
+          payoffCadence: {
+            mode: 'steady',
+            minorPayoffEveryChapters: 2,
+            majorPayoffEveryChapters: 8,
+            payoffTypes: ['truth_reveal'],
+          },
+          tropeContract: ['revenge_payback'],
+          antiClicheRules: ['反击必须付出代价。'],
+          longTermQuestion: '幕后是谁？',
+        },
+      },
+      chapterCard: {
+        title: '旧页',
+        plotFunction: '开局。',
+        externalConflict: '宗门追捕。',
+        internalConflict: '想保密却需要求助。',
+        relationshipChange: '欠下人情。',
+        worldRuleUsedOrTested: 'record-cost',
+        informationReveal: '命簿吞记忆。',
+        readerReward: 'truth',
+        endingHook: '旧页浮现林家姓名。',
+        mustChange: '主角开始追查。',
+        forbiddenMoves: [],
+      },
+      tensionBudget: null,
+      hardContinuity: ['x'.repeat(1000)],
+      characterPressures: [],
+      relationshipActions: [],
+      threadActions: [],
+      worldRules: [],
+      recentSummaries: [],
+      previousChapterEnding: null,
+      maxCharacters: 900,
+    });
+
+    expect(result).toContain('Viral Story Protocol');
+    expect(result).toContain('Reader promise: 压抑后翻盘。');
+    expect(result).toContain('Chapter Mission');
+    expect(result.length).toBeLessThanOrEqual(900);
+  });
 });

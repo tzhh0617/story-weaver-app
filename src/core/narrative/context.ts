@@ -1,7 +1,11 @@
+import type { ViralStoryProtocol } from './types.js';
+import { formatViralProtocolForPrompt } from './viral-story-protocol.js';
+
 type CompactBible = {
   themeQuestion: string;
   themeAnswerDirection: string;
   voiceGuide: string;
+  viralStoryProtocol?: ViralStoryProtocol | null;
 };
 
 type CompactChapterCard = {
@@ -53,6 +57,9 @@ export function buildNarrativeCommandContext(input: {
   previousChapterEnding: string | null;
   maxCharacters?: number;
 }) {
+  const viralProtocolLines = input.bible.viralStoryProtocol
+    ? [formatViralProtocolForPrompt(input.bible.viralStoryProtocol)]
+    : [];
   const tensionBudgetLines = input.tensionBudget
     ? [
         'Tension Budget:',
@@ -70,6 +77,7 @@ export function buildNarrativeCommandContext(input: {
     : [];
 
   const requiredTail = [
+    ...viralProtocolLines,
     ...tensionBudgetLines,
     'Chapter Mission:',
     `title: ${input.chapterCard.title}`,

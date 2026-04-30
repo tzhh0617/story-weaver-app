@@ -9,6 +9,23 @@ import {
   parseJsonObject,
 } from '../../src/core/narrative/prompts';
 
+const viralProtocol = {
+  readerPromise: '压抑后翻盘。',
+  targetEmotion: 'revenge' as const,
+  coreDesire: '洗清旧案。',
+  protagonistDrive: '证据每次出现都会带来更大代价。',
+  hookEngine: '旧案证据逐层指向宗门高层。',
+  payoffCadence: {
+    mode: 'steady' as const,
+    minorPayoffEveryChapters: 2,
+    majorPayoffEveryChapters: 8,
+    payoffTypes: ['truth_reveal' as const, 'enemy_setback' as const],
+  },
+  tropeContract: ['revenge_payback' as const, 'weak_to_strong' as const],
+  antiClicheRules: ['每次反击必须付出代价。'],
+  longTermQuestion: '谁改写了旧案？',
+};
+
 describe('narrative prompts', () => {
   it('requires costly rules and character arc anchors in bible prompts', () => {
     const prompt = buildNarrativeBiblePrompt({
@@ -176,6 +193,61 @@ describe('narrative prompts', () => {
     expect(prompt).toContain('choice');
     expect(prompt).toContain('consequence');
     expect(prompt).toContain('ending create forward pressure');
+  });
+
+  it('injects viral protocol guidance into planning prompts', () => {
+    expect(
+      buildNarrativeBiblePrompt({
+        idea: '旧案复仇',
+        targetChapters: 80,
+        wordsPerChapter: 2500,
+      })
+    ).toContain('viralStoryProtocol');
+
+    expect(
+      buildChapterCardPrompt({
+        bookId: 'book-1',
+        targetChapters: 80,
+        bibleSummary: '旧案复仇。',
+        volumePlansText: '第一卷：1-20章。',
+        viralStoryProtocol: viralProtocol,
+      })
+    ).toContain('Viral Story Protocol');
+
+    expect(
+      buildTensionBudgetPrompt({
+        bookId: 'book-1',
+        targetChapters: 80,
+        bibleSummary: '旧案复仇。',
+        volumePlansText: '第一卷：1-20章。',
+        chapterCardsText: 'Chapter 1: 入局。',
+        viralStoryProtocol: viralProtocol,
+      })
+    ).toContain('costToPay must connect to this chapter payoff');
+  });
+
+  it('injects viral protocol into draft and audit prompts', () => {
+    const draftPrompt = buildNarrativeDraftPrompt({
+      idea: '旧案复仇',
+      wordsPerChapter: 2500,
+      commandContext: 'Chapter Mission: 入局。',
+      viralStoryProtocol: viralProtocol,
+      chapterIndex: 2,
+    });
+
+    expect(draftPrompt).toContain('Viral Story Protocol');
+    expect(draftPrompt).toContain('Current chapter expected payoff: minor payoff');
+
+    const auditPrompt = buildChapterAuditPrompt({
+      draft: '陆照赢了，但没有代价。',
+      auditContext: 'Chapter Mission: 入局。',
+      viralStoryProtocol: viralProtocol,
+      chapterIndex: 2,
+    });
+
+    expect(auditPrompt).toContain('scoring.viral');
+    expect(auditPrompt).toContain('payoff_without_cost');
+    expect(auditPrompt).toContain('antiClicheFreshness');
   });
 });
 
