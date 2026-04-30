@@ -97,6 +97,13 @@ export type BookDetail = {
     summary: string | null;
     wordCount: number;
     auditScore?: number | null;
+    auditFlatnessScore?: number | null;
+    auditFlatnessIssues?: Array<{
+      type: string;
+      severity: string;
+      evidence: string;
+      fixInstruction: string;
+    }>;
     draftAttempts?: number;
   }>;
   progress: {

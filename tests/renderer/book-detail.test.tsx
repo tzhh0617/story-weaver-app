@@ -94,12 +94,29 @@ describe('BookDetail', () => {
             status: 'done',
             content: 'Generated chapter content',
             auditScore: 88,
+            auditFlatnessScore: 69,
+            auditFlatnessIssues: [
+              {
+                type: 'weak_choice_pressure',
+                severity: 'major',
+                evidence: '角色只是被线索推着走。',
+                fixInstruction: '让角色主动做一个会损失关系信任的选择。',
+              },
+            ],
           },
         ]}
       />
     );
 
     expect(screen.getByLabelText('正文面板')).toHaveTextContent('审校 88');
+    expect(screen.getByLabelText('正文面板')).toHaveTextContent('防平 69');
+    expect(screen.getByLabelText('上下文面板')).toHaveTextContent('防平审计');
+    expect(screen.getByLabelText('上下文面板')).toHaveTextContent(
+      '弱选择压力 · major'
+    );
+    expect(screen.getByLabelText('上下文面板')).toHaveTextContent(
+      '让角色主动做一个会损失关系信任的选择。'
+    );
   });
 
   it('shows the selected chapter tension budget in the context outline tab', async () => {

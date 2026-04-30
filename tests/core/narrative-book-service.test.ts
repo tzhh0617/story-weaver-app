@@ -250,6 +250,7 @@ describe('narrative book-service integration', () => {
     });
     expect(service.getBookDetail(bookId)?.chapters[0]).toMatchObject({
       auditScore: 88,
+      auditFlatnessScore: 69,
       draftAttempts: 1,
     });
     expect(repos.chapterTensionBudgets.listByBook(bookId)[0]).toMatchObject({

@@ -83,6 +83,15 @@ function makeBookDetailContractFixture(): BookDetail {
         summary: null,
         wordCount: 0,
         auditScore: 88,
+        auditFlatnessScore: 74,
+        auditFlatnessIssues: [
+          {
+            type: 'weak_choice_pressure',
+            severity: 'major',
+            evidence: '角色只是被线索推着走。',
+            fixInstruction: '让角色主动做一个会损失关系信任的选择。',
+          },
+        ],
         draftAttempts: 1,
       },
     ],
@@ -119,5 +128,10 @@ describe('ipcChannels', () => {
       checkpointType: 'arc',
     });
     expect(detail.chapters[0]?.auditScore).toBe(88);
+    expect(detail.chapters[0]?.auditFlatnessScore).toBe(74);
+    expect(detail.chapters[0]?.auditFlatnessIssues?.[0]).toMatchObject({
+      type: 'weak_choice_pressure',
+      severity: 'major',
+    });
   });
 });

@@ -595,6 +595,8 @@ export default function App() {
                 summary: chapter.summary,
                 outline: chapter.outline,
                 auditScore: chapter.auditScore,
+                auditFlatnessScore: chapter.auditFlatnessScore,
+                auditFlatnessIssues: chapter.auditFlatnessIssues,
                 draftAttempts: chapter.draftAttempts,
               }))}
               onPause={async () => {

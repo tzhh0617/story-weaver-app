@@ -34,6 +34,15 @@ import type { OutlineBundle, OutlineGenerationInput } from './types.js';
 
 const CHAPTER_CONTEXT_MAX_CHARACTERS = 6000;
 const INITIAL_BOOK_TITLE = '新作品';
+const FLATNESS_ISSUE_TYPES = new Set<NarrativeAudit['issues'][number]['type']>(
+  [
+    'flat_chapter',
+    'weak_choice_pressure',
+    'missing_consequence',
+    'soft_hook',
+    'repeated_tension_pattern',
+  ]
+);
 
 function deriveTitleFromIdea(idea: string) {
   const cleaned = idea.trim().replace(/\s+/g, ' ');
@@ -74,6 +83,22 @@ type ChapterUpdate = {
 
 function hasUsableChapterUpdate(update: ChapterUpdate) {
   return update.summary.trim().length > 0;
+}
+
+function calculateFlatnessScore(scoring: NarrativeAudit['scoring']) {
+  const flatness = scoring.flatness;
+  if (!flatness) {
+    return null;
+  }
+
+  return Math.round(
+    (flatness.conflictEscalation +
+      flatness.choicePressure +
+      flatness.consequenceVisibility +
+      flatness.irreversibleChange +
+      flatness.hookStrength) /
+      5
+  );
 }
 
 function buildShortChapterRewritePrompt(input: {
@@ -256,6 +281,8 @@ export function createBookService(deps: {
       content: string | null;
       summary: string | null;
       wordCount: number;
+      auditScore?: number | null;
+      draftAttempts?: number;
     }>;
     saveContent: (input: {
       bookId: string;
@@ -447,6 +474,9 @@ export function createBookService(deps: {
       volumeIndex: number;
       chapterIndex: number;
       attempt: number;
+      score?: number;
+      decision?: NarrativeAudit['decision'];
+      issues?: NarrativeAudit['issues'];
       scoring: NarrativeAudit['scoring'];
     }>;
   };
@@ -704,6 +734,12 @@ export function createBookService(deps: {
       const chapterCards = deps.chapterCards?.listByBook?.(bookId) ?? [];
       const chapterTensionBudgets =
         deps.chapterTensionBudgets?.listByBook?.(bookId) ?? [];
+      const latestAudits = new Map(
+        (deps.chapterAudits?.listLatestByBook?.(bookId) ?? []).map((audit) => [
+          `${audit.volumeIndex}-${audit.chapterIndex}`,
+          audit,
+        ])
+      );
       const context = bible
         ? {
             bookId,
@@ -724,6 +760,16 @@ export function createBookService(deps: {
           }
         : storedContext;
       const chapters = deps.chapters.listByBook(bookId).map((chapter) => {
+        const latestAudit = latestAudits.get(
+          `${chapter.volumeIndex}-${chapter.chapterIndex}`
+        );
+        const auditFlatnessScore = latestAudit
+          ? calculateFlatnessScore(latestAudit.scoring)
+          : null;
+        const auditFlatnessIssues =
+          latestAudit?.issues?.filter((issue) =>
+            FLATNESS_ISSUE_TYPES.has(issue.type)
+          ) ?? [];
         const card = chapterCards.find(
           (candidate) =>
             candidate.volumeIndex === chapter.volumeIndex &&
@@ -731,11 +777,17 @@ export function createBookService(deps: {
         );
 
         if (!card) {
-          return chapter;
+          return {
+            ...chapter,
+            auditFlatnessScore,
+            auditFlatnessIssues,
+          };
         }
 
         return {
           ...chapter,
+          auditFlatnessScore,
+          auditFlatnessIssues,
           outline: [
             `必须变化：${card.mustChange}`,
             `读者满足：${card.readerReward}`,

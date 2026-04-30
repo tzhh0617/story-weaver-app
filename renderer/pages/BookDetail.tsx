@@ -56,6 +56,21 @@ type NarrativeCheckpointView = {
   createdAt: string;
 };
 
+type ChapterFlatnessIssueView = {
+  type: string;
+  severity: string;
+  evidence: string;
+  fixInstruction: string;
+};
+
+const flatnessIssueLabels: Record<string, string> = {
+  flat_chapter: '章节发平',
+  weak_choice_pressure: '弱选择压力',
+  missing_consequence: '缺少代价',
+  soft_hook: '软钩子',
+  repeated_tension_pattern: '张力重复',
+};
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
@@ -277,6 +292,46 @@ function TensionCheckpointSection({
               ))}
             </ul>
           </div>
+        ) : null}
+      </div>
+    </DetailSection>
+  );
+}
+
+function FlatnessAuditSection({
+  score,
+  issues,
+}: {
+  score: number | null;
+  issues: ChapterFlatnessIssueView[];
+}) {
+  if (score === null && !issues.length) {
+    return null;
+  }
+
+  return (
+    <DetailSection title="防平审计">
+      <div className="grid gap-3">
+        {score !== null ? (
+          <p className="text-xs font-semibold text-foreground">
+            {`防平分 ${score}`}
+          </p>
+        ) : null}
+        {issues.length ? (
+          <ul className="m-0 grid gap-3 p-0">
+            {issues.map((issue) => (
+              <li
+                key={`${issue.type}-${issue.fixInstruction}`}
+                className="grid gap-1 border-l-2 border-border/70 pl-3"
+              >
+                <p className="text-xs font-semibold text-foreground">
+                  {`${flatnessIssueLabels[issue.type] ?? issue.type} · ${issue.severity}`}
+                </p>
+                <p>{issue.evidence}</p>
+                <p>{issue.fixInstruction}</p>
+              </li>
+            ))}
+          </ul>
         ) : null}
       </div>
     </DetailSection>
@@ -514,6 +569,8 @@ export default function BookDetail({
     summary?: string | null;
     outline?: string | null;
     auditScore?: number | null;
+    auditFlatnessScore?: number | null;
+    auditFlatnessIssues?: ChapterFlatnessIssueView[];
     draftAttempts?: number;
   }>;
   progress?: {
@@ -551,6 +608,8 @@ export default function BookDetail({
       summary: chapter.summary,
       outline: chapter.outline,
       auditScore: chapter.auditScore,
+      auditFlatnessScore: chapter.auditFlatnessScore,
+      auditFlatnessIssues: chapter.auditFlatnessIssues,
       draftAttempts: chapter.draftAttempts,
     })) ?? [];
   const [contextTab, setContextTab] = useState<ContextTab>('outline');
@@ -598,6 +657,11 @@ export default function BookDetail({
     typeof selectedChapter?.auditScore === 'number'
       ? selectedChapter.auditScore
       : null;
+  const selectedFlatnessScore =
+    typeof selectedChapter?.auditFlatnessScore === 'number'
+      ? selectedChapter.auditFlatnessScore
+      : null;
+  const selectedFlatnessIssues = selectedChapter?.auditFlatnessIssues ?? [];
   const selectedTensionBudget =
     selectedChapter && narrative?.chapterTensionBudgets
       ? narrative.chapterTensionBudgets.find(
@@ -620,6 +684,8 @@ export default function BookDetail({
     hasOutlineContent ||
       selectedTensionBudget ||
       chapterTensionBudgets.length >= 2 ||
+      selectedFlatnessScore !== null ||
+      selectedFlatnessIssues.length > 0 ||
       hasTensionCheckpointContent
   );
   useEffect(() => {
@@ -763,6 +829,11 @@ export default function BookDetail({
                 {`审校 ${selectedAuditScore}`}
               </span>
             ) : null}
+            {selectedFlatnessScore !== null ? (
+              <span className="shrink-0 text-xs font-semibold text-muted-foreground">
+                {`防平 ${selectedFlatnessScore}`}
+              </span>
+            ) : null}
           </header>
           <div data-testid="chapter-stream-pane" className="min-h-0">
             <ScrollArea
@@ -849,6 +920,10 @@ export default function BookDetail({
                       {selectedTensionBudget ? (
                         <TensionBudgetSection budget={selectedTensionBudget} />
                       ) : null}
+                      <FlatnessAuditSection
+                        score={selectedFlatnessScore}
+                        issues={selectedFlatnessIssues}
+                      />
                       <TensionCurveSection budgets={chapterTensionBudgets} />
                       {latestNarrativeCheckpoint ? (
                         <TensionCheckpointSection
