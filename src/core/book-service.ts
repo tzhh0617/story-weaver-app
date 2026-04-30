@@ -104,6 +104,17 @@ function saveChapterOutlines(
   }
 }
 
+function isBookPaused(
+  deps: {
+    books: {
+      getById: (bookId: string) => { status: string } | undefined;
+    };
+  },
+  bookId: string
+) {
+  return deps.books.getById(bookId)?.status === 'paused';
+}
+
 async function extractChapterUpdate(input: {
   modelId: string;
   chapterIndex: number;
@@ -664,20 +675,30 @@ export function createBookService(deps: {
         modelId,
         prompt,
         onChunk: (delta) => {
-          deps.onGenerationEvent?.({
-            bookId,
-            type: 'chapter-stream',
-            volumeIndex: nextChapter.volumeIndex,
-            chapterIndex: nextChapter.chapterIndex,
-            title: nextChapterTitle,
-            delta,
-          });
+          if (!isBookPaused(deps, bookId)) {
+            deps.onGenerationEvent?.({
+              bookId,
+              type: 'chapter-stream',
+              volumeIndex: nextChapter.volumeIndex,
+              chapterIndex: nextChapter.chapterIndex,
+              title: nextChapterTitle,
+              delta,
+            });
+          }
         },
       });
 
-      if (!deps.books.getById(bookId)) {
+      const bookAfterDraft = deps.books.getById(bookId);
+      if (!bookAfterDraft) {
         return {
           deleted: true as const,
+        };
+      }
+      if (bookAfterDraft.status === 'paused') {
+        deps.progress.updatePhase(bookId, 'paused');
+        deps.onBookUpdated?.(bookId);
+        return {
+          paused: true as const,
         };
       }
 
@@ -721,15 +742,25 @@ export function createBookService(deps: {
               delta,
               ...(isFirstRewriteChunk ? { replace: true } : {}),
             };
-            deps.onGenerationEvent?.(streamEvent);
+            if (!isBookPaused(deps, bookId)) {
+              deps.onGenerationEvent?.(streamEvent);
+            }
             isFirstRewriteChunk = false;
           },
         });
       }
 
-      if (!deps.books.getById(bookId)) {
+      const bookAfterFinalDraft = deps.books.getById(bookId);
+      if (!bookAfterFinalDraft) {
         return {
           deleted: true as const,
+        };
+      }
+      if (bookAfterFinalDraft.status === 'paused') {
+        deps.progress.updatePhase(bookId, 'paused');
+        deps.onBookUpdated?.(bookId);
+        return {
+          paused: true as const,
         };
       }
 
@@ -819,10 +850,14 @@ export function createBookService(deps: {
         };
       }
 
-      const nextPhase = latestBook?.status === 'paused' ? 'paused' : 'writing';
+      if (latestBook.status === 'paused') {
+        deps.progress.updatePhase(bookId, 'paused');
+        deps.onBookUpdated?.(bookId);
+        return result;
+      }
 
-      deps.books.updateStatus(bookId, nextPhase);
-      deps.progress.updatePhase(bookId, nextPhase, {
+      deps.books.updateStatus(bookId, 'writing');
+      deps.progress.updatePhase(bookId, 'writing', {
         currentVolume: nextChapter.volumeIndex,
         currentChapter: nextChapter.chapterIndex,
         stepLabel: postChapterStepLabel,
@@ -878,6 +913,12 @@ export function createBookService(deps: {
           return {
             completedChapters,
             status: 'deleted' as const,
+          };
+        }
+        if ('paused' in result && result.paused) {
+          return {
+            completedChapters,
+            status: 'paused' as const,
           };
         }
 

@@ -561,7 +561,6 @@ export function getRuntimeServices() {
         bookId: event.bookId,
         level: 'success',
         eventType: 'chapter_completed',
-        phase: 'writing',
         message: `第 ${event.chapterIndex} 章完成`,
         volumeIndex: event.volumeIndex,
         chapterIndex: event.chapterIndex,

@@ -164,6 +164,79 @@ describe('runtime mock fallback', () => {
     expect(generateText).not.toHaveBeenCalled();
   });
 
+  it('records chapter completion logs without carrying the active writing phase', async () => {
+    const generateText = vi.fn().mockResolvedValue({
+      text: 'should not be used',
+    });
+    const services = await loadRuntimeServices({
+      tempHome,
+      generateTextImpl: generateText,
+      mockDelayMs: 0,
+    });
+    const logs: Array<{ eventType: string; phase: string | null }> = [];
+    const unsubscribe = services.subscribeExecutionLogs((log) => {
+      logs.push({ eventType: log.eventType, phase: log.phase });
+    });
+
+    const bookId = services.bookService.createBook({
+      idea: '一个被宗门逐出的少年，意外继承了会吞噬因果的古镜。',
+      targetChapters: 1,
+      wordsPerChapter: 90,
+    });
+
+    await services.bookService.startBook(bookId);
+    await services.bookService.writeNextChapter(bookId);
+    unsubscribe();
+
+    expect(logs).toContainEqual({
+      eventType: 'chapter_completed',
+      phase: null,
+    });
+    expect(generateText).not.toHaveBeenCalled();
+  });
+
+  it('does not record later chapter progress or completion after pausing an in-flight write', async () => {
+    vi.useFakeTimers();
+    const generateText = vi.fn().mockResolvedValue({
+      text: 'should not be used',
+    });
+    const services = await loadRuntimeServices({
+      tempHome,
+      generateTextImpl: generateText,
+      mockDelayMs: 0,
+      mockStreamTokensPerSecond: 100,
+    });
+    const logs: Array<{ eventType: string; message: string }> = [];
+    const unsubscribe = services.subscribeExecutionLogs((log) => {
+      logs.push({ eventType: log.eventType, message: log.message });
+    });
+
+    const bookId = services.bookService.createBook({
+      idea: '一个被宗门逐出的少年，意外继承了会吞噬因果的古镜。',
+      targetChapters: 1,
+      wordsPerChapter: 90,
+    });
+
+    await services.bookService.startBook(bookId);
+    const writePromise = services.writeNextChapter(bookId);
+    await vi.advanceTimersByTimeAsync(500);
+
+    services.pauseBook(bookId);
+    await vi.advanceTimersByTimeAsync(60_000);
+    await writePromise;
+    unsubscribe();
+
+    const pauseIndex = logs.findIndex((log) => log.eventType === 'book_paused');
+    expect(pauseIndex).toBeGreaterThanOrEqual(0);
+    expect(logs.slice(pauseIndex + 1).map((log) => log.eventType)).not.toEqual(
+      expect.arrayContaining(['book_progress', 'chapter_completed'])
+    );
+    expect(logs.map((log) => log.message)).not.toContain(
+      '正在生成第 1 章摘要与连续性'
+    );
+    expect(generateText).not.toHaveBeenCalled();
+  });
+
   it('records command-level logs for direct write next and write all actions', async () => {
     const generateText = vi.fn().mockResolvedValue({
       text: 'should not be used',

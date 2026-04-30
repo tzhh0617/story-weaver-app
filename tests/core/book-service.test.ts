@@ -894,6 +894,116 @@ describe('createBookService', () => {
     );
   });
 
+  it('stops emitting generation events after a book is paused while the current chapter is in flight', async () => {
+    const db = createDatabase(':memory:');
+    const events: BookGenerationEvent[] = [];
+    let resolveWriteChapter!: (result: {
+      content: string;
+      usage: { inputTokens: number; outputTokens: number };
+    }) => void;
+    const writeChapter = vi.fn().mockImplementation(
+      () =>
+        new Promise<{
+          content: string;
+          usage: { inputTokens: number; outputTokens: number };
+        }>((resolve) => {
+          resolveWriteChapter = resolve;
+        })
+    );
+    const summaryGenerator = vi.fn().mockResolvedValue('Chapter summary');
+    const service = createBookService({
+      books: createBookRepository(db),
+      chapters: createChapterRepository(db),
+      characters: createCharacterRepository(db),
+      plotThreads: createPlotThreadRepository(db),
+      sceneRecords: createSceneRecordRepository(db),
+      progress: createProgressRepository(db),
+      outlineService: {
+        generateFromIdea: vi.fn().mockResolvedValue({
+          worldSetting: 'World rules',
+          masterOutline: 'Master outline',
+          volumeOutlines: ['Volume 1'],
+          chapterOutlines: [
+            {
+              volumeIndex: 1,
+              chapterIndex: 1,
+              title: 'Chapter 1',
+              outline: 'Opening conflict',
+            },
+          ],
+        }),
+      },
+      chapterWriter: {
+        writeChapter,
+      },
+      summaryGenerator: {
+        summarizeChapter: summaryGenerator,
+      },
+      plotThreadExtractor: {
+        extractThreads: vi.fn().mockResolvedValue({
+          openedThreads: [],
+          resolvedThreadIds: [],
+        }),
+      },
+      characterStateExtractor: {
+        extractStates: vi.fn().mockResolvedValue([]),
+      },
+      sceneRecordExtractor: {
+        extractScene: vi.fn().mockResolvedValue(null),
+      },
+      onGenerationEvent: (event) => {
+        events.push(event);
+      },
+    });
+
+    const bookId = service.createBook({
+      idea: 'The moon taxes miracles.',
+      targetChapters: 1,
+      wordsPerChapter: 2500,
+    });
+
+    await service.startBook(bookId);
+    events.splice(0, events.length);
+    const writePromise = service.writeNextChapter(bookId);
+
+    expect(events).toEqual([
+      {
+        bookId,
+        type: 'progress',
+        phase: 'writing',
+        stepLabel: '正在写第 1 章',
+        currentVolume: 1,
+        currentChapter: 1,
+      },
+    ]);
+
+    service.pauseBook(bookId);
+    resolveWriteChapter({
+      content: 'Generated chapter content',
+      usage: { inputTokens: 100, outputTokens: 300 },
+    });
+    await writePromise;
+
+    expect(events).toEqual([
+      {
+        bookId,
+        type: 'progress',
+        phase: 'writing',
+        stepLabel: '正在写第 1 章',
+        currentVolume: 1,
+        currentChapter: 1,
+      },
+    ]);
+    expect(summaryGenerator).not.toHaveBeenCalled();
+    expect(service.getBookDetail(bookId)?.progress).toEqual(
+      expect.objectContaining({
+        phase: 'paused',
+        stepLabel: null,
+      })
+    );
+    expect(service.getBookDetail(bookId)?.chapters[0]?.content).toBeNull();
+  });
+
   it('preserves generated chapter content when it exceeds the soft words-per-chapter target', async () => {
     const db = createDatabase(':memory:');
     const service = createBookService({
