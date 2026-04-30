@@ -172,6 +172,58 @@ describe('BookDetail', () => {
     expect(within(contextPanel).getByText('失去同伴信任。')).toBeInTheDocument();
   });
 
+  it('shows the selected chapter story route summary in the context panel', () => {
+    render(
+      <BookDetail
+        book={{ title: 'Book 1', status: 'writing', wordCount: 1200 }}
+        progress={{ phase: 'writing' }}
+        chapters={[
+          {
+            id: '1-1',
+            volumeIndex: 1,
+            chapterIndex: 1,
+            title: 'Chapter 1',
+            wordCount: 1200,
+            status: 'done',
+            content: 'Generated chapter content',
+            storyRoutePlan: {
+              taskType: 'write_chapter',
+              requiredSkills: [
+                {
+                  id: 'chapter-goal',
+                  name: '当前章目标',
+                  type: 'process',
+                  rigidity: 'hard',
+                },
+                {
+                  id: 'hook-technique',
+                  name: '钩子技法',
+                  type: 'execution',
+                  rigidity: 'soft',
+                },
+              ],
+              optionalSkills: [],
+              hardConstraints: ['用户本次明确要求优先。'],
+              checklist: ['必须完成章节卡 mustChange。'],
+              redFlags: ['章末没有追读压力。'],
+              warnings: [],
+            },
+          },
+        ]}
+      />
+    );
+
+    const contextPanel = screen.getByLabelText('上下文面板');
+
+    expect(within(contextPanel).getByText('写作路由')).toBeInTheDocument();
+    expect(within(contextPanel).getByText('write_chapter')).toBeInTheDocument();
+    expect(within(contextPanel).getByText('当前章目标')).toBeInTheDocument();
+    expect(within(contextPanel).getByText('钩子技法')).toBeInTheDocument();
+    expect(
+      within(contextPanel).getByText('必须完成章节卡 mustChange。')
+    ).toBeInTheDocument();
+  });
+
   it('shows a compact tension curve for planned chapter budgets', async () => {
     render(
       <BookDetail

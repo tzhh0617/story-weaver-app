@@ -63,6 +63,26 @@ type ChapterFlatnessIssueView = {
   fixInstruction: string;
 };
 
+type StoryRoutePlanView = {
+  taskType: string;
+  requiredSkills: Array<{
+    id: string;
+    name: string;
+    type: string;
+    rigidity: string;
+  }>;
+  optionalSkills: Array<{
+    id: string;
+    name: string;
+    type: string;
+    rigidity: string;
+  }>;
+  hardConstraints: string[];
+  checklist: string[];
+  redFlags: string[];
+  warnings: string[];
+};
+
 const flatnessIssueLabels: Record<string, string> = {
   flat_chapter: '章节发平',
   weak_choice_pressure: '弱选择压力',
@@ -210,6 +230,37 @@ function TensionBudgetSection({
             <dd>{budget.hookPressure}</dd>
           </div>
         </dl>
+      </div>
+    </DetailSection>
+  );
+}
+
+function StoryRouteSection({ plan }: { plan: StoryRoutePlanView }) {
+  const visibleSkills = [...plan.requiredSkills, ...plan.optionalSkills].slice(0, 6);
+
+  return (
+    <DetailSection title="写作路由">
+      <div className="grid gap-3">
+        <p className="text-xs font-semibold text-foreground">{plan.taskType}</p>
+        <div className="flex flex-wrap gap-2">
+          {visibleSkills.map((skill) => (
+            <Badge key={skill.id} variant="secondary">
+              {skill.name}
+            </Badge>
+          ))}
+        </div>
+        {plan.checklist.length ? (
+          <ul className="m-0 grid gap-1 pl-5">
+            {plan.checklist.slice(0, 3).map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        ) : null}
+        {plan.warnings.length ? (
+          <p className="text-xs text-muted-foreground">
+            {`提示：${plan.warnings[0]}`}
+          </p>
+        ) : null}
       </div>
     </DetailSection>
   );
@@ -571,6 +622,7 @@ export default function BookDetail({
     auditScore?: number | null;
     auditFlatnessScore?: number | null;
     auditFlatnessIssues?: ChapterFlatnessIssueView[];
+    storyRoutePlan?: StoryRoutePlanView | null;
     draftAttempts?: number;
   }>;
   progress?: {
@@ -610,6 +662,7 @@ export default function BookDetail({
       auditScore: chapter.auditScore,
       auditFlatnessScore: chapter.auditFlatnessScore,
       auditFlatnessIssues: chapter.auditFlatnessIssues,
+      storyRoutePlan: chapter.storyRoutePlan,
       draftAttempts: chapter.draftAttempts,
     })) ?? [];
   const [contextTab, setContextTab] = useState<ContextTab>('outline');
@@ -662,6 +715,7 @@ export default function BookDetail({
       ? selectedChapter.auditFlatnessScore
       : null;
   const selectedFlatnessIssues = selectedChapter?.auditFlatnessIssues ?? [];
+  const selectedStoryRoutePlan = selectedChapter?.storyRoutePlan ?? null;
   const selectedTensionBudget =
     selectedChapter && narrative?.chapterTensionBudgets
       ? narrative.chapterTensionBudgets.find(
@@ -682,6 +736,7 @@ export default function BookDetail({
     : false;
   const hasOutlineTabContent = Boolean(
     hasOutlineContent ||
+      selectedStoryRoutePlan ||
       selectedTensionBudget ||
       chapterTensionBudgets.length >= 2 ||
       selectedFlatnessScore !== null ||
@@ -917,6 +972,9 @@ export default function BookDetail({
                   </TabsList>
                   <TabsContent value="outline" className="mt-0">
                     <div className="grid content-start gap-4">
+                      {selectedStoryRoutePlan ? (
+                        <StoryRouteSection plan={selectedStoryRoutePlan} />
+                      ) : null}
                       {selectedTensionBudget ? (
                         <TensionBudgetSection budget={selectedTensionBudget} />
                       ) : null}

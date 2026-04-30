@@ -18,6 +18,26 @@ export type BookRecord = {
   updatedAt: string;
 };
 
+export type StoryRoutePlanView = {
+  taskType: string;
+  requiredSkills: Array<{
+    id: string;
+    name: string;
+    type: string;
+    rigidity: string;
+  }>;
+  optionalSkills: Array<{
+    id: string;
+    name: string;
+    type: string;
+    rigidity: string;
+  }>;
+  hardConstraints: string[];
+  checklist: string[];
+  redFlags: string[];
+  warnings: string[];
+};
+
 export type BookDetail = {
   book: BookRecord;
   context: {
@@ -104,6 +124,7 @@ export type BookDetail = {
       evidence: string;
       fixInstruction: string;
     }>;
+    storyRoutePlan?: StoryRoutePlanView | null;
     draftAttempts?: number;
   }>;
   progress: {

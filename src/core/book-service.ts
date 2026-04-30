@@ -1,5 +1,9 @@
 import { randomUUID } from 'node:crypto';
-import type { BookGenerationEvent, BookStatus } from '../shared/contracts.js';
+import type {
+  BookGenerationEvent,
+  BookStatus,
+  StoryRoutePlanView,
+} from '../shared/contracts.js';
 import {
   DEFAULT_MOCK_MODEL_ID,
   isMockModelId,
@@ -19,6 +23,7 @@ import {
   formatStoryRoutePlanForPrompt,
   routeStoryTask,
 } from './story-router/index.js';
+import type { StoryRoutePlan, StorySkill } from './story-router/index.js';
 import type {
   ChapterCard,
   ChapterCharacterPressure,
@@ -56,6 +61,25 @@ function deriveTitleFromIdea(idea: string) {
   }
 
   return cleaned.length > 48 ? `${cleaned.slice(0, 48)}...` : cleaned;
+}
+
+function toStoryRoutePlanView(plan: StoryRoutePlan): StoryRoutePlanView {
+  const mapSkill = (skill: StorySkill) => ({
+    id: skill.id,
+    name: skill.name,
+    type: skill.type,
+    rigidity: skill.rigidity,
+  });
+
+  return {
+    taskType: plan.taskType,
+    requiredSkills: plan.requiredSkills.map(mapSkill),
+    optionalSkills: plan.optionalSkills.map(mapSkill),
+    hardConstraints: plan.hardConstraints,
+    checklist: plan.checklist,
+    redFlags: plan.redFlags,
+    warnings: plan.warnings,
+  };
 }
 
 type ChapterUpdate = {
@@ -780,12 +804,28 @@ export function createBookService(deps: {
             candidate.volumeIndex === chapter.volumeIndex &&
             candidate.chapterIndex === chapter.chapterIndex
         );
+        const budget = chapterTensionBudgets.find(
+          (candidate) =>
+            candidate.volumeIndex === chapter.volumeIndex &&
+            candidate.chapterIndex === chapter.chapterIndex
+        );
+        const storyRoutePlan = toStoryRoutePlanView(
+          routeStoryTask({
+            taskType: 'write_chapter',
+            context: {
+              hasNarrativeBible: Boolean(bible),
+              hasChapterCard: Boolean(card),
+              hasTensionBudget: Boolean(budget),
+            },
+          })
+        );
 
         if (!card) {
           return {
             ...chapter,
             auditFlatnessScore,
             auditFlatnessIssues,
+            storyRoutePlan,
           };
         }
 
@@ -793,6 +833,7 @@ export function createBookService(deps: {
           ...chapter,
           auditFlatnessScore,
           auditFlatnessIssues,
+          storyRoutePlan,
           outline: [
             `必须变化：${card.mustChange}`,
             `读者满足：${card.readerReward}`,

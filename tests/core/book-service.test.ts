@@ -949,6 +949,59 @@ describe('createBookService', () => {
     );
   });
 
+  it('returns story route plans on chapter detail records', async () => {
+    const db = createDatabase(':memory:');
+    const service = createBookService({
+      books: createBookRepository(db),
+      chapters: createChapterRepository(db),
+      characters: createCharacterRepository(db),
+      plotThreads: createPlotThreadRepository(db),
+      sceneRecords: createSceneRecordRepository(db),
+      progress: createProgressRepository(db),
+      outlineService: {
+        generateFromIdea: vi.fn().mockResolvedValue({
+          worldSetting: 'World rules',
+          masterOutline: 'Master outline',
+          volumeOutlines: ['Volume 1'],
+          chapterOutlines: [
+            {
+              volumeIndex: 1,
+              chapterIndex: 1,
+              title: 'Chapter 1',
+              outline: 'Opening conflict',
+            },
+          ],
+        }),
+      },
+      chapterWriter: { writeChapter: vi.fn() },
+      summaryGenerator: { summarizeChapter: vi.fn() },
+      plotThreadExtractor: {
+        extractThreads: vi.fn().mockResolvedValue({
+          openedThreads: [],
+          resolvedThreadIds: [],
+        }),
+      },
+      characterStateExtractor: { extractStates: vi.fn().mockResolvedValue([]) },
+      sceneRecordExtractor: { extractScene: vi.fn().mockResolvedValue(null) },
+    });
+
+    const bookId = service.createBook({
+      idea: '命簿',
+      targetChapters: 1,
+      wordsPerChapter: 1200,
+    });
+
+    await service.startBook(bookId);
+    const detail = service.getBookDetail(bookId);
+
+    expect(detail?.chapters[0]?.storyRoutePlan).toMatchObject({
+      taskType: 'write_chapter',
+    });
+    expect(
+      detail?.chapters[0]?.storyRoutePlan?.requiredSkills.map((skill) => skill.id)
+    ).toContain('chapter-goal');
+  });
+
   it('emits generation progress, stream chunks, and completion for the next chapter', async () => {
     const db = createDatabase(':memory:');
     const events: BookGenerationEvent[] = [];
