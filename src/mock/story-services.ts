@@ -1,6 +1,7 @@
 import type { OutlineBundle, OutlineGenerationInput } from '../core/types.js';
 import type {
   ChapterCard,
+  ChapterTensionBudget,
   NarrativeAudit,
   NarrativeBible,
   NarrativeStateDelta,
@@ -95,6 +96,12 @@ const mockSurnamePattern = Array.from(
   )
 ).join('');
 const MOCK_CHAPTER_MIN_CHARACTERS = 3000;
+const dominantTensions = [
+  'mystery',
+  'relationship',
+  'moral_choice',
+  'status_loss',
+] as const;
 
 function detectProtagonist(content: string) {
   const match = content.match(
@@ -117,6 +124,37 @@ function countVisibleCharacters(text: string) {
   }
 
   return count;
+}
+
+function createMockTensionBudgets(input: {
+  bookId: string;
+  targetChapters: number;
+  protagonist: string;
+}): ChapterTensionBudget[] {
+  return Array.from({ length: input.targetChapters }, (_, index) => {
+    const chapterIndex = index + 1;
+    const pressureLevel =
+      chapterIndex % 8 === 0
+        ? 'peak'
+        : chapterIndex % 3 === 0
+          ? 'high'
+          : 'medium';
+
+    return {
+      bookId: input.bookId,
+      volumeIndex: Math.max(1, Math.ceil(chapterIndex / 50)),
+      chapterIndex,
+      pressureLevel,
+      dominantTension: dominantTensions[index % dominantTensions.length],
+      requiredTurn: `${input.protagonist}在第${chapterIndex}章遭遇一次不能忽略的局势转向。`,
+      forcedChoice: `${input.protagonist}必须在保住线索和保护同伴之间选择。`,
+      costToPay: `${input.protagonist}为推进真相付出记忆、信任或安全感的代价。`,
+      irreversibleChange: `${input.protagonist}在第${chapterIndex}章后无法回到原来的安全状态。`,
+      readerQuestion: `命簿背后真正受益者是否已经靠近${input.protagonist}？`,
+      hookPressure: '章末出现让下一章必须处理的新压力。',
+      flatnessRisks: ['不要用解释代替冲突。', '不要让线索无代价出现。'],
+    };
+  });
 }
 
 function buildExpandedMockChapter(input: {
@@ -411,6 +449,11 @@ export function createMockOutlineService() {
         narrativeBible,
         volumePlans,
         chapterCards,
+        chapterTensionBudgets: createMockTensionBudgets({
+          bookId: input.bookId,
+          targetChapters: input.targetChapters,
+          protagonist,
+        }),
         chapterThreadActions: chapterCards.map((card) => ({
           bookId: input.bookId,
           volumeIndex: card.volumeIndex,
@@ -687,6 +730,13 @@ export function createMockStoryServices(): MockStoryServices {
             threadManagement: 8,
             pacingReward: 9,
             themeAlignment: 4,
+            flatness: {
+              conflictEscalation: 78,
+              choicePressure: 76,
+              consequenceVisibility: 74,
+              irreversibleChange: 80,
+              hookStrength: 72,
+            },
           },
           stateUpdates: {
             characterArcUpdates: ['主角更主动承担代价。'],

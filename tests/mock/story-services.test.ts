@@ -68,6 +68,47 @@ describe('mock story services', () => {
     ]);
   });
 
+  it('creates deterministic mock tension budgets', async () => {
+    const services = createMockStoryServices();
+
+    const outline = await services.outlineService.generateFromIdea({
+      bookId: 'book-1',
+      idea: '命簿修复师追查家族旧案。',
+      targetChapters: 4,
+      wordsPerChapter: 2000,
+    });
+
+    expect(outline.chapterTensionBudgets).toHaveLength(4);
+    expect(outline.chapterTensionBudgets?.[0]).toMatchObject({
+      bookId: 'book-1',
+      chapterIndex: 1,
+      pressureLevel: 'medium',
+    });
+    expect(
+      new Set(
+        outline.chapterTensionBudgets?.map((budget) => budget.dominantTension)
+      ).size
+    ).toBeGreaterThan(1);
+  });
+
+  it('returns flatness scoring from the mock auditor', async () => {
+    const services = createMockStoryServices();
+
+    const audit = await services.chapterAuditor.auditChapter({
+      modelId: 'mock',
+      draft: '林牧做出选择并承担代价。',
+      auditContext: 'Tension Budget: forcedChoice=保密或求助',
+    });
+
+    expect(audit.scoring.flatness).toEqual({
+      conflictEscalation: 78,
+      choicePressure: 76,
+      consequenceVisibility: 74,
+      irreversibleChange: 80,
+      hookStrength: 72,
+    });
+  });
+
   it('keeps mock chapter indexes cumulative across volumes', async () => {
     const service = createMockOutlineService();
 
