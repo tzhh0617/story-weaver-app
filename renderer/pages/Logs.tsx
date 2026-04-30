@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { AlertCircle, CheckCircle2, Info, ListFilter, Search } from 'lucide-react';
+import { ListFilter, Search } from 'lucide-react';
 import type {
   ExecutionLogLevel,
   ExecutionLogRecord,
@@ -14,12 +14,11 @@ import {
 } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-
-const levelLabels: Record<ExecutionLogLevel, string> = {
-  info: '信息',
-  success: '成功',
-  error: '错误',
-};
+import {
+  executionLogLevelLabels,
+  getExecutionLogLevelClassName,
+  getExecutionLogLevelIcon,
+} from '../execution-log-format';
 
 const eventLabels: Record<string, string> = {
   scheduler_start_all: '批量开始',
@@ -45,30 +44,6 @@ function formatDate(value: string) {
     minute: '2-digit',
     second: '2-digit',
   }).format(new Date(value));
-}
-
-function getLevelIcon(level: ExecutionLogLevel) {
-  if (level === 'success') {
-    return CheckCircle2;
-  }
-
-  if (level === 'error') {
-    return AlertCircle;
-  }
-
-  return Info;
-}
-
-function getLevelClassName(level: ExecutionLogLevel) {
-  if (level === 'success') {
-    return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700';
-  }
-
-  if (level === 'error') {
-    return 'border-destructive/30 bg-destructive/10 text-destructive';
-  }
-
-  return 'border-primary/25 bg-primary/10 text-primary';
 }
 
 export default function Logs({
@@ -203,7 +178,7 @@ export default function Logs({
         {visibleLogs.length ? (
           <div role="list" aria-label="后台执行日志" className="grid gap-3">
             {visibleLogs.map((log) => {
-              const Icon = getLevelIcon(log.level);
+              const Icon = getExecutionLogLevelIcon(log.level);
 
               return (
                 <article
@@ -214,10 +189,10 @@ export default function Logs({
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge
                       variant="outline"
-                      className={getLevelClassName(log.level)}
+                      className={getExecutionLogLevelClassName(log.level)}
                     >
                       <Icon className="mr-1 size-3.5" />
-                      {levelLabels[log.level]}
+                      {executionLogLevelLabels[log.level]}
                     </Badge>
                     <Badge variant="secondary">
                       {eventLabels[log.eventType] ?? log.eventType}

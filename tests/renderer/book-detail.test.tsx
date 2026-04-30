@@ -727,6 +727,69 @@ describe('BookDetail', () => {
     });
   });
 
+  it('shows current book realtime logs in a right-side card', async () => {
+    render(
+      <BookDetail
+        book={{ title: 'Book 1', status: 'writing', wordCount: 1200 }}
+        progress={{ phase: 'writing' }}
+        executionLogs={[
+          {
+            id: 1,
+            bookId: 'book-1',
+            bookTitle: 'Book 1',
+            level: 'info',
+            eventType: 'book_progress',
+            phase: 'writing',
+            message: '正在写第 2 章',
+            volumeIndex: 1,
+            chapterIndex: 2,
+            errorMessage: null,
+            createdAt: '2026-04-30T09:10:11.000Z',
+          },
+          {
+            id: 2,
+            bookId: 'book-1',
+            bookTitle: 'Book 1',
+            level: 'success',
+            eventType: 'chapter_completed',
+            phase: 'writing',
+            message: '第 1 章已完成',
+            volumeIndex: 1,
+            chapterIndex: 1,
+            errorMessage: null,
+            createdAt: '2026-04-30T09:12:13.000Z',
+          },
+        ]}
+      />
+    );
+
+    const logPanel = await screen.findByLabelText('实时日志面板');
+
+    expect(
+      within(logPanel).getByRole('heading', { name: '实时日志' })
+    ).toBeInTheDocument();
+    expect(within(logPanel).getByText('2 条')).toBeInTheDocument();
+    expect(within(logPanel).getByText('正在写第 2 章')).toBeInTheDocument();
+    expect(within(logPanel).getByText('第 1 章已完成')).toBeInTheDocument();
+    expect(within(logPanel).getByText('第 2 章')).toBeInTheDocument();
+  });
+
+  it('shows an empty state when the current book has no realtime logs yet', async () => {
+    render(
+      <BookDetail
+        book={{ title: 'Book 1', status: 'writing', wordCount: 1200 }}
+        progress={{ phase: 'writing' }}
+        executionLogs={[]}
+      />
+    );
+
+    const logPanel = await screen.findByLabelText('实时日志面板');
+
+    expect(
+      within(logPanel).getByText('等待当前书本的实时记录...')
+    ).toBeInTheDocument();
+  });
+
   it('automatically follows the streaming chapter until the user selects another chapter', async () => {
     const { rerender } = render(
       <BookDetail

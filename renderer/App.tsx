@@ -563,6 +563,9 @@ export default function App() {
                   ? liveOutput
                   : null
               }
+              executionLogs={executionLogs.filter(
+                (log) => log.bookId === selectedBookDetail.book.id
+              )}
               onBackToLibrary={() => setCurrentView('library')}
               onResume={async () => {
                 await runSelectedBookAction({
