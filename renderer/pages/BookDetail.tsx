@@ -17,7 +17,6 @@ import {
   layoutCardSectionClassName,
 } from '../components/ui/card';
 import { Button } from '../components/ui/button';
-import ProgressBar from '../components/ProgressBar';
 import { ScrollArea } from '../components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import {
@@ -135,6 +134,7 @@ const openingRetentionLabels: Record<number, string> = {
 
 const contextPanelTabTriggerClassName =
   'rounded-none border-b-2 border-transparent bg-transparent px-2 shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none';
+const maxWritingActivityItems = 20;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -573,54 +573,9 @@ function ViralAuditSection({
   );
 }
 
-function BookProgressPanel({
-  phase,
-  stepLabel,
-  completedChapters,
-  totalChapters,
-}: {
-  phase: string;
-  stepLabel?: string | null;
-  completedChapters: number;
-  totalChapters: number;
-}) {
-  const chapterProgressLabel = totalChapters
-    ? `已完成 ${completedChapters} / ${totalChapters} 章`
-    : '章节规划生成后会显示总进度';
-  const progressPercent = totalChapters
-    ? Math.round((completedChapters / totalChapters) * 100)
-    : 0;
-
-  return (
-    <section
-      aria-label="进度面板"
-      className={`${layoutCardClassName} grid min-h-0 grid-rows-[auto_minmax(0,1fr)] overflow-hidden`}
-    >
-      <header className="border-b border-border/60 px-5 py-3">
-        <h2 className="text-sm font-semibold tracking-tight text-foreground">
-          进度
-        </h2>
-      </header>
-      <div className="grid gap-3 px-5 py-4 text-sm leading-6 text-muted-foreground">
-        <p className="font-medium text-foreground">
-          {stepLabel || getStatusLabel(phase)}
-        </p>
-        <p>{chapterProgressLabel}</p>
-        {totalChapters ? (
-          <div className="grid gap-2 pt-1">
-            <ProgressBar value={progressPercent} />
-            <p className="text-xs font-medium text-foreground">
-              {`${progressPercent}%`}
-            </p>
-          </div>
-        ) : null}
-      </div>
-    </section>
-  );
-}
-
-function RealtimeLogPanel({ logs }: { logs: ExecutionLogRecord[] }) {
+function WritingActivityPanel({ logs }: { logs: ExecutionLogRecord[] }) {
   const latestLogRef = useRef<HTMLDivElement | null>(null);
+  const visibleLogs = logs.slice(-maxWritingActivityItems);
 
   useEffect(() => {
     latestLogRef.current?.scrollIntoView({ block: 'end' });
@@ -628,25 +583,25 @@ function RealtimeLogPanel({ logs }: { logs: ExecutionLogRecord[] }) {
 
   return (
     <aside
-      aria-label="实时日志面板"
+      aria-label="写作动态面板"
       className={`${layoutCardClassName} grid h-56 min-h-0 grid-rows-[auto_minmax(0,1fr)] overflow-hidden`}
     >
       <header className="flex items-center justify-between gap-3 border-b border-border/60 px-5 py-3">
         <h2 className="text-sm font-semibold tracking-tight text-foreground">
-          实时日志
+          写作动态
         </h2>
         <span className="shrink-0 text-xs font-semibold text-muted-foreground">
-          {`${logs.length} 条`}
+          {`${visibleLogs.length} 条`}
         </span>
       </header>
       <div className="min-h-0">
-        {logs.length ? (
+        {visibleLogs.length ? (
           <ScrollArea
-            aria-label="实时日志滚动区"
+            aria-label="写作动态滚动区"
             className="h-full min-h-0 px-4 py-3"
           >
             <div className="grid content-start gap-3 pr-2">
-              {logs.map((log) => {
+              {visibleLogs.map((log) => {
                 const Icon = getExecutionLogLevelIcon(log.level);
 
                 return (
@@ -694,7 +649,7 @@ function RealtimeLogPanel({ logs }: { logs: ExecutionLogRecord[] }) {
             role="status"
             className="flex h-full min-h-32 items-center px-5 text-sm leading-6 text-muted-foreground"
           >
-            等待当前书本的实时记录...
+            等待当前作品的写作动态...
           </div>
         )}
       </div>
@@ -1121,15 +1076,8 @@ export default function BookDetail({
           </div>
         </section>
 
-        <div className="grid min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] gap-5 overflow-hidden">
-          <BookProgressPanel
-            phase={currentPhase}
-            stepLabel={progress?.stepLabel}
-            completedChapters={completedChapters}
-            totalChapters={totalChapters}
-          />
-
-          <RealtimeLogPanel logs={executionLogs} />
+        <div className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-5 overflow-hidden">
+          <WritingActivityPanel logs={executionLogs} />
 
           <aside
             aria-label="上下文面板"

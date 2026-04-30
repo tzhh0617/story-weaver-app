@@ -46,6 +46,42 @@ describe('BookDetail', () => {
     expect(screen.getByRole('button', { name: '暂停' })).toBeInTheDocument();
   });
 
+  it('does not show a total progress bar below the detail title', () => {
+    render(
+      <BookDetail
+        book={{ title: 'Book 1', status: 'writing', wordCount: 1200 }}
+        progress={{ phase: 'writing' }}
+        chapters={[
+          {
+            id: '1-1',
+            volumeIndex: 1,
+            chapterIndex: 1,
+            title: 'Chapter 1',
+            wordCount: 1200,
+            status: 'done',
+            content: '第一章正文',
+          },
+          {
+            id: '1-2',
+            volumeIndex: 1,
+            chapterIndex: 2,
+            title: 'Chapter 2',
+            wordCount: 0,
+            status: 'writing',
+            content: null,
+          },
+        ]}
+      />
+    );
+
+    const topbar = screen.getByTestId('book-detail-topbar');
+
+    expect(within(topbar).getByTestId('book-detail-title')).toBeInTheDocument();
+    expect(within(topbar).queryByLabelText('总进度条')).toBeNull();
+    expect(within(topbar).queryByText('已完成 1 / 2 章 · 50%')).toBeNull();
+    expect(screen.queryByLabelText('进度面板')).toBeNull();
+  });
+
   it('renders chapters, reading, and context as fixed workbench panels', async () => {
     render(
       <BookDetail
@@ -69,7 +105,7 @@ describe('BookDetail', () => {
     ).toBeInTheDocument();
     expect(screen.getByLabelText('章节列表标题')).toHaveTextContent('章节');
     expect(screen.getByLabelText('正文面板')).toBeInTheDocument();
-    expect(screen.getByLabelText('进度面板')).toBeInTheDocument();
+    expect(screen.queryByLabelText('进度面板')).toBeNull();
     expect(screen.getByLabelText('上下文面板')).toBeInTheDocument();
     expect(screen.getByRole('tablist')).toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: '章节' })).toBeNull();
@@ -907,17 +943,10 @@ describe('BookDetail', () => {
       />
     );
 
-    const progressPanel = screen.getByLabelText('进度面板');
     const readingPanel = screen.getByLabelText('正文面板');
 
-    expect(within(progressPanel).getByText('进度')).toBeInTheDocument();
-    expect(within(progressPanel).getByText('正在写第 2 章')).toBeInTheDocument();
-    expect(within(progressPanel).getByText('已完成 1 / 3 章')).toBeInTheDocument();
-    expect(within(progressPanel).queryByText('第 1.2 章')).toBeNull();
-    expect(within(progressPanel).getByLabelText('章节进度')).toHaveAttribute(
-      'aria-valuenow',
-      '33'
-    );
+    expect(screen.queryByLabelText('进度面板')).toBeNull();
+    expect(screen.queryByLabelText('总进度条')).toBeNull();
     expect(within(readingPanel).queryByText('正在写第 2 章')).toBeNull();
     expect(within(readingPanel).queryByText('已完成 1 / 3 章')).toBeNull();
     expect(screen.getByLabelText('章节列表标题')).toHaveTextContent('章节');
@@ -1196,11 +1225,10 @@ describe('BookDetail', () => {
 
     const readingPanel = screen.getByLabelText('正文面板');
     const contextPanel = screen.getByLabelText('上下文面板');
-    const progressPanel = screen.getByLabelText('进度面板');
     const streamPane = await screen.findByTestId('chapter-stream-pane');
 
     expect(streamPane).toBeInTheDocument();
-    expect(within(progressPanel).getByText('正在写第 1 章')).toBeInTheDocument();
+    expect(screen.queryByLabelText('进度面板')).toBeNull();
     expect(within(readingPanel).queryByText('正在写第 1 章')).toBeNull();
     expect(within(contextPanel).queryByText('正在写第 1 章')).toBeNull();
     expect(within(readingPanel).getByText('流式第一段')).toBeInTheDocument();
@@ -1276,15 +1304,51 @@ describe('BookDetail', () => {
       />
     );
 
-    const logPanel = await screen.findByLabelText('实时日志面板');
+    const logPanel = await screen.findByLabelText('写作动态面板');
 
     expect(
-      within(logPanel).getByRole('heading', { name: '实时日志' })
+      within(logPanel).getByRole('heading', { name: '写作动态' })
     ).toBeInTheDocument();
     expect(within(logPanel).getByText('2 条')).toBeInTheDocument();
     expect(within(logPanel).getByText('正在写第 2 章')).toBeInTheDocument();
     expect(within(logPanel).getByText('第 1 章已完成')).toBeInTheDocument();
     expect(within(logPanel).getByText('第 2 章')).toBeInTheDocument();
+  });
+
+  it('keeps only the latest twenty writing activity items in the detail panel', async () => {
+    const executionLogs = Array.from({ length: 25 }, (_, index) => {
+      const logNumber = index + 1;
+
+      return {
+        id: logNumber,
+        bookId: 'book-1',
+        bookTitle: 'Book 1',
+        level: 'info' as const,
+        eventType: 'book_progress',
+        phase: 'writing',
+        message: `写作动态 ${logNumber}`,
+        volumeIndex: 1,
+        chapterIndex: logNumber,
+        errorMessage: null,
+        createdAt: `2026-04-30T09:${String(logNumber).padStart(2, '0')}:00.000Z`,
+      };
+    });
+
+    render(
+      <BookDetail
+        book={{ title: 'Book 1', status: 'writing', wordCount: 1200 }}
+        progress={{ phase: 'writing' }}
+        executionLogs={executionLogs}
+      />
+    );
+
+    const activityPanel = await screen.findByLabelText('写作动态面板');
+
+    expect(within(activityPanel).getByText('20 条')).toBeInTheDocument();
+    expect(within(activityPanel).queryByText('写作动态 1')).toBeNull();
+    expect(within(activityPanel).queryByText('写作动态 5')).toBeNull();
+    expect(within(activityPanel).getByText('写作动态 6')).toBeInTheDocument();
+    expect(within(activityPanel).getByText('写作动态 25')).toBeInTheDocument();
   });
 
   it('shows an empty state when the current book has no realtime logs yet', async () => {
@@ -1296,10 +1360,10 @@ describe('BookDetail', () => {
       />
     );
 
-    const logPanel = await screen.findByLabelText('实时日志面板');
+    const logPanel = await screen.findByLabelText('写作动态面板');
 
     expect(
-      within(logPanel).getByText('等待当前书本的实时记录...')
+      within(logPanel).getByText('等待当前作品的写作动态...')
     ).toBeInTheDocument();
   });
 
@@ -1514,11 +1578,9 @@ describe('BookDetail', () => {
     expect(screen.getByTestId('book-detail-topbar').className).not.toContain('ring-1');
 
     const readingPanel = screen.getByLabelText('正文面板');
-    const progressPanel = screen.getByLabelText('进度面板');
 
     expect(readingPanel.className).toContain('grid-rows-[auto_minmax(0,1fr)]');
-    expect(progressPanel.className).toContain('grid-rows-[auto_minmax(0,1fr)]');
-    expect(within(progressPanel).getByText('进度')).toBeInTheDocument();
+    expect(screen.queryByLabelText('进度面板')).toBeNull();
     expect(within(readingPanel).queryByText('进度')).toBeNull();
     expect(within(readingPanel).queryByText('当前查看：第 1 章 · Chapter 1')).toBeNull();
     expect(within(readingPanel).queryByText('章节摘要')).toBeNull();

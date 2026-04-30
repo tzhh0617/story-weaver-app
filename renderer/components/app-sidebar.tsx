@@ -20,7 +20,7 @@ const navigationItems: Array<{
   Icon: LucideIcon;
 }> = [
   { label: '作品', view: 'library', Icon: BookOpen },
-  { label: '日志', view: 'logs', Icon: ScrollText },
+  { label: '写作动态', view: 'logs', Icon: ScrollText },
   { label: '设置', view: 'settings', Icon: Settings2 },
 ];
 

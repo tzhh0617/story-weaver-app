@@ -59,7 +59,7 @@ function installIpcMock(
   };
 }
 
-async function openView(name: '作品' | '设置' | '日志') {
+async function openView(name: '作品' | '设置' | '写作动态') {
   fireEvent.click(await screen.findByRole('button', { name }));
 }
 
@@ -76,7 +76,7 @@ async function openSettingsView() {
 }
 
 async function openLogsView() {
-  await openView('日志');
+  await openView('写作动态');
 }
 
 async function selectBook(title: string) {
@@ -142,7 +142,7 @@ describe('App shell', () => {
     );
     expect(screen.getByRole('button', { name: '作品' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '设置' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '日志' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '写作动态' })).toBeInTheDocument();
     expect(await screen.findByText('暂无作品')).toBeInTheDocument();
     expect(await screen.findByText('全部开始')).toBeDisabled();
   });
@@ -166,9 +166,9 @@ describe('App shell', () => {
     await openLogsView();
 
     expect(
-      await screen.findByRole('heading', { name: '后台日志' })
+      await screen.findByRole('heading', { name: '写作动态' })
     ).toBeInTheDocument();
-    expect(screen.getByText('暂无实时日志')).toBeInTheDocument();
+    expect(screen.getByText('暂无写作动态')).toBeInTheDocument();
     expect(ipc.invoke).not.toHaveBeenCalledWith('logs:list', expect.anything());
 
     ipc.emitExecutionLog({
@@ -191,7 +191,7 @@ describe('App shell', () => {
     expect(screen.getAllByText('叙事复盘').length).toBeGreaterThan(0);
     expect(screen.getByText('阶段：叙事复盘 / 第 10 章')).toBeInTheDocument();
     expect(scrollIntoView).toHaveBeenCalled();
-    expect(screen.getByRole('button', { name: '日志' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: '写作动态' })).toHaveAttribute(
       'data-active',
       'true'
     );
@@ -275,7 +275,7 @@ describe('App shell', () => {
       errorMessage: 'Model timeout',
       createdAt: '2026-04-30T02:00:00.000Z',
     });
-    fireEvent.change(await screen.findByLabelText('日志级别'), {
+    fireEvent.change(await screen.findByLabelText('动态级别'), {
       target: { value: 'error' },
     });
 
@@ -287,9 +287,9 @@ describe('App shell', () => {
       target: { value: 'book-1' },
     });
 
-    expect(await screen.findByText('暂无匹配日志')).toBeInTheDocument();
+    expect(await screen.findByText('暂无匹配动态')).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText('日志级别'), {
+    fireEvent.change(screen.getByLabelText('动态级别'), {
       target: { value: 'all' },
     });
 
@@ -338,14 +338,14 @@ describe('App shell', () => {
       errorMessage: 'Model timeout',
       createdAt: '2026-04-30T02:00:00.000Z',
     });
-    fireEvent.change(await screen.findByLabelText('搜索日志'), {
+    fireEvent.change(await screen.findByLabelText('搜索动态'), {
       target: { value: 'timeout' },
     });
 
     expect(await screen.findByText('后台写作失败')).toBeInTheDocument();
     expect(screen.queryByText('开始后台写作')).toBeNull();
 
-    fireEvent.change(screen.getByLabelText('搜索日志'), {
+    fireEvent.change(screen.getByLabelText('搜索动态'), {
       target: { value: 'Archive' },
     });
 
@@ -2826,7 +2826,7 @@ describe('App shell', () => {
     });
 
     expect(screen.queryByText('实时输出')).toBeNull();
-    expect(screen.getByLabelText('进度面板')).toHaveTextContent('正在写第 2 章');
+    expect(screen.queryByLabelText('进度面板')).toBeNull();
     expect(
       await screen.findByText(
         (_content, element) =>

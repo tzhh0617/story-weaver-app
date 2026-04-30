@@ -78,10 +78,10 @@ export default function Logs({
   return (
     <section className="grid gap-6">
       <header data-testid="logs-intro-panel" className={pageIntroPanelClassName}>
-        <p className={pageIntroEyebrowClassName}>Execution Records</p>
-        <h1 className={pageIntroTitleClassName}>后台日志</h1>
+        <p className={pageIntroEyebrowClassName}>Writing Activity</p>
+        <h1 className={pageIntroTitleClassName}>写作动态</h1>
         <p className={pageIntroDescriptionClassName}>
-          查看后台写作、调度和章节生成过程留下的执行记录。
+          查看后台写作、调度和章节生成过程留下的动态。
         </p>
       </header>
 
@@ -105,7 +105,7 @@ export default function Logs({
           </div>
 
           <div className="grid min-w-60 gap-2">
-            <Label htmlFor="execution-log-search">搜索日志</Label>
+            <Label htmlFor="execution-log-search">搜索动态</Label>
             <div className="relative">
               <Search
                 aria-hidden="true"
@@ -113,7 +113,7 @@ export default function Logs({
               />
               <Input
                 id="execution-log-search"
-                aria-label="搜索日志"
+                aria-label="搜索动态"
                 className="h-10 pl-8"
                 placeholder="书名、消息、错误"
                 value={searchQuery}
@@ -123,7 +123,7 @@ export default function Logs({
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="execution-log-level">日志级别</Label>
+            <Label htmlFor="execution-log-level">动态级别</Label>
             <select
               id="execution-log-level"
               className="h-10 rounded-md border border-input bg-background px-3 text-sm"
@@ -163,7 +163,7 @@ export default function Logs({
         </div>
 
         {visibleLogs.length ? (
-          <div role="list" aria-label="后台执行日志" className="grid gap-3">
+          <div role="list" aria-label="后台写作动态" className="grid gap-3">
             {visibleLogs.map((log) => {
               const Icon = getExecutionLogLevelIcon(log.level);
 
@@ -225,12 +225,12 @@ export default function Logs({
             className="rounded-lg border border-dashed border-border/80 bg-background/55 px-5 py-10 text-center"
           >
             <h3 className="text-lg font-semibold">
-              {logs.length ? '暂无匹配日志' : '暂无实时日志'}
+              {logs.length ? '暂无匹配动态' : '暂无写作动态'}
             </h3>
             <p className="mt-2 text-sm text-muted-foreground">
               {logs.length
                 ? '调整书本、级别、事件类型或关键词后再试。'
-                : '开始写作或批量调度后，这里会显示实时执行记录。'}
+                : '开始写作或批量调度后，这里会显示写作动态。'}
             </p>
           </div>
         )}
