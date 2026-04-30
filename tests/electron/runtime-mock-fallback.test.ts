@@ -440,6 +440,136 @@ describe('runtime mock fallback', () => {
     await expect(services.bookService.startBook(bookId)).rejects.toThrow('bad key');
   });
 
+  it('marks scheduled books as errored when real-model planning fails', async () => {
+    const generateText = vi
+      .fn()
+      .mockResolvedValueOnce({ text: '道侣越多我越无敌' })
+      .mockResolvedValueOnce({
+        text: JSON.stringify({
+          premise: '道侣越多我越无敌。',
+          genreContract: '玄幻升级。',
+          targetReaderExperience: '爽感推进。',
+          themeQuestion: '力量是否必须依赖关系？',
+          themeAnswerDirection: '真正的强大来自选择承担。',
+          centralDramaticQuestion: '主角能否守住本心？',
+          endingState: {
+            protagonistWins: '成为强者。',
+            protagonistLoses: '失去安稳。',
+            worldChange: '宗门格局重洗。',
+            relationshipOutcome: '道侣同盟成形。',
+            themeAnswer: '力量需要责任。',
+          },
+          voiceGuide: '中文网文节奏。',
+        }),
+      });
+    const services = await loadRuntimeServices({
+      tempHome,
+      generateTextImpl: generateText,
+      mockDelayMs: 0,
+    });
+    const events: unknown[] = [];
+    const unsubscribe = services.subscribeBookGeneration((event) => {
+      events.push(event);
+    });
+
+    services.modelConfigs.save({
+      id: 'openai:gpt-4o-mini',
+      provider: 'openai',
+      modelName: 'gpt-4o-mini',
+      apiKey: 'sk-test',
+      baseUrl: '',
+      config: {},
+    });
+
+    const bookId = services.bookService.createBook({
+      idea: '道侣越多我越无敌。',
+      targetChapters: 1,
+      wordsPerChapter: 2000,
+    });
+
+    await services.startBook(bookId);
+    const detail = await waitForBookStatus(services, bookId, 'error');
+    unsubscribe();
+
+    expect(detail?.book.status).toBe('error');
+    expect(detail?.progress?.phase).toBe('error');
+    expect(detail?.progress?.errorMsg).toContain(
+      'Invalid narrative bible: Narrative bible must include characterArcs array.'
+    );
+    expect(events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          bookId,
+          type: 'error',
+          phase: 'error',
+          error: expect.stringContaining('Invalid narrative bible'),
+        }),
+      ])
+    );
+  });
+
+  it('marks restarted books as errored when real-model planning fails again', async () => {
+    const incompleteBible = {
+      premise: '道侣越多我越无敌。',
+      genreContract: '玄幻升级。',
+      targetReaderExperience: '爽感推进。',
+      themeQuestion: '力量是否必须依赖关系？',
+      themeAnswerDirection: '真正的强大来自选择承担。',
+      centralDramaticQuestion: '主角能否守住本心？',
+      endingState: {
+        protagonistWins: '成为强者。',
+        protagonistLoses: '失去安稳。',
+        worldChange: '宗门格局重洗。',
+        relationshipOutcome: '道侣同盟成形。',
+        themeAnswer: '力量需要责任。',
+      },
+      voiceGuide: '中文网文节奏。',
+    };
+    const generateText = vi
+      .fn()
+      .mockResolvedValueOnce({ text: '首次失败标题' })
+      .mockResolvedValueOnce({ text: JSON.stringify(incompleteBible) })
+      .mockResolvedValueOnce({ text: '重开失败标题' })
+      .mockResolvedValueOnce({ text: JSON.stringify(incompleteBible) });
+    const services = await loadRuntimeServices({
+      tempHome,
+      generateTextImpl: generateText,
+      mockDelayMs: 0,
+    });
+
+    services.modelConfigs.save({
+      id: 'openai:gpt-4o-mini',
+      provider: 'openai',
+      modelName: 'gpt-4o-mini',
+      apiKey: 'sk-test',
+      baseUrl: '',
+      config: {},
+    });
+
+    const bookId = services.bookService.createBook({
+      idea: '道侣越多我越无敌。',
+      targetChapters: 1,
+      wordsPerChapter: 2000,
+    });
+
+    await services.startBook(bookId);
+    await waitForBookStatus(services, bookId, 'error');
+
+    await expect(services.restartBook(bookId)).rejects.toThrow(
+      'Invalid narrative bible'
+    );
+    const detail = services.bookService.getBookDetail(bookId);
+
+    expect(detail?.book.status).toBe('error');
+    expect(detail?.progress).toMatchObject({
+      phase: 'error',
+      stepLabel: '正在构建世界观与叙事圣经',
+    });
+    expect(detail?.progress?.errorMsg).toContain('Invalid narrative bible');
+    expect(detail?.chapters).toEqual([]);
+    expect(detail?.context).toBeNull();
+  });
+
   it('keeps testModel strict when no complete config exists or the model id is missing', async () => {
     const generateText = vi.fn().mockResolvedValue({
       text: 'pong',

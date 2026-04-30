@@ -394,4 +394,45 @@ describe('createAiOutlineService', () => {
     );
     expect(generateText).toHaveBeenCalledTimes(4);
   });
+
+  it('reports missing narrative bible arrays as validation errors', async () => {
+    const fakeModel = { id: 'model' };
+    const registry = {
+      languageModel: vi.fn().mockReturnValue(fakeModel),
+    };
+    const generateText = vi.fn().mockResolvedValueOnce({
+      text: JSON.stringify({
+        premise: '道侣越多我越无敌。',
+        genreContract: '玄幻升级。',
+        targetReaderExperience: '爽感推进。',
+        themeQuestion: '力量是否必须依赖关系？',
+        themeAnswerDirection: '真正的强大来自选择承担。',
+        centralDramaticQuestion: '主角能否守住本心？',
+        endingState: {
+          protagonistWins: '成为强者。',
+          protagonistLoses: '失去安稳。',
+          worldChange: '宗门格局重洗。',
+          relationshipOutcome: '道侣同盟成形。',
+          themeAnswer: '力量需要责任。',
+        },
+        voiceGuide: '中文网文节奏。',
+      }),
+    });
+    const service = createAiOutlineService({
+      registry: registry as never,
+      generateText: generateText as never,
+    });
+
+    await expect(
+      service.generateFromIdea({
+        bookId: 'book-1',
+        idea: '道侣越多我越无敌。',
+        targetChapters: 1,
+        wordsPerChapter: 2000,
+        modelId: 'model-1',
+      })
+    ).rejects.toThrow(
+      'Invalid narrative bible: Narrative bible must include characterArcs array.'
+    );
+  });
 });

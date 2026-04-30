@@ -179,6 +179,13 @@ export function createBookRepository(db: SqliteDatabase) {
         | undefined;
     },
 
+    clearGeneratedState(bookId: string) {
+      deleteBookPlanningData(db, bookId);
+      db.prepare('DELETE FROM book_context WHERE book_id = ?').run(bookId);
+      db.prepare('DELETE FROM world_settings WHERE book_id = ?').run(bookId);
+      db.prepare('DELETE FROM api_logs WHERE book_id = ?').run(bookId);
+    },
+
     delete(bookId: string) {
       deleteBookPlanningData(db, bookId);
       db.prepare('DELETE FROM book_context WHERE book_id = ?').run(bookId);

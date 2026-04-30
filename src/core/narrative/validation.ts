@@ -23,12 +23,36 @@ export function validateNarrativeBible(
   input: { targetChapters: number }
 ): ValidationResult {
   const issues: string[] = [];
-  const characterIds = new Set(bible.characterArcs.map((character) => character.id));
+  const characterArcs = Array.isArray(bible.characterArcs)
+    ? bible.characterArcs
+    : [];
+  const relationshipEdges = Array.isArray(bible.relationshipEdges)
+    ? bible.relationshipEdges
+    : [];
+  const worldRules = Array.isArray(bible.worldRules) ? bible.worldRules : [];
+  const narrativeThreads = Array.isArray(bible.narrativeThreads)
+    ? bible.narrativeThreads
+    : [];
+
+  if (!Array.isArray(bible.characterArcs)) {
+    issues.push('Narrative bible must include characterArcs array.');
+  }
+  if (!Array.isArray(bible.relationshipEdges)) {
+    issues.push('Narrative bible must include relationshipEdges array.');
+  }
+  if (!Array.isArray(bible.worldRules)) {
+    issues.push('Narrative bible must include worldRules array.');
+  }
+  if (!Array.isArray(bible.narrativeThreads)) {
+    issues.push('Narrative bible must include narrativeThreads array.');
+  }
+
+  const characterIds = new Set(characterArcs.map((character) => character.id));
   const relationshipIds = new Set(
-    bible.relationshipEdges.map((relationship) => relationship.id)
+    relationshipEdges.map((relationship) => relationship.id)
   );
 
-  if (!bible.characterArcs.some((character) => character.roleType === 'protagonist')) {
+  if (!characterArcs.some((character) => character.roleType === 'protagonist')) {
     issues.push('Narrative bible must include a protagonist.');
   }
   if (isBlank(bible.themeQuestion)) issues.push('Narrative bible must include themeQuestion.');
@@ -36,7 +60,7 @@ export function validateNarrativeBible(
     issues.push('Narrative bible must include themeAnswerDirection.');
   }
 
-  for (const character of bible.characterArcs) {
+  for (const character of characterArcs) {
     if (isBlank(character.desire)) issues.push(`Character ${character.id} must include desire.`);
     if (isBlank(character.fear)) issues.push(`Character ${character.id} must include fear.`);
     if (isBlank(character.flaw)) issues.push(`Character ${character.id} must include flaw.`);
@@ -45,7 +69,7 @@ export function validateNarrativeBible(
     }
   }
 
-  for (const relationship of bible.relationshipEdges) {
+  for (const relationship of relationshipEdges) {
     if (!characterIds.has(relationship.fromCharacterId)) {
       issues.push(
         `Relationship ${relationship.id} references missing fromCharacterId ${relationship.fromCharacterId}.`
@@ -58,15 +82,15 @@ export function validateNarrativeBible(
     }
   }
 
-  for (const rule of bible.worldRules) {
+  for (const rule of worldRules) {
     if (isBlank(rule.cost)) issues.push(`World rule ${rule.id} must include cost.`);
   }
 
-  if (!bible.narrativeThreads.some((thread) => thread.type === 'main')) {
+  if (!narrativeThreads.some((thread) => thread.type === 'main')) {
     issues.push('Narrative bible must include a main thread.');
   }
 
-  for (const thread of bible.narrativeThreads) {
+  for (const thread of narrativeThreads) {
     if (thread.expectedPayoff !== null && thread.expectedPayoff > input.targetChapters) {
       issues.push(`Thread ${thread.id} expectedPayoff exceeds target chapters.`);
     }

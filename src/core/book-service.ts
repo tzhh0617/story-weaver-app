@@ -339,6 +339,7 @@ export function createBookService(deps: {
           styleGuide: string | null;
         }
       | undefined;
+    clearGeneratedState?: (bookId: string) => void;
   };
   chapters: {
     upsertOutline: (input: {
@@ -1807,14 +1808,29 @@ export function createBookService(deps: {
         throw new Error(`Book not found: ${bookId}`);
       }
 
-      deps.chapters.clearGeneratedContent(bookId);
+      deps.books.clearGeneratedState?.(bookId);
+      deps.chapters.deleteByBook(bookId);
       deps.plotThreads.clearByBook(bookId);
       deps.characters.clearStatesByBook(bookId);
       deps.sceneRecords.clearByBook(bookId);
-      deps.books.updateStatus(bookId, 'building_outline');
-      deps.progress.reset(bookId, 'building_outline');
+      deps.books.updateStatus(bookId, 'creating');
+      deps.progress.reset(bookId, 'creating');
+      deps.onBookUpdated?.(bookId);
 
-      return this.resumeBook(bookId);
+      await this.startBook(bookId);
+
+      if (!deps.books.getById(bookId)) {
+        return {
+          completedChapters: 0,
+          status: 'deleted' as const,
+        };
+      }
+
+      deps.books.updateStatus(bookId, 'writing');
+      deps.progress.updatePhase(bookId, 'writing');
+      deps.onBookUpdated?.(bookId);
+
+      return this.writeRemainingChapters(bookId);
     },
   };
 }

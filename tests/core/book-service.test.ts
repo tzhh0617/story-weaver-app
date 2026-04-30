@@ -2782,6 +2782,89 @@ describe('createBookService', () => {
     );
   });
 
+  it('restarts a failed book from planning instead of resuming an empty outline', async () => {
+    const db = createDatabase(':memory:');
+    const service = createBookService({
+      books: createBookRepository(db),
+      chapters: createChapterRepository(db),
+      characters: createCharacterRepository(db),
+      plotThreads: createPlotThreadRepository(db),
+      sceneRecords: createSceneRecordRepository(db),
+      progress: createProgressRepository(db),
+      outlineService: {
+        generateTitleFromIdea: vi
+          .fn()
+          .mockResolvedValueOnce('Old Failed Title')
+          .mockResolvedValueOnce('Restarted Title'),
+        generateFromIdea: vi
+          .fn()
+          .mockRejectedValueOnce(new Error('first planning failed'))
+          .mockResolvedValueOnce({
+            worldSetting: 'Restarted world',
+            masterOutline: 'Restarted outline',
+            volumeOutlines: ['Volume 1'],
+            chapterOutlines: [
+              {
+                volumeIndex: 1,
+                chapterIndex: 1,
+                title: 'Restarted Chapter',
+                outline: 'Restarted opening',
+              },
+            ],
+          }),
+      },
+      chapterWriter: {
+        writeChapter: vi.fn().mockResolvedValue({
+          content: 'Restarted content',
+          usage: { inputTokens: 85, outputTokens: 270 },
+        }),
+      },
+      summaryGenerator: {
+        summarizeChapter: vi.fn().mockResolvedValue('Restarted summary'),
+      },
+      plotThreadExtractor: {
+        extractThreads: vi.fn().mockResolvedValue({
+          openedThreads: [],
+          resolvedThreadIds: [],
+        }),
+      },
+      characterStateExtractor: {
+        extractStates: vi.fn().mockResolvedValue([]),
+      },
+      sceneRecordExtractor: {
+        extractScene: vi.fn().mockResolvedValue(null),
+      },
+    });
+
+    const bookId = service.createBook({
+      idea: '道侣越多我越无敌。',
+      targetChapters: 1,
+      wordsPerChapter: 2000,
+    });
+
+    await expect(service.startBook(bookId)).rejects.toThrow('first planning failed');
+    await service.restartBook(bookId);
+
+    const detail = service.getBookDetail(bookId);
+    expect(detail?.book).toMatchObject({
+      title: 'Restarted Title',
+      status: 'completed',
+    });
+    expect(detail?.context).toMatchObject({
+      worldSetting: 'Restarted world',
+      outline: 'Restarted outline',
+    });
+    expect(detail?.chapters).toMatchObject([
+      expect.objectContaining({
+        title: 'Restarted Chapter',
+        content: 'Restarted content',
+        wordCount: 16,
+      }),
+    ]);
+    expect(detail?.progress?.phase).toBe('completed');
+    expect(detail?.progress?.errorMsg).toBeNull();
+  });
+
   it('deletes a paused book and clears persisted detail state', async () => {
     const db = createDatabase(':memory:');
     const service = createBookService({

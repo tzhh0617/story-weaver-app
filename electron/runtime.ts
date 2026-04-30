@@ -278,6 +278,33 @@ export function getRuntimeServices() {
     });
   }
 
+  function markBookErrored(bookId: string, error: unknown) {
+    const currentProgress = progress.getByBookId(bookId);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const stepLabel = currentProgress?.stepLabel ?? '后台执行失败';
+
+    if (books.getById(bookId)) {
+      books.updateStatus(bookId, 'error');
+      progress.updatePhase(bookId, 'error', {
+        currentVolume: currentProgress?.currentVolume ?? null,
+        currentChapter: currentProgress?.currentChapter ?? null,
+        stepLabel,
+        errorMsg: errorMessage,
+      });
+    }
+
+    emitBookGeneration({
+      bookId,
+      type: 'error',
+      phase: 'error',
+      stepLabel,
+      error: errorMessage,
+      currentVolume: currentProgress?.currentVolume ?? null,
+      currentChapter: currentProgress?.currentChapter ?? null,
+    });
+    emitSchedulerStatus();
+  }
+
   async function runBook(bookId: string) {
     runningBookIds.add(bookId);
     try {
@@ -301,16 +328,7 @@ export function getRuntimeServices() {
         });
       }
     } catch (error) {
-      const currentProgress = progress.getByBookId(bookId);
-      logExecution({
-        bookId,
-        level: 'error',
-        eventType: 'book_failed',
-        phase: currentProgress?.phase ?? null,
-        message: currentProgress?.stepLabel ?? '后台执行失败',
-        errorMessage: error instanceof Error ? error.message : String(error),
-      });
-      throw error;
+      markBookErrored(bookId, error);
     } finally {
       runningBookIds.delete(bookId);
     }
@@ -475,15 +493,20 @@ export function getRuntimeServices() {
         phase: 'building_outline',
         message: '作品已重新开始后台执行',
       });
-      const result = await bookService.restartBook(bookId);
-      if (result?.status === 'completed') {
-        logExecution({
-          bookId,
-          level: 'success',
-          eventType: 'book_completed',
-          phase: 'completed',
-          message: '后台执行完成',
-        });
+      try {
+        const result = await bookService.restartBook(bookId);
+        if (result?.status === 'completed') {
+          logExecution({
+            bookId,
+            level: 'success',
+            eventType: 'book_completed',
+            phase: 'completed',
+            message: '后台执行完成',
+          });
+        }
+      } catch (error) {
+        markBookErrored(bookId, error);
+        throw error;
       }
       emitSchedulerStatus();
     },
