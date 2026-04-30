@@ -320,6 +320,8 @@ export default function BookDetail({
     content?: string | null;
     summary?: string | null;
     outline?: string | null;
+    auditScore?: number | null;
+    draftAttempts?: number;
   }>;
   progress?: {
     phase?: string | null;
@@ -355,6 +357,8 @@ export default function BookDetail({
       content: chapter.content,
       summary: chapter.summary,
       outline: chapter.outline,
+      auditScore: chapter.auditScore,
+      draftAttempts: chapter.draftAttempts,
     })) ?? [];
   const [contextTab, setContextTab] = useState<ContextTab>('outline');
   const activeChapterId =
@@ -397,6 +401,10 @@ export default function BookDetail({
     typeof selectedChapter?.chapterIndex === 'number'
       ? `第 ${selectedChapter.chapterIndex} 章 正文`
       : '正文';
+  const selectedAuditScore =
+    typeof selectedChapter?.auditScore === 'number'
+      ? selectedChapter.auditScore
+      : null;
   useEffect(() => {
     if (activeChapterId) {
       if (shouldAutoFollowActiveChapterRef.current) {
@@ -529,10 +537,15 @@ export default function BookDetail({
           aria-label="正文面板"
           className={`${layoutCardClassName} grid min-h-0 grid-rows-[auto_minmax(0,1fr)] overflow-hidden`}
         >
-          <header className="border-b border-border/60 px-5 py-3">
+          <header className="flex min-w-0 items-center gap-3 border-b border-border/60 px-5 py-3">
             <h2 className="text-sm font-semibold tracking-tight text-foreground">
               {readingPanelTitle}
             </h2>
+            {selectedAuditScore !== null ? (
+              <span className="ml-auto shrink-0 text-xs font-semibold text-muted-foreground">
+                {`审校 ${selectedAuditScore}`}
+              </span>
+            ) : null}
           </header>
           <div data-testid="chapter-stream-pane" className="min-h-0">
             <ScrollArea

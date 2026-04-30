@@ -1,5 +1,14 @@
 import type { OutlineGenerationInput } from './types.js';
 
+export {
+  buildChapterAuditPrompt,
+  buildChapterCardPrompt,
+  buildNarrativeBiblePrompt,
+  buildNarrativeDraftPrompt,
+  buildRevisionPrompt,
+  buildVolumePlanPrompt,
+} from './narrative/prompts.js';
+
 const WORLD_SETTING_MAX_CHARACTERS = 3000;
 const MASTER_OUTLINE_MAX_CHARACTERS = 3000;
 

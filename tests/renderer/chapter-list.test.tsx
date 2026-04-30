@@ -5,6 +5,27 @@ import { describe, expect, it, vi } from 'vitest';
 import ChapterList from '../../renderer/components/ChapterList';
 
 describe('ChapterList', () => {
+  it('shows audit score when a chapter has been audited', () => {
+    render(
+      <ChapterList
+        chapters={[
+          {
+            id: '1-1',
+            volumeIndex: 1,
+            chapterIndex: 1,
+            title: '旧页初鸣',
+            wordCount: 1200,
+            status: 'done',
+            auditScore: 88,
+            draftAttempts: 1,
+          },
+        ]}
+      />
+    );
+
+    expect(screen.getByText(/审计 88/)).toBeInTheDocument();
+  });
+
   it('keeps full chapter metadata in the accessible row name', () => {
     const { container } = render(
       <ChapterList

@@ -79,6 +79,29 @@ describe('BookDetail', () => {
     expect(chapterScrollArea.parentElement?.className).toContain('p-2');
   });
 
+  it('shows the selected chapter audit score in the reading header', () => {
+    render(
+      <BookDetail
+        book={{ title: 'Book 1', status: 'writing', wordCount: 1200 }}
+        progress={{ phase: 'writing' }}
+        chapters={[
+          {
+            id: '1-1',
+            volumeIndex: 1,
+            chapterIndex: 1,
+            title: 'Chapter 1',
+            wordCount: 1200,
+            status: 'done',
+            content: 'Generated chapter content',
+            auditScore: 88,
+          },
+        ]}
+      />
+    );
+
+    expect(screen.getByLabelText('正文面板')).toHaveTextContent('审校 88');
+  });
+
   it('keeps reading visible while switching context tabs', async () => {
     render(
       <BookDetail

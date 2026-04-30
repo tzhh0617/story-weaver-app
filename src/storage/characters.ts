@@ -47,6 +47,7 @@ export function createCharacterRepository(db: SqliteDatabase) {
           INSERT INTO character_states (
             book_id,
             character_id,
+            character_name,
             volume_index,
             chapter_index,
             location,
@@ -58,6 +59,7 @@ export function createCharacterRepository(db: SqliteDatabase) {
           VALUES (
             @bookId,
             @characterId,
+            @characterName,
             @volumeIndex,
             @chapterIndex,
             @location,
@@ -89,7 +91,7 @@ export function createCharacterRepository(db: SqliteDatabase) {
           `
             SELECT
               latest.character_id AS characterId,
-              COALESCE(characters.name, latest.character_id) AS characterName,
+              COALESCE(characters.name, latest.character_name, latest.character_id) AS characterName,
               latest.volume_index AS volumeIndex,
               latest.chapter_index AS chapterIndex,
               latest.location,

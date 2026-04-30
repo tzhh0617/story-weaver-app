@@ -1,3 +1,14 @@
+import {
+  buildChapterAuditPrompt,
+  buildRevisionPrompt,
+} from './narrative/prompts.js';
+import { parseJsonObject } from './narrative/json.js';
+import { normalizeNarrativeStateDelta } from './narrative/state.js';
+import type {
+  NarrativeAudit,
+  NarrativeStateDelta,
+} from './narrative/types.js';
+
 function stripCodeFences(text: string) {
   const trimmed = text.trim();
   if (!trimmed.startsWith('```')) {
@@ -227,6 +238,90 @@ export function createAiSceneRecordExtractor(deps: {
         charactersPresent: string[];
         events: string | null;
       } | null>(result.text);
+    },
+  };
+}
+
+export function createAiChapterAuditor(deps: {
+  registry: {
+    languageModel: (modelId: string) => unknown;
+  };
+  generateText: (input: {
+    model: unknown;
+    prompt: string;
+  }) => Promise<{ text: string }>;
+}) {
+  return {
+    async auditChapter(input: {
+      modelId: string;
+      draft: string;
+      auditContext: string;
+    }): Promise<NarrativeAudit> {
+      const model = deps.registry.languageModel(input.modelId);
+      const result = await deps.generateText({
+        model,
+        prompt: buildChapterAuditPrompt(input),
+      });
+
+      return parseJsonObject<NarrativeAudit>(result.text);
+    },
+  };
+}
+
+export function createAiChapterRevision(deps: {
+  registry: {
+    languageModel: (modelId: string) => unknown;
+  };
+  generateText: (input: {
+    model: unknown;
+    prompt: string;
+  }) => Promise<{ text: string }>;
+}) {
+  return {
+    async reviseChapter(input: {
+      modelId: string;
+      originalPrompt: string;
+      draft: string;
+      issues: NarrativeAudit['issues'];
+    }) {
+      const model = deps.registry.languageModel(input.modelId);
+      const result = await deps.generateText({
+        model,
+        prompt: buildRevisionPrompt(input),
+      });
+
+      return result.text.trim();
+    },
+  };
+}
+
+export function createAiNarrativeStateExtractor(deps: {
+  registry: {
+    languageModel: (modelId: string) => unknown;
+  };
+  generateText: (input: {
+    model: unknown;
+    prompt: string;
+  }) => Promise<{ text: string }>;
+}) {
+  return {
+    async extractState(input: {
+      modelId: string;
+      content: string;
+    }): Promise<NarrativeStateDelta> {
+      const model = deps.registry.languageModel(input.modelId);
+      const result = await deps.generateText({
+        model,
+        prompt: [
+          'Extract structured narrative state changes from this chapter as JSON.',
+          `Chapter content:\n${input.content}`,
+          'Return JSON with characterStates, relationshipStates, threadUpdates, scene, themeProgression.',
+        ].join('\n'),
+      });
+
+      return normalizeNarrativeStateDelta(
+        parseJsonObject<Partial<NarrativeStateDelta>>(result.text)
+      );
     },
   };
 }

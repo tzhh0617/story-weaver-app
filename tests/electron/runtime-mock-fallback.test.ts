@@ -116,6 +116,41 @@ describe('runtime mock fallback', () => {
     expect(generateText).not.toHaveBeenCalled();
   });
 
+  it('wires narrative planning and audit services in mock fallback runtime', async () => {
+    const generateText = vi.fn().mockResolvedValue({
+      text: 'should not be used',
+    });
+    const services = await loadRuntimeServices({
+      tempHome,
+      generateTextImpl: generateText,
+      mockDelayMs: 0,
+    });
+
+    const bookId = services.bookService.createBook({
+      idea: '一个被宗门逐出的少年，意外继承了会吞噬因果的古镜。',
+      targetChapters: 3,
+      wordsPerChapter: 90,
+    });
+
+    await services.bookService.startBook(bookId);
+    await services.bookService.writeNextChapter(bookId);
+
+    const detail = services.bookService.getBookDetail(bookId);
+    expect(detail?.narrative?.storyBible).toMatchObject({
+      themeQuestion: '人能不能摆脱命运？',
+    });
+    expect(detail?.narrative?.chapterCards).toHaveLength(3);
+    expect(detail?.narrative?.chapterCards[0]).toMatchObject({
+      chapterIndex: 1,
+      worldRuleUsedOrTested: 'record-cost',
+    });
+    expect(detail?.chapters[0]).toMatchObject({
+      auditScore: 88,
+      draftAttempts: 1,
+    });
+    expect(generateText).not.toHaveBeenCalled();
+  });
+
   it('emits deterministic mock chapter stream events through runtime subscriptions', async () => {
     const generateText = vi.fn().mockResolvedValue({
       text: 'should not be used',

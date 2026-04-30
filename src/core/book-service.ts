@@ -5,7 +5,22 @@ import {
   isMockModelId,
 } from '../models/runtime-mode.js';
 import { buildStoredChapterContext } from './consistency.js';
-import { buildChapterDraftPrompt } from './prompt-builder.js';
+import {
+  buildChapterDraftPrompt,
+  buildNarrativeDraftPrompt,
+} from './prompt-builder.js';
+import { decideAuditAction } from './narrative/audit.js';
+import { shouldRunNarrativeCheckpoint } from './narrative/checkpoint.js';
+import { buildNarrativeCommandContext } from './narrative/context.js';
+import type {
+  ChapterCard,
+  ChapterCharacterPressure,
+  ChapterRelationshipAction,
+  ChapterThreadAction,
+  NarrativeAudit,
+  NarrativeStateDelta,
+  RelationshipStateInput,
+} from './narrative/types.js';
 import {
   assertPositiveIntegerLimit,
   countStoryCharacters,
@@ -245,6 +260,8 @@ export function createBookService(deps: {
       content: string;
       summary?: string | null;
       wordCount: number;
+      auditScore?: number | null;
+      draftAttempts?: number;
     }) => void;
     clearGeneratedContent: (bookId: string) => void;
     deleteByBook: (bookId: string) => void;
@@ -321,6 +338,125 @@ export function createBookService(deps: {
     }>;
     clearByBook: (bookId: string) => void;
   };
+  storyBibles?: {
+    saveGraph: (
+      bookId: string,
+      bible: NonNullable<OutlineBundle['narrativeBible']>
+    ) => void;
+    getByBook?: (bookId: string) =>
+      | Omit<
+          NonNullable<OutlineBundle['narrativeBible']>,
+          'characterArcs' | 'relationshipEdges' | 'worldRules' | 'narrativeThreads'
+        >
+      | null;
+  };
+  characterArcs?: {
+    listByBook: (bookId: string) => NonNullable<OutlineBundle['narrativeBible']>['characterArcs'];
+    saveState?: (input: {
+      bookId: string;
+      characterId: string;
+      characterName: string;
+      volumeIndex: number;
+      chapterIndex: number;
+      location?: string | null;
+      status?: string | null;
+      knowledge?: string | null;
+      emotion?: string | null;
+      powerLevel?: string | null;
+      arcPhase?: string | null;
+    }) => void;
+  };
+  relationshipEdges?: {
+    listByBook: (bookId: string) => NonNullable<OutlineBundle['narrativeBible']>['relationshipEdges'];
+  };
+  worldRules?: {
+    listByBook: (bookId: string) => NonNullable<OutlineBundle['narrativeBible']>['worldRules'];
+  };
+  narrativeThreads?: {
+    listByBook: (bookId: string) => NonNullable<OutlineBundle['narrativeBible']>['narrativeThreads'];
+    resolveThread?: (bookId: string, threadId: string, resolvedAt: number) => void;
+    upsertThread?: (
+      bookId: string,
+      thread: NonNullable<OutlineBundle['narrativeBible']>['narrativeThreads'][number]
+    ) => void;
+  };
+  volumePlans?: {
+    upsertMany: (bookId: string, plans: NonNullable<OutlineBundle['volumePlans']>) => void;
+    listByBook?: (bookId: string) => NonNullable<OutlineBundle['volumePlans']>;
+  };
+  chapterCards?: {
+    upsertMany: (cards: NonNullable<OutlineBundle['chapterCards']>) => void;
+    getNextUnwritten?: (bookId: string) => ChapterCard | null;
+    listByBook?: (bookId: string) => ChapterCard[];
+    upsertThreadActions?: (
+      bookId: string,
+      volumeIndex: number,
+      chapterIndex: number,
+      actions: ChapterThreadAction[]
+    ) => void;
+    listThreadActions?: (
+      bookId: string,
+      volumeIndex: number,
+      chapterIndex: number
+    ) => ChapterThreadAction[];
+    upsertCharacterPressures?: (
+      bookId: string,
+      volumeIndex: number,
+      chapterIndex: number,
+      pressures: ChapterCharacterPressure[]
+    ) => void;
+    listCharacterPressures?: (
+      bookId: string,
+      volumeIndex: number,
+      chapterIndex: number
+    ) => ChapterCharacterPressure[];
+    upsertRelationshipActions?: (
+      bookId: string,
+      volumeIndex: number,
+      chapterIndex: number,
+      actions: ChapterRelationshipAction[]
+    ) => void;
+    listRelationshipActions?: (
+      bookId: string,
+      volumeIndex: number,
+      chapterIndex: number
+    ) => ChapterRelationshipAction[];
+  };
+  chapterAudits?: {
+    save: (input: {
+      bookId: string;
+      volumeIndex: number;
+      chapterIndex: number;
+      attempt: number;
+      audit: NarrativeAudit;
+    }) => void;
+  };
+  relationshipStates?: {
+    save: (input: RelationshipStateInput) => void;
+  };
+  narrativeCheckpoint?: {
+    reviewCheckpoint: (input: {
+      bookId: string;
+      chapterIndex: number;
+    }) => Promise<{
+      checkpointType: string;
+      arcReport: unknown;
+      threadDebt: unknown;
+      pacingReport: unknown;
+      replanningNotes: string | null;
+    }>;
+  };
+  narrativeCheckpoints?: {
+    save: (input: {
+      bookId: string;
+      chapterIndex: number;
+      checkpointType: string;
+      arcReport: unknown;
+      threadDebt: unknown;
+      pacingReport: unknown;
+      replanningNotes: string | null;
+    }) => void;
+  };
   progress: {
     updatePhase: (
       bookId: string,
@@ -366,6 +502,27 @@ export function createBookService(deps: {
         outputTokens?: number;
       };
     }>;
+  };
+  chapterAuditor?: {
+    auditChapter: (input: {
+      modelId: string;
+      draft: string;
+      auditContext: string;
+    }) => Promise<NarrativeAudit>;
+  };
+  chapterRevision?: {
+    reviseChapter: (input: {
+      modelId: string;
+      originalPrompt: string;
+      draft: string;
+      issues: NarrativeAudit['issues'];
+    }) => Promise<string>;
+  };
+  narrativeStateExtractor?: {
+    extractState: (input: {
+      modelId: string;
+      content: string;
+    }) => Promise<NarrativeStateDelta>;
   };
   summaryGenerator: {
     summarizeChapter: (input: {
@@ -475,14 +632,72 @@ export function createBookService(deps: {
       if (!book) {
         return null;
       }
+      const storedContext = deps.books.getContext(bookId) ?? null;
+      const bible = deps.storyBibles?.getByBook?.(bookId) ?? null;
+      const worldRules = deps.worldRules?.listByBook(bookId) ?? [];
+      const volumePlans = deps.volumePlans?.listByBook?.(bookId) ?? [];
+      const chapterCards = deps.chapterCards?.listByBook?.(bookId) ?? [];
+      const context = bible
+        ? {
+            bookId,
+            worldSetting: [
+              `主题问题：${bible.themeQuestion}`,
+              `主题方向：${bible.themeAnswerDirection}`,
+              ...worldRules.map(
+                (rule) => `${rule.id}: ${rule.ruleText}; 代价：${rule.cost}`
+              ),
+            ].join('\n'),
+            outline: volumePlans
+              .map(
+                (volume) =>
+                  `第${volume.volumeIndex}卷 ${volume.title}: ${volume.chapterStart}-${volume.chapterEnd}; ${volume.promisedPayoff}`
+              )
+              .join('\n'),
+            styleGuide: bible.voiceGuide,
+          }
+        : storedContext;
+      const chapters = deps.chapters.listByBook(bookId).map((chapter) => {
+        const card = chapterCards.find(
+          (candidate) =>
+            candidate.volumeIndex === chapter.volumeIndex &&
+            candidate.chapterIndex === chapter.chapterIndex
+        );
+
+        if (!card) {
+          return chapter;
+        }
+
+        return {
+          ...chapter,
+          outline: [
+            `必须变化：${card.mustChange}`,
+            `读者满足：${card.readerReward}`,
+            `章末钩子：${card.endingHook}`,
+          ].join('\n'),
+        };
+      });
 
       return {
         book,
-        context: deps.books.getContext(bookId) ?? null,
+        context,
         latestScene: deps.sceneRecords.getLatestByBook(bookId),
         characterStates: deps.characters.listLatestStatesByBook(bookId),
         plotThreads: deps.plotThreads.listByBook(bookId),
-        chapters: deps.chapters.listByBook(bookId),
+        narrative: {
+          storyBible: bible
+            ? {
+                themeQuestion: bible.themeQuestion,
+                themeAnswerDirection: bible.themeAnswerDirection,
+                centralDramaticQuestion: bible.centralDramaticQuestion,
+              }
+            : null,
+          characterArcs: deps.characterArcs?.listByBook(bookId) ?? [],
+          relationshipEdges: deps.relationshipEdges?.listByBook(bookId) ?? [],
+          worldRules,
+          narrativeThreads: deps.narrativeThreads?.listByBook(bookId) ?? [],
+          chapterCards,
+        },
+        chapters,
         progress: deps.progress.getByBookId(bookId) ?? null,
       };
     },
@@ -580,6 +795,55 @@ export function createBookService(deps: {
         outline: outlineBundle.masterOutline,
       });
 
+      if (outlineBundle.narrativeBible) {
+        deps.storyBibles?.saveGraph(bookId, outlineBundle.narrativeBible);
+      }
+      if (outlineBundle.volumePlans) {
+        deps.volumePlans?.upsertMany(bookId, outlineBundle.volumePlans);
+      }
+      if (outlineBundle.chapterCards) {
+        deps.chapterCards?.upsertMany(outlineBundle.chapterCards);
+      }
+      for (const card of outlineBundle.chapterCards ?? []) {
+        const threadActions = (outlineBundle.chapterThreadActions ?? []).filter(
+          (action) =>
+            action.volumeIndex === card.volumeIndex &&
+            action.chapterIndex === card.chapterIndex
+        );
+        const characterPressures = (
+          outlineBundle.chapterCharacterPressures ?? []
+        ).filter(
+          (pressure) =>
+            pressure.volumeIndex === card.volumeIndex &&
+            pressure.chapterIndex === card.chapterIndex
+        );
+        const relationshipActions = (
+          outlineBundle.chapterRelationshipActions ?? []
+        ).filter(
+          (action) =>
+            action.volumeIndex === card.volumeIndex &&
+            action.chapterIndex === card.chapterIndex
+        );
+        deps.chapterCards?.upsertThreadActions?.(
+          bookId,
+          card.volumeIndex,
+          card.chapterIndex,
+          threadActions
+        );
+        deps.chapterCards?.upsertCharacterPressures?.(
+          bookId,
+          card.volumeIndex,
+          card.chapterIndex,
+          characterPressures
+        );
+        deps.chapterCards?.upsertRelationshipActions?.(
+          bookId,
+          card.volumeIndex,
+          card.chapterIndex,
+          relationshipActions
+        );
+      }
+
       saveChapterOutlines(
         deps,
         bookId,
@@ -633,28 +897,101 @@ export function createBookService(deps: {
 
       const nextChapterTitle = nextChapter.title;
       const modelId = resolveModelId();
-      const prompt = buildChapterDraftPrompt({
-        idea: book.idea,
+      const chapterCard =
+        deps.chapterCards
+          ?.listByBook?.(bookId)
+          .find(
+            (card) =>
+              card.volumeIndex === nextChapter.volumeIndex &&
+              card.chapterIndex === nextChapter.chapterIndex
+          ) ?? null;
+      const legacyContinuityContext = buildStoredChapterContext({
         worldSetting: context?.worldSetting ?? null,
-        masterOutline: context?.outline ?? null,
-        continuityContext: buildStoredChapterContext({
-          worldSetting: context?.worldSetting ?? null,
-          characterStates: deps.characters.listLatestStatesByBook(bookId),
-          plotThreads: deps.plotThreads.listByBook(bookId),
-          latestScene: deps.sceneRecords.getLatestByBook(bookId),
-          chapters,
-          currentChapter: {
-            volumeIndex: nextChapter.volumeIndex,
-            chapterIndex: nextChapter.chapterIndex,
-            outline: nextChapter.outline,
-          },
-          maxCharacters: CHAPTER_CONTEXT_MAX_CHARACTERS,
-        }),
-        chapterTitle: nextChapterTitle,
-        chapterOutline: nextChapter.outline,
-        targetChapters: book.targetChapters,
-        wordsPerChapter: book.wordsPerChapter,
+        characterStates: deps.characters.listLatestStatesByBook(bookId),
+        plotThreads: deps.plotThreads.listByBook(bookId),
+        latestScene: deps.sceneRecords.getLatestByBook(bookId),
+        chapters,
+        currentChapter: {
+          volumeIndex: nextChapter.volumeIndex,
+          chapterIndex: nextChapter.chapterIndex,
+          outline: nextChapter.outline,
+        },
+        maxCharacters: CHAPTER_CONTEXT_MAX_CHARACTERS,
       });
+      const commandContext = chapterCard
+        ? buildNarrativeCommandContext({
+            bible: {
+              themeQuestion:
+                deps.storyBibles?.getByBook?.(bookId)?.themeQuestion ?? '',
+              themeAnswerDirection:
+                deps.storyBibles?.getByBook?.(bookId)?.themeAnswerDirection ??
+                '',
+              voiceGuide: deps.storyBibles?.getByBook?.(bookId)?.voiceGuide ?? '',
+            },
+            chapterCard,
+            hardContinuity: legacyContinuityContext.split('\n').slice(0, 20),
+            characterPressures:
+              deps.chapterCards
+                ?.listCharacterPressures?.(
+                  bookId,
+                  nextChapter.volumeIndex,
+                  nextChapter.chapterIndex
+                )
+                .map(
+                  (pressure) =>
+                    `${pressure.characterId}: ${pressure.desirePressure}; ${pressure.fearPressure}; ${pressure.flawTrigger}; expected=${pressure.expectedChoice}`
+                ) ?? [],
+            relationshipActions:
+              deps.chapterCards
+                ?.listRelationshipActions?.(
+                  bookId,
+                  nextChapter.volumeIndex,
+                  nextChapter.chapterIndex
+                )
+                .map(
+                  (action) =>
+                    `${action.relationshipId} ${action.action}: ${action.requiredChange}`
+                ) ?? [],
+            threadActions:
+              deps.chapterCards
+                ?.listThreadActions?.(
+                  bookId,
+                  nextChapter.volumeIndex,
+                  nextChapter.chapterIndex
+                )
+                .map(
+                  (action) =>
+                    `${action.threadId} ${action.action}: ${action.requiredEffect}`
+                ) ?? [],
+            worldRules:
+              deps.worldRules
+                ?.listByBook(bookId)
+                .map((rule) => `${rule.id}: ${rule.ruleText}; cost=${rule.cost}`) ??
+              [],
+            recentSummaries: chapters
+              .filter((chapter) => chapter.summary)
+              .slice(-2)
+              .map((chapter) => `Chapter ${chapter.chapterIndex}: ${chapter.summary}`),
+            previousChapterEnding: null,
+            maxCharacters: CHAPTER_CONTEXT_MAX_CHARACTERS,
+          })
+        : null;
+      const prompt = chapterCard
+        ? buildNarrativeDraftPrompt({
+            idea: book.idea,
+            wordsPerChapter: book.wordsPerChapter,
+            commandContext: commandContext ?? legacyContinuityContext,
+          })
+        : buildChapterDraftPrompt({
+            idea: book.idea,
+            worldSetting: context?.worldSetting ?? null,
+            masterOutline: context?.outline ?? null,
+            continuityContext: legacyContinuityContext,
+            chapterTitle: nextChapterTitle,
+            chapterOutline: nextChapter.outline,
+            targetChapters: book.targetChapters,
+            wordsPerChapter: book.wordsPerChapter,
+          });
       const writingStepLabel = `正在写第 ${nextChapter.chapterIndex} 章`;
 
       deps.progress.updatePhase(bookId, 'writing', {
@@ -764,6 +1101,52 @@ export function createBookService(deps: {
         };
       }
 
+      let auditScore: number | null = null;
+      let draftAttempts = 1;
+      if (deps.chapterAuditor && chapterCard) {
+        const auditContext = commandContext ?? legacyContinuityContext;
+        let audit = await deps.chapterAuditor.auditChapter({
+          modelId,
+          draft: result.content,
+          auditContext,
+        });
+        deps.chapterAudits?.save({
+          bookId,
+          volumeIndex: nextChapter.volumeIndex,
+          chapterIndex: nextChapter.chapterIndex,
+          attempt: draftAttempts,
+          audit,
+        });
+
+        const auditAction = decideAuditAction(audit);
+        if (auditAction !== 'accept' && deps.chapterRevision) {
+          draftAttempts += 1;
+          result = {
+            ...result,
+            content: await deps.chapterRevision.reviseChapter({
+              modelId,
+              originalPrompt: prompt,
+              draft: result.content,
+              issues: audit.issues,
+            }),
+          };
+          audit = await deps.chapterAuditor.auditChapter({
+            modelId,
+            draft: result.content,
+            auditContext,
+          });
+          deps.chapterAudits?.save({
+            bookId,
+            volumeIndex: nextChapter.volumeIndex,
+            chapterIndex: nextChapter.chapterIndex,
+            attempt: draftAttempts,
+            audit,
+          });
+        }
+
+        auditScore = audit.score;
+      }
+
       const postChapterStepLabel = `正在生成第 ${nextChapter.chapterIndex} 章摘要与连续性`;
       deps.progress.updatePhase(bookId, 'writing', {
         currentVolume: nextChapter.volumeIndex,
@@ -799,6 +1182,8 @@ export function createBookService(deps: {
         content: result.content,
         summary: chapterUpdate.summary,
         wordCount: countStoryCharacters(result.content),
+        auditScore,
+        draftAttempts,
       });
 
       for (const thread of chapterUpdate.openedThreads) {
@@ -840,6 +1225,71 @@ export function createBookService(deps: {
           timeInStory: chapterUpdate.scene.timeInStory,
           charactersPresent: chapterUpdate.scene.charactersPresent,
           events: chapterUpdate.scene.events ?? null,
+        });
+      }
+
+      if (deps.narrativeStateExtractor) {
+        const delta = await deps.narrativeStateExtractor.extractState({
+          modelId,
+          content: result.content,
+        });
+        for (const state of delta.characterStates) {
+          deps.characterArcs?.saveState?.({
+            ...state,
+            bookId,
+            volumeIndex: nextChapter.volumeIndex,
+            chapterIndex: nextChapter.chapterIndex,
+          });
+        }
+        for (const state of delta.relationshipStates) {
+          deps.relationshipStates?.save({
+            ...state,
+            bookId,
+            volumeIndex: nextChapter.volumeIndex,
+            chapterIndex: nextChapter.chapterIndex,
+          });
+        }
+        for (const threadUpdate of delta.threadUpdates) {
+          const existingThread = deps.narrativeThreads
+            ?.listByBook(bookId)
+            .find((thread) => thread.id === threadUpdate.threadId);
+          if (existingThread && deps.narrativeThreads?.upsertThread) {
+            deps.narrativeThreads.upsertThread(bookId, {
+              ...existingThread,
+              currentState: threadUpdate.currentState,
+              resolvedAt: threadUpdate.resolvedAt ?? existingThread.resolvedAt,
+              notes: threadUpdate.notes ?? existingThread.notes,
+            });
+          }
+          if (threadUpdate.resolvedAt && deps.narrativeThreads?.resolveThread) {
+            deps.narrativeThreads.resolveThread(
+              bookId,
+              threadUpdate.threadId,
+              threadUpdate.resolvedAt
+            );
+          }
+        }
+      }
+
+      if (
+        deps.narrativeCheckpoint &&
+        deps.narrativeCheckpoints &&
+        shouldRunNarrativeCheckpoint(nextChapter.chapterIndex)
+      ) {
+        const checkpointStepLabel = `正在复盘第 ${nextChapter.chapterIndex} 章叙事状态`;
+        deps.progress.updatePhase(bookId, 'checkpoint_review', {
+          currentVolume: nextChapter.volumeIndex,
+          currentChapter: nextChapter.chapterIndex,
+          stepLabel: checkpointStepLabel,
+        });
+        const checkpoint = await deps.narrativeCheckpoint.reviewCheckpoint({
+          bookId,
+          chapterIndex: nextChapter.chapterIndex,
+        });
+        deps.narrativeCheckpoints.save({
+          bookId,
+          chapterIndex: nextChapter.chapterIndex,
+          ...checkpoint,
         });
       }
 

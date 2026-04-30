@@ -151,6 +151,23 @@ export function createBookRepository(db: SqliteDatabase) {
     },
 
     delete(bookId: string) {
+      for (const table of [
+        'narrative_checkpoints',
+        'chapter_generation_audits',
+        'chapter_relationship_actions',
+        'chapter_character_pressures',
+        'chapter_thread_actions',
+        'chapter_cards',
+        'volume_plans',
+        'relationship_states',
+        'relationship_edges',
+        'narrative_threads',
+        'world_rules',
+        'character_arcs',
+        'story_bibles',
+      ]) {
+        db.prepare(`DELETE FROM ${table} WHERE book_id = ?`).run(bookId);
+      }
       db.prepare('DELETE FROM book_context WHERE book_id = ?').run(bookId);
       db.prepare('DELETE FROM world_settings WHERE book_id = ?').run(bookId);
       db.prepare('DELETE FROM api_logs WHERE book_id = ?').run(bookId);

@@ -1,4 +1,11 @@
 import type { OutlineBundle, OutlineGenerationInput } from '../core/types.js';
+import type {
+  ChapterCard,
+  NarrativeAudit,
+  NarrativeBible,
+  NarrativeStateDelta,
+  VolumePlan,
+} from '../core/narrative/types.js';
 import {
   chineseWebNovelPack,
   type ChineseWebNovelGenre,
@@ -44,6 +51,16 @@ function pickProtagonistName(genre: ChineseWebNovelGenre, seedText: string) {
     genre.protagonistGiven,
     `${seedText}:given`
   )}`;
+}
+
+function stableId(value: string) {
+  return (
+    value
+      .trim()
+      .toLowerCase()
+      .replace(/[^\dA-Za-z\u4e00-\u9fa5]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'protagonist'
+  );
 }
 
 function readPromptField(prompt: string, field: string) {
@@ -267,11 +284,159 @@ export function createMockOutlineService() {
       });
       input.onChapterOutlines?.(chapterOutlines);
 
+      const protagonistId = stableId(protagonist);
+      const narrativeBible: NarrativeBible = {
+        premise: `${protagonist}从最低谷起势，追查旧案真相并重塑命运。`,
+        genreContract: `${genre.tone}长篇，主打升级、反转、关系拉扯和规则代价。`,
+        targetReaderExperience: '每几章获得一次真相、突破、失败或关系反转。',
+        themeQuestion: '人能不能摆脱命运？',
+        themeAnswerDirection: '人可以改写命运，但必须承担公开、记忆和关系代价。',
+        centralDramaticQuestion: `${protagonist}能否查清旧案并避免成为新的压迫者？`,
+        endingState: {
+          protagonistWins: '夺回选择权。',
+          protagonistLoses: '失去躲在旧身份里的安全。',
+          worldChange: '旧秩序被迫公开规则。',
+          relationshipOutcome: '关键关系从依附变成并肩。',
+          themeAnswer: '自由不是没有代价，而是愿意承担代价。',
+        },
+        voiceGuide: '中文网文节奏，章末有钩子，冲突推进清楚。',
+        characterArcs: [
+          {
+            id: protagonistId,
+            name: protagonist,
+            roleType: 'protagonist',
+            desire: '查清旧案真相并夺回选择权。',
+            fear: '再次被宗门和命运彻底抹除。',
+            flaw: '遇到危险时习惯独自承担并隐瞒代价。',
+            misbelief: '只要自己掌握规则，就能保护所有重要的人。',
+            wound: '幼年亲眼见到家族记录被删去。',
+            externalGoal: '找到改写命运的核心证据。',
+            internalNeed: '学会公开风险并信任同伴。',
+            arcDirection: 'growth',
+            decisionLogic: '优先保护弱者，但会把真正代价藏在自己身上。',
+            lineWillNotCross: '不主动牺牲无辜者的记忆。',
+            lineMayEventuallyCross: '公开自己的禁忌身份。',
+            currentArcPhase: 'denial',
+          },
+        ],
+        relationshipEdges: [
+          {
+            id: `${protagonistId}-ally`,
+            fromCharacterId: protagonistId,
+            toCharacterId: 'ally-witness',
+            visibleLabel: '临时同盟',
+            hiddenTruth: '同伴家族也被旧案牵连。',
+            dependency: `${protagonist}需要同伴辨认旧案证词。`,
+            debt: `${protagonist}欠同伴一次救命人情。`,
+            misunderstanding: '同伴以为主角追查只是为了复仇。',
+            affection: '信任会在共同承担代价后增长。',
+            harmPattern: '主角隐瞒代价会反复伤害同伴。',
+            sharedGoal: '查清旧案。',
+            valueConflict: '主角倾向隐忍，同伴要求公开。',
+            trustLevel: 0,
+            tensionLevel: 2,
+            currentState: '互相试探',
+            plannedTurns: [
+              { chapterRange: '1-6', change: '从交易关系变成共同承担风险。' },
+            ],
+          },
+        ],
+        worldRules: [
+          {
+            id: 'record-cost',
+            category: 'power',
+            ruleText: '改写命运记录会交换等量真实记忆。',
+            cost: '失去一段无法恢复的亲身经历。',
+            whoBenefits: firstFaction,
+            whoSuffers: '被记录系统压迫的普通人',
+            taboo: '不可改写死人命格。',
+            violationConsequence: '改写者被命簿反噬。',
+            allowedException: '以自愿记忆为祭。',
+            currentStatus: 'active',
+          },
+        ],
+        narrativeThreads: [
+          {
+            id: 'main-ledger-truth',
+            type: 'main',
+            promise: `${protagonist}追查家族旧案为何被命运记录抹除。`,
+            plantedAt: 1,
+            expectedPayoff: Math.max(3, Math.min(input.targetChapters, 20)),
+            resolvedAt: null,
+            currentState: 'open',
+            importance: 'critical',
+            payoffMustChange: 'world',
+            ownerCharacterId: protagonistId,
+            relatedRelationshipId: null,
+            notes: null,
+          },
+        ],
+      };
+      const volumePlans: VolumePlan[] = volumeOutlines.map((outline, index) => ({
+        volumeIndex: index + 1,
+        title: outline.replace(/^第\d+卷：/, '').replace(/（.+$/, ''),
+        chapterStart: index * 50 + 1,
+        chapterEnd: Math.min((index + 1) * 50, input.targetChapters),
+        roleInStory: '推进旧案并扩大规则代价。',
+        mainPressure: `${firstFaction}与${secondFaction}持续施压。`,
+        promisedPayoff: '每卷兑现一次真相或关系反转。',
+        characterArcMovement: `${protagonist}从独自承担走向共享风险。`,
+        relationshipMovement: '临时同盟逐步变成共同承担。',
+        worldExpansion: '命运记录影响从个人扩展到秩序。',
+        endingTurn: '旧秩序露出更深裂口。',
+      }));
+      const chapterCards: ChapterCard[] = chapterOutlines.map((chapter) => ({
+        bookId: input.bookId,
+        volumeIndex: chapter.volumeIndex,
+        chapterIndex: chapter.chapterIndex,
+        title: chapter.title,
+        plotFunction: chapter.outline,
+        povCharacterId: protagonistId,
+        externalConflict: `${firstFaction}逼迫${protagonist}交出线索。`,
+        internalConflict: `${protagonist}想独自承担，却需要相信他人。`,
+        relationshipChange: `${protagonist}与同伴的信任出现一次可见变化。`,
+        worldRuleUsedOrTested: 'record-cost',
+        informationReveal: `旧案真相推进到第${chapter.chapterIndex}层。`,
+        readerReward: chapter.chapterIndex % 4 === 0 ? 'reversal' : 'truth',
+        endingHook: `新的代价在第${chapter.chapterIndex}章末浮出水面。`,
+        mustChange: `${protagonist}在第${chapter.chapterIndex}章后不能回到原来的安全状态。`,
+        forbiddenMoves: ['不能提前揭示最终幕后主使。'],
+      }));
+
       return {
         worldSetting,
         masterOutline,
         volumeOutlines,
         chapterOutlines,
+        narrativeBible,
+        volumePlans,
+        chapterCards,
+        chapterThreadActions: chapterCards.map((card) => ({
+          bookId: input.bookId,
+          volumeIndex: card.volumeIndex,
+          chapterIndex: card.chapterIndex,
+          threadId: 'main-ledger-truth',
+          action: 'advance',
+          requiredEffect: card.informationReveal,
+        })),
+        chapterCharacterPressures: chapterCards.map((card) => ({
+          bookId: input.bookId,
+          volumeIndex: card.volumeIndex,
+          chapterIndex: card.chapterIndex,
+          characterId: protagonistId,
+          desirePressure: '旧案线索刺激主角追查欲望。',
+          fearPressure: '代价威胁主角被抹除的恐惧。',
+          flawTrigger: '主角想隐瞒真正代价。',
+          expectedChoice: card.mustChange,
+        })),
+        chapterRelationshipActions: chapterCards.map((card) => ({
+          bookId: input.bookId,
+          volumeIndex: card.volumeIndex,
+          chapterIndex: card.chapterIndex,
+          relationshipId: `${protagonistId}-ally`,
+          action: 'deepen',
+          requiredChange: card.relationshipChange,
+        })),
       };
     },
   };
@@ -281,9 +446,14 @@ export function createMockChapterWriter() {
   return {
     async writeChapter(input: { modelId: string; prompt: string }) {
       const idea = readPromptField(input.prompt, 'Book idea') ?? '一个被命运压到谷底的人，终于等来了反击的机会。';
-      const chapterTitle = readPromptField(input.prompt, 'Chapter title') ?? '无名一章';
+      const chapterTitle =
+        readPromptField(input.prompt, 'Chapter title') ??
+        readPromptField(input.prompt, 'title') ??
+        '无名一章';
       const chapterOutline =
-        readPromptField(input.prompt, 'Chapter outline') ?? '主角被迫踏入新的风暴。';
+        readPromptField(input.prompt, 'Chapter outline') ??
+        readPromptField(input.prompt, 'plotFunction') ??
+        '主角被迫踏入新的风暴。';
       const genre = detectGenreFromText(`${idea}\n${input.prompt}`);
       const protagonist = pickProtagonistName(genre, idea);
       const location = detectLocation(chapterOutline, genre);
@@ -462,6 +632,34 @@ export function createMockChapterUpdateExtractor() {
 export type MockStoryServices = {
   outlineService: ReturnType<typeof createMockOutlineService>;
   chapterWriter: ReturnType<typeof createMockChapterWriter>;
+  chapterAuditor: {
+    auditChapter(input: {
+      modelId: string;
+      draft: string;
+      auditContext: string;
+    }): Promise<NarrativeAudit>;
+  };
+  chapterRevision: {
+    reviseChapter(input: { draft: string }): Promise<string>;
+  };
+  narrativeStateExtractor: {
+    extractState(input: {
+      modelId: string;
+      content: string;
+    }): Promise<NarrativeStateDelta>;
+  };
+  narrativeCheckpoint: {
+    reviewCheckpoint(input: {
+      bookId: string;
+      chapterIndex: number;
+    }): Promise<{
+      checkpointType: string;
+      arcReport: unknown;
+      threadDebt: unknown;
+      pacingReport: unknown;
+      replanningNotes: string | null;
+    }>;
+  };
   chapterUpdateExtractor: ReturnType<typeof createMockChapterUpdateExtractor>;
   summaryGenerator: ReturnType<typeof createMockSummaryGenerator>;
   characterStateExtractor: ReturnType<typeof createMockCharacterStateExtractor>;
@@ -473,6 +671,62 @@ export function createMockStoryServices(): MockStoryServices {
   return {
     outlineService: createMockOutlineService(),
     chapterWriter: createMockChapterWriter(),
+    chapterAuditor: {
+      async auditChapter() {
+        return {
+          passed: true,
+          score: 88,
+          decision: 'accept',
+          issues: [],
+          scoring: {
+            characterLogic: 18,
+            mainlineProgress: 13,
+            relationshipChange: 13,
+            conflictDepth: 14,
+            worldRuleCost: 9,
+            threadManagement: 8,
+            pacingReward: 9,
+            themeAlignment: 4,
+          },
+          stateUpdates: {
+            characterArcUpdates: ['主角更主动承担代价。'],
+            relationshipUpdates: ['信任因共同承担风险而上升。'],
+            threadUpdates: ['主线旧案获得新证据。'],
+            worldKnowledgeUpdates: ['命运规则的代价更加明确。'],
+            themeUpdate: '自由需要承担代价。',
+          },
+        };
+      },
+    },
+    chapterRevision: {
+      async reviseChapter(input: { draft: string }) {
+        return `${input.draft}\n\n这一代价没有消失，而是在他心里留下新的缺口。`;
+      },
+    },
+    narrativeStateExtractor: {
+      async extractState() {
+        return {
+          characterStates: [],
+          relationshipStates: [],
+          threadUpdates: [],
+          scene: null,
+          themeProgression: '自由需要承担代价。',
+        };
+      },
+    },
+    narrativeCheckpoint: {
+      async reviewCheckpoint(input: { chapterIndex: number }) {
+        return {
+          checkpointType: 'arc',
+          arcReport: {
+            protagonist: `第 ${input.chapterIndex} 章后主角欲望仍清晰。`,
+          },
+          threadDebt: { critical: [] },
+          pacingReport: { readerRewards: '稳定。' },
+          replanningNotes: '后续章节无需调整。',
+        };
+      },
+    },
     chapterUpdateExtractor: createMockChapterUpdateExtractor(),
     summaryGenerator: createMockSummaryGenerator(),
     characterStateExtractor: createMockCharacterStateExtractor(),

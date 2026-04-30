@@ -16,7 +16,12 @@ const chapterVisualStatusLabels: Record<'done' | 'writing' | 'queued', string> =
 function getChapterVisualMeta(chapter: {
   wordCount: number;
   status: 'done' | 'writing' | 'queued';
+  auditScore?: number | null;
 }) {
+  if (typeof chapter.auditScore === 'number') {
+    return `审计 ${chapter.auditScore}`;
+  }
+
   const wordCountText = formatChapterWordCount(chapter.wordCount);
 
   if (chapter.status === 'done') {
@@ -63,6 +68,8 @@ export default function ChapterList({
     title: string;
     wordCount: number;
     status: 'done' | 'writing' | 'queued';
+    auditScore?: number | null;
+    draftAttempts?: number;
   }>;
   activeChapterId?: string | null;
   selectedChapterId?: string | null;

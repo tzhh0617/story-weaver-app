@@ -10,12 +10,16 @@ import {
 } from '../src/core/chapter-review.js';
 import {
   createAiChapterUpdateExtractor,
+  createAiChapterAuditor,
+  createAiChapterRevision,
   createAiCharacterStateExtractor,
+  createAiNarrativeStateExtractor,
   createAiPlotThreadExtractor,
   createAiSceneRecordExtractor,
   createAiSummaryGenerator,
 } from '../src/core/ai-post-chapter.js';
 import { createBookService } from '../src/core/book-service.js';
+import type { NarrativeAudit } from '../src/core/narrative/types.js';
 import type { OutlineGenerationInput } from '../src/core/types.js';
 import { createNovelEngine } from '../src/core/engine.js';
 import { createModelTestService } from '../src/core/model-test.js';
@@ -31,14 +35,8 @@ import {
   createMockStoryServices,
 } from '../src/mock/story-services.js';
 import { buildAppPaths } from '../src/shared/paths.js';
-import { createBookRepository } from '../src/storage/books.js';
-import { createChapterRepository } from '../src/storage/chapters.js';
-import { createCharacterRepository } from '../src/storage/characters.js';
-import { createDatabase } from '../src/storage/database.js';
+import { createDatabase, createRepositories } from '../src/storage/database.js';
 import { createModelConfigRepository } from '../src/storage/model-configs.js';
-import { createPlotThreadRepository } from '../src/storage/plot-threads.js';
-import { createProgressRepository } from '../src/storage/progress.js';
-import { createSceneRecordRepository } from '../src/storage/scene-records.js';
 import { exportBookToFile } from '../src/storage/export.js';
 import { createExecutionLogStream } from '../src/storage/logs.js';
 import type {
@@ -278,14 +276,15 @@ export function getRuntimeServices() {
   mkdirSync(appPaths.logDir, { recursive: true });
 
   const db = createDatabase(appPaths.databaseFile);
-  const books = createBookRepository(db);
-  const chapters = createChapterRepository(db);
-  const characters = createCharacterRepository(db);
-  const plotThreads = createPlotThreadRepository(db);
-  const sceneRecords = createSceneRecordRepository(db);
-  const progress = createProgressRepository(db);
-  const modelConfigs = createModelConfigRepository(db);
-  const settings = createSettingsRepository(db);
+  const repositories = createRepositories(db);
+  const books = repositories.books;
+  const chapters = repositories.chapters;
+  const characters = repositories.characters;
+  const plotThreads = repositories.plotThreads;
+  const sceneRecords = repositories.sceneRecords;
+  const progress = repositories.progress;
+  const modelConfigs = repositories.modelConfigs;
+  const settings = repositories.settings;
   const logs = createExecutionLogStream();
   const mockServices = createMockStoryServices();
   const schedulerListeners = new Set<
@@ -508,6 +507,92 @@ export function getRuntimeServices() {
       }).extractChapterUpdate(input);
     },
   };
+  const chapterAuditor = {
+    async auditChapter(input: {
+      modelId: string;
+      draft: string;
+      auditContext: string;
+    }) {
+      const persistedConfigs = modelConfigs.list();
+      const runtimeMode = getRuntimeModelMode(persistedConfigs);
+      if (runtimeMode.kind === 'mock') {
+        return mockServices.chapterAuditor.auditChapter(input);
+      }
+
+      const registry = createRuntimeRegistry(runtimeMode.availableConfigs);
+      return createAiChapterAuditor({
+        registry: registry as {
+          languageModel: (id: string) => unknown;
+        },
+        generateText: generateText as (input: {
+          model: unknown;
+          prompt: string;
+        }) => Promise<{ text: string }>,
+      }).auditChapter(input);
+    },
+  };
+  const chapterRevision = {
+    async reviseChapter(input: {
+      modelId: string;
+      originalPrompt: string;
+      draft: string;
+      issues: NarrativeAudit['issues'];
+    }) {
+      const persistedConfigs = modelConfigs.list();
+      const runtimeMode = getRuntimeModelMode(persistedConfigs);
+      if (runtimeMode.kind === 'mock') {
+        return mockServices.chapterRevision.reviseChapter(input);
+      }
+
+      const registry = createRuntimeRegistry(runtimeMode.availableConfigs);
+      return createAiChapterRevision({
+        registry: registry as {
+          languageModel: (id: string) => unknown;
+        },
+        generateText: generateText as (input: {
+          model: unknown;
+          prompt: string;
+        }) => Promise<{ text: string }>,
+      }).reviseChapter(input);
+    },
+  };
+  const narrativeStateExtractor = {
+    async extractState(input: { modelId: string; content: string }) {
+      const persistedConfigs = modelConfigs.list();
+      const runtimeMode = getRuntimeModelMode(persistedConfigs);
+      if (runtimeMode.kind === 'mock') {
+        return mockServices.narrativeStateExtractor.extractState(input);
+      }
+
+      const registry = createRuntimeRegistry(runtimeMode.availableConfigs);
+      return createAiNarrativeStateExtractor({
+        registry: registry as {
+          languageModel: (id: string) => unknown;
+        },
+        generateText: generateText as (input: {
+          model: unknown;
+          prompt: string;
+        }) => Promise<{ text: string }>,
+      }).extractState(input);
+    },
+  };
+  const narrativeCheckpoint = {
+    async reviewCheckpoint(input: { bookId: string; chapterIndex: number }) {
+      const persistedConfigs = modelConfigs.list();
+      const runtimeMode = getRuntimeModelMode(persistedConfigs);
+      if (runtimeMode.kind === 'mock') {
+        return mockServices.narrativeCheckpoint.reviewCheckpoint(input);
+      }
+
+      return {
+        checkpointType: 'arc',
+        arcReport: {},
+        threadDebt: {},
+        pacingReport: {},
+        replanningNotes: null,
+      };
+    },
+  };
   const runningBookIds = new Set<string>();
   let bookService!: ReturnType<typeof createBookService>;
 
@@ -674,6 +759,16 @@ export function getRuntimeServices() {
     chapters,
     characters,
     plotThreads,
+    storyBibles: repositories.storyBibles,
+    characterArcs: repositories.characterArcs,
+    relationshipEdges: repositories.relationshipEdges,
+    worldRules: repositories.worldRules,
+    narrativeThreads: repositories.narrativeThreads,
+    volumePlans: repositories.volumePlans,
+    chapterCards: repositories.chapterCards,
+    chapterAudits: repositories.chapterAudits,
+    relationshipStates: repositories.relationshipStates,
+    narrativeCheckpoints: repositories.narrativeCheckpoints,
     sceneRecords,
     progress,
     outlineService,
@@ -683,6 +778,10 @@ export function getRuntimeServices() {
     plotThreadExtractor,
     sceneRecordExtractor,
     chapterUpdateExtractor,
+    chapterAuditor,
+    chapterRevision,
+    narrativeStateExtractor,
+    narrativeCheckpoint,
     shouldRewriteShortChapter: ({ content, wordsPerChapter }) =>
       shouldRewriteShortChapter({
         enabled: parseBooleanSetting(

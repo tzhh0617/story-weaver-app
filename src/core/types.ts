@@ -1,3 +1,12 @@
+import type {
+  ChapterCard,
+  ChapterCharacterPressure,
+  ChapterRelationshipAction,
+  ChapterThreadAction,
+  NarrativeBible,
+  VolumePlan,
+} from './narrative/types.js';
+
 export type OutlineGenerationInput = {
   bookId: string;
   idea: string;
@@ -21,4 +30,10 @@ export type OutlineBundle = {
   masterOutline: string;
   volumeOutlines: string[];
   chapterOutlines: ChapterOutline[];
+  narrativeBible?: NarrativeBible;
+  volumePlans?: VolumePlan[];
+  chapterCards?: ChapterCard[];
+  chapterThreadActions?: ChapterThreadAction[];
+  chapterCharacterPressures?: ChapterCharacterPressure[];
+  chapterRelationshipActions?: ChapterRelationshipAction[];
 };

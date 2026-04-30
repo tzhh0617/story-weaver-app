@@ -9,6 +9,8 @@ export function createChapterRepository(db: SqliteDatabase) {
       title: string;
       outline: string;
     }) {
+      const now = new Date().toISOString();
+
       db.prepare(
         `
           INSERT INTO chapters (
@@ -16,7 +18,6 @@ export function createChapterRepository(db: SqliteDatabase) {
             volume_index,
             chapter_index,
             title,
-            outline,
             created_at
           )
           VALUES (
@@ -24,17 +25,71 @@ export function createChapterRepository(db: SqliteDatabase) {
             @volumeIndex,
             @chapterIndex,
             @title,
-            @outline,
             @createdAt
           )
           ON CONFLICT(book_id, volume_index, chapter_index) DO UPDATE SET
             title = excluded.title,
-            outline = excluded.outline
+            updated_at = excluded.created_at
         `
       ).run({
-        ...input,
-        createdAt: new Date().toISOString(),
+        bookId: input.bookId,
+        volumeIndex: input.volumeIndex,
+        chapterIndex: input.chapterIndex,
+        title: input.title,
+        createdAt: now,
       });
+
+      db.prepare(
+        `
+          INSERT INTO chapter_cards (
+            book_id,
+            volume_index,
+            chapter_index,
+            title,
+            plot_function,
+            pov_character_id,
+            external_conflict,
+            internal_conflict,
+            relationship_change,
+            world_rule_used_or_tested,
+            information_reveal,
+            reader_reward,
+            ending_hook,
+            must_change,
+            forbidden_moves_json
+          )
+          VALUES (
+            @bookId,
+            @volumeIndex,
+            @chapterIndex,
+            @title,
+            @outline,
+            NULL,
+            @outline,
+            @outline,
+            '',
+            '',
+            '',
+            'truth',
+            '',
+            @outline,
+            '[]'
+          )
+          ON CONFLICT(book_id, volume_index, chapter_index) DO UPDATE SET
+            title = excluded.title,
+            plot_function = excluded.plot_function
+        `
+      ).run(input);
+    },
+
+    upsertPlanned(input: {
+      bookId: string;
+      volumeIndex: number;
+      chapterIndex: number;
+      title: string;
+      outline: string;
+    }) {
+      this.upsertOutline(input);
     },
 
     listByBook(bookId: string) {
@@ -46,10 +101,18 @@ export function createChapterRepository(db: SqliteDatabase) {
               volume_index AS volumeIndex,
               chapter_index AS chapterIndex,
               title,
-              outline,
+              (
+                SELECT plot_function
+                FROM chapter_cards
+                WHERE chapter_cards.book_id = chapters.book_id
+                  AND chapter_cards.volume_index = chapters.volume_index
+                  AND chapter_cards.chapter_index = chapters.chapter_index
+              ) AS outline,
               content,
               summary,
-              word_count AS wordCount
+              word_count AS wordCount,
+              audit_score AS auditScore,
+              draft_attempts AS draftAttempts
             FROM chapters
             WHERE book_id = ?
             ORDER BY volume_index ASC, chapter_index ASC
@@ -64,6 +127,8 @@ export function createChapterRepository(db: SqliteDatabase) {
         content: string | null;
         summary: string | null;
         wordCount: number;
+        auditScore: number | null;
+        draftAttempts: number;
       }>;
     },
 
@@ -74,6 +139,8 @@ export function createChapterRepository(db: SqliteDatabase) {
       content: string;
       summary?: string | null;
       wordCount: number;
+      auditScore?: number | null;
+      draftAttempts?: number;
     }) {
       db.prepare(
         `
@@ -81,7 +148,10 @@ export function createChapterRepository(db: SqliteDatabase) {
           SET
             content = @content,
             summary = @summary,
-            word_count = @wordCount
+            word_count = @wordCount,
+            audit_score = COALESCE(@auditScore, audit_score),
+            draft_attempts = COALESCE(@draftAttempts, draft_attempts),
+            updated_at = @updatedAt
           WHERE
             book_id = @bookId
             AND volume_index = @volumeIndex
@@ -90,6 +160,9 @@ export function createChapterRepository(db: SqliteDatabase) {
       ).run({
         ...input,
         summary: input.summary ?? null,
+        auditScore: input.auditScore ?? null,
+        draftAttempts: input.draftAttempts ?? null,
+        updatedAt: new Date().toISOString(),
       });
     },
 
@@ -100,10 +173,13 @@ export function createChapterRepository(db: SqliteDatabase) {
           SET
             content = NULL,
             summary = NULL,
-            word_count = 0
+            word_count = 0,
+            audit_score = NULL,
+            draft_attempts = 0,
+            updated_at = ?
           WHERE book_id = ?
         `
-      ).run(bookId);
+      ).run(new Date().toISOString(), bookId);
     },
 
     deleteByBook(bookId: string) {

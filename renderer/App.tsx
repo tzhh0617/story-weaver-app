@@ -593,6 +593,8 @@ export default function App() {
                 content: chapter.content,
                 summary: chapter.summary,
                 outline: chapter.outline,
+                auditScore: chapter.auditScore,
+                draftAttempts: chapter.draftAttempts,
               }))}
               onPause={async () => {
                 await runSelectedBookAction({
