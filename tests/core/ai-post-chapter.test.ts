@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  createAiChapterAuditor,
   createAiChapterUpdateExtractor,
   createAiCharacterStateExtractor,
   createAiPlotThreadExtractor,
@@ -263,5 +264,74 @@ describe('AI post-chapter extractors', () => {
       characterStates: [],
       scene: null,
     });
+  });
+
+  it('passes viral protocol fields into audit prompts', async () => {
+    const prompts: string[] = [];
+    const auditor = createAiChapterAuditor({
+      registry: { languageModel: () => ({}) },
+      generateText: async ({ prompt }) => {
+        prompts.push(prompt);
+        return {
+          text: JSON.stringify({
+            passed: true,
+            score: 90,
+            decision: 'accept',
+            issues: [],
+            scoring: {
+              characterLogic: 90,
+              mainlineProgress: 90,
+              relationshipChange: 90,
+              conflictDepth: 90,
+              worldRuleCost: 90,
+              threadManagement: 90,
+              pacingReward: 90,
+              themeAlignment: 90,
+              viral: {
+                openingHook: 90,
+                desireClarity: 90,
+                payoffStrength: 90,
+                readerQuestionStrength: 90,
+                tropeFulfillment: 90,
+                antiClicheFreshness: 90,
+              },
+            },
+            stateUpdates: {
+              characterArcUpdates: [],
+              relationshipUpdates: [],
+              threadUpdates: [],
+              worldKnowledgeUpdates: [],
+              themeUpdate: '',
+            },
+          }),
+        };
+      },
+    });
+
+    await auditor.auditChapter({
+      modelId: 'model-1',
+      draft: '陆照找到证据。',
+      auditContext: 'Chapter Mission: 找到证据。',
+      chapterIndex: 2,
+      viralStoryProtocol: {
+        readerPromise: '压抑后翻盘。',
+        targetEmotion: 'revenge',
+        coreDesire: '洗清旧案。',
+        protagonistDrive: '证据逼他行动。',
+        hookEngine: '旧案递进。',
+        payoffCadence: {
+          mode: 'steady',
+          minorPayoffEveryChapters: 2,
+          majorPayoffEveryChapters: 8,
+          payoffTypes: ['truth_reveal'],
+        },
+        tropeContract: ['revenge_payback'],
+        antiClicheRules: ['反击必须付出代价。'],
+        longTermQuestion: '幕后是谁？',
+      },
+    });
+
+    expect(prompts[0]).toContain('Viral Story Protocol');
+    expect(prompts[0]).toContain('Current chapter expected payoff: minor payoff');
   });
 });

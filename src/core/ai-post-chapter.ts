@@ -7,6 +7,7 @@ import { normalizeNarrativeStateDelta } from './narrative/state.js';
 import type {
   NarrativeAudit,
   NarrativeStateDelta,
+  ViralStoryProtocol,
 } from './narrative/types.js';
 
 function stripCodeFences(text: string) {
@@ -257,6 +258,8 @@ export function createAiChapterAuditor(deps: {
       draft: string;
       auditContext: string;
       routePlanText?: string | null;
+      viralStoryProtocol?: ViralStoryProtocol | null;
+      chapterIndex?: number | null;
     }): Promise<NarrativeAudit> {
       const model = deps.registry.languageModel(input.modelId);
       const result = await deps.generateText({
