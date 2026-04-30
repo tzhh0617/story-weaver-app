@@ -230,6 +230,64 @@ describe('BookDetail', () => {
     expect(within(tensionCurve).getByText('peak · moral_choice')).toBeInTheDocument();
   });
 
+  it('shows checkpoint tension rebalance advice in the context outline tab', () => {
+    render(
+      <BookDetail
+        book={{ title: 'Book 1', status: 'writing', wordCount: 1200 }}
+        progress={{ phase: 'writing' }}
+        narrative={{
+          chapterTensionBudgets: [],
+          narrativeCheckpoints: [
+            {
+              bookId: 'book-1',
+              chapterIndex: 10,
+              checkpointType: 'arc',
+              report: {
+                tensionCheckpoint: {
+                  nextBudgetInstruction:
+                    'Switch dominant tension in the next 2 chapters to relationship and moral_choice.',
+                },
+              },
+              futureCardRevisions: [
+                {
+                  type: 'tension_budget_rebalance',
+                  instruction:
+                    'Raise pressure in the next 2 chapters and force a visible cost.',
+                },
+              ],
+              createdAt: '2026-04-30T07:00:00.000Z',
+            },
+          ],
+        }}
+        chapters={[
+          {
+            id: '1-1',
+            volumeIndex: 1,
+            chapterIndex: 1,
+            title: 'Chapter 1',
+            wordCount: 1200,
+            status: 'done',
+            content: '第一章正文',
+          },
+        ]}
+      />
+    );
+
+    const contextPanel = screen.getByLabelText('上下文面板');
+
+    expect(within(contextPanel).getByText('张力复盘')).toBeInTheDocument();
+    expect(
+      within(contextPanel).getByText(
+        'Switch dominant tension in the next 2 chapters to relationship and moral_choice.'
+      )
+    ).toBeInTheDocument();
+    expect(
+      within(contextPanel).getByText(
+        'Raise pressure in the next 2 chapters and force a visible cost.'
+      )
+    ).toBeInTheDocument();
+  });
+
   it('keeps reading visible while switching context tabs', async () => {
     render(
       <BookDetail

@@ -477,6 +477,14 @@ export function createBookService(deps: {
       replanningNotes?: string | null;
       futureCardRevisions?: unknown[];
     }) => void;
+    listByBook?: (bookId: string) => Array<{
+      bookId: string;
+      chapterIndex: number;
+      checkpointType?: string;
+      report: unknown;
+      futureCardRevisions: unknown[];
+      createdAt: string;
+    }>;
   };
   progress: {
     updatePhase: (
@@ -756,6 +764,8 @@ export function createBookService(deps: {
           narrativeThreads: deps.narrativeThreads?.listByBook(bookId) ?? [],
           chapterCards,
           chapterTensionBudgets,
+          narrativeCheckpoints:
+            deps.narrativeCheckpoints?.listByBook?.(bookId) ?? [],
         },
         chapters,
         progress: deps.progress.getByBookId(bookId) ?? null,

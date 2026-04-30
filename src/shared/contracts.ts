@@ -53,6 +53,14 @@ export type BookDetail = {
       hookPressure: string;
       flatnessRisks: string[];
     }>;
+    narrativeCheckpoints: Array<{
+      bookId: string;
+      chapterIndex: number;
+      checkpointType?: string;
+      report: unknown;
+      futureCardRevisions: unknown[];
+      createdAt: string;
+    }>;
   };
   latestScene: {
     location: string;

@@ -47,6 +47,59 @@ type ChapterTensionBudgetView = {
   flatnessRisks: string[];
 };
 
+type NarrativeCheckpointView = {
+  bookId: string;
+  chapterIndex: number;
+  checkpointType?: string;
+  report: unknown;
+  futureCardRevisions: unknown[];
+  createdAt: string;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function getTensionCheckpointInstruction(checkpoint: NarrativeCheckpointView) {
+  if (!isRecord(checkpoint.report)) {
+    return null;
+  }
+
+  const tensionCheckpoint = checkpoint.report.tensionCheckpoint;
+  if (!isRecord(tensionCheckpoint)) {
+    return null;
+  }
+
+  const instruction = tensionCheckpoint.nextBudgetInstruction;
+  return typeof instruction === 'string' && instruction.trim().length
+    ? instruction
+    : null;
+}
+
+function getTensionRebalanceInstructions(checkpoint: NarrativeCheckpointView) {
+  return checkpoint.futureCardRevisions
+    .filter(isRecord)
+    .filter((revision) => revision.type === 'tension_budget_rebalance')
+    .map((revision) => revision.instruction)
+    .filter(
+      (instruction): instruction is string =>
+        typeof instruction === 'string' && instruction.trim().length > 0
+    );
+}
+
+function getLatestNarrativeCheckpoint(checkpoints: NarrativeCheckpointView[]) {
+  return [...checkpoints].sort((left, right) => {
+    const createdDiff =
+      new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime();
+
+    if (createdDiff) {
+      return createdDiff;
+    }
+
+    return right.chapterIndex - left.chapterIndex;
+  })[0] ?? null;
+}
+
 function formatLogDate(value: string) {
   return new Intl.DateTimeFormat('zh-CN', {
     hour: '2-digit',
@@ -187,6 +240,45 @@ function TensionCurveSection({
           </li>
         ))}
       </ol>
+    </DetailSection>
+  );
+}
+
+function TensionCheckpointSection({
+  checkpoint,
+}: {
+  checkpoint: NarrativeCheckpointView;
+}) {
+  const nextBudgetInstruction = getTensionCheckpointInstruction(checkpoint);
+  const rebalanceInstructions = getTensionRebalanceInstructions(checkpoint);
+
+  if (!nextBudgetInstruction && !rebalanceInstructions.length) {
+    return null;
+  }
+
+  return (
+    <DetailSection title="张力复盘">
+      <div className="grid gap-3">
+        <p className="text-xs font-semibold text-foreground">
+          {`第 ${checkpoint.chapterIndex} 章后${checkpoint.checkpointType ? ` · ${checkpoint.checkpointType}` : ''}`}
+        </p>
+        {nextBudgetInstruction ? (
+          <div>
+            <p className="text-xs font-semibold text-foreground">下章预算指令</p>
+            <p>{nextBudgetInstruction}</p>
+          </div>
+        ) : null}
+        {rebalanceInstructions.length ? (
+          <div>
+            <p className="text-xs font-semibold text-foreground">重平衡建议</p>
+            <ul className="m-0 grid gap-1 pl-4">
+              {rebalanceInstructions.map((instruction) => (
+                <li key={instruction}>{instruction}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </div>
     </DetailSection>
   );
 }
@@ -390,6 +482,7 @@ export default function BookDetail({
   } | null;
   narrative?: {
     chapterTensionBudgets?: ChapterTensionBudgetView[];
+    narrativeCheckpoints?: NarrativeCheckpointView[];
   } | null;
   characterStates?: Array<{
     characterId: string;
@@ -514,6 +607,21 @@ export default function BookDetail({
         ) ?? null
       : null;
   const chapterTensionBudgets = narrative?.chapterTensionBudgets ?? [];
+  const latestNarrativeCheckpoint = getLatestNarrativeCheckpoint(
+    narrative?.narrativeCheckpoints ?? []
+  );
+  const hasTensionCheckpointContent = latestNarrativeCheckpoint
+    ? Boolean(
+        getTensionCheckpointInstruction(latestNarrativeCheckpoint) ||
+          getTensionRebalanceInstructions(latestNarrativeCheckpoint).length
+      )
+    : false;
+  const hasOutlineTabContent = Boolean(
+    hasOutlineContent ||
+      selectedTensionBudget ||
+      chapterTensionBudgets.length >= 2 ||
+      hasTensionCheckpointContent
+  );
   useEffect(() => {
     if (activeChapterId) {
       if (shouldAutoFollowActiveChapterRef.current) {
@@ -742,6 +850,11 @@ export default function BookDetail({
                         <TensionBudgetSection budget={selectedTensionBudget} />
                       ) : null}
                       <TensionCurveSection budgets={chapterTensionBudgets} />
+                      {latestNarrativeCheckpoint ? (
+                        <TensionCheckpointSection
+                          checkpoint={latestNarrativeCheckpoint}
+                        />
+                      ) : null}
                       {context?.worldSetting ? (
                         <DetailSection title="世界观">
                           <p>{context.worldSetting}</p>
@@ -752,7 +865,7 @@ export default function BookDetail({
                           <p>{context.outline}</p>
                         </DetailSection>
                       ) : null}
-                      {!hasOutlineContent ? (
+                      {!hasOutlineTabContent ? (
                         <DetailEmpty
                           testId="book-detail-empty-outline"
                           message={getEmptyOutlineMessage(currentPhase)}

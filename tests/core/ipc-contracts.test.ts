@@ -50,6 +50,27 @@ function makeBookDetailContractFixture(): BookDetail {
           flatnessRisks: ['不要用解释代替冲突。'],
         },
       ],
+      narrativeCheckpoints: [
+        {
+          bookId: 'book-1',
+          chapterIndex: 10,
+          checkpointType: 'arc',
+          report: {
+            checkpointType: 'arc',
+            tensionCheckpoint: {
+              nextBudgetInstruction:
+                'Switch dominant tension in the next 2 chapters.',
+            },
+          },
+          futureCardRevisions: [
+            {
+              type: 'tension_budget_rebalance',
+              instruction: 'Switch dominant tension in the next 2 chapters.',
+            },
+          ],
+          createdAt: '2026-04-30T00:10:00.000Z',
+        },
+      ],
     },
     chapters: [
       {
@@ -92,6 +113,10 @@ describe('ipcChannels', () => {
       chapterIndex: 1,
       pressureLevel: 'high',
       dominantTension: 'moral_choice',
+    });
+    expect(detail.narrative?.narrativeCheckpoints[0]).toMatchObject({
+      chapterIndex: 10,
+      checkpointType: 'arc',
     });
     expect(detail.chapters[0]?.auditScore).toBe(88);
   });

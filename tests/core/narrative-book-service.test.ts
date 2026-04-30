@@ -498,5 +498,20 @@ describe('narrative book-service integration', () => {
         }),
       }),
     ]);
+    expect(
+      service.getBookDetail(bookId)?.narrative?.narrativeCheckpoints[0]
+    ).toMatchObject({
+      bookId,
+      chapterIndex: 10,
+      checkpointType: 'arc',
+      futureCardRevisions: [
+        {
+          type: 'tension_budget_rebalance',
+          instruction: expect.stringContaining(
+            'Switch dominant tension in the next 2 chapters'
+          ),
+        },
+      ],
+    });
   });
 });
