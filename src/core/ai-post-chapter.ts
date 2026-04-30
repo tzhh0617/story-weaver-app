@@ -256,6 +256,7 @@ export function createAiChapterAuditor(deps: {
       modelId: string;
       draft: string;
       auditContext: string;
+      routePlanText?: string | null;
     }): Promise<NarrativeAudit> {
       const model = deps.registry.languageModel(input.modelId);
       const result = await deps.generateText({

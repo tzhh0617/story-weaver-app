@@ -15,6 +15,10 @@ import {
   shouldRunNarrativeCheckpoint,
 } from './narrative/checkpoint.js';
 import { buildNarrativeCommandContext } from './narrative/context.js';
+import {
+  formatStoryRoutePlanForPrompt,
+  routeStoryTask,
+} from './story-router/index.js';
 import type {
   ChapterCard,
   ChapterCharacterPressure,
@@ -567,6 +571,7 @@ export function createBookService(deps: {
       modelId: string;
       draft: string;
       auditContext: string;
+      routePlanText?: string | null;
     }) => Promise<NarrativeAudit>;
   };
   chapterRevision?: {
@@ -1124,13 +1129,23 @@ export function createBookService(deps: {
               .map((chapter) => `Chapter ${chapter.chapterIndex}: ${chapter.summary}`),
             previousChapterEnding: null,
             maxCharacters: CHAPTER_CONTEXT_MAX_CHARACTERS,
-          })
+        })
         : null;
+      const storyRoutePlan = routeStoryTask({
+        taskType: 'write_chapter',
+        context: {
+          hasNarrativeBible: Boolean(deps.storyBibles?.getByBook?.(bookId)),
+          hasChapterCard: Boolean(chapterCard),
+          hasTensionBudget: Boolean(tensionBudget),
+        },
+      });
+      const routePlanText = formatStoryRoutePlanForPrompt(storyRoutePlan);
       const prompt = chapterCard
         ? buildNarrativeDraftPrompt({
             idea: book.idea,
             wordsPerChapter: book.wordsPerChapter,
             commandContext: commandContext ?? legacyContinuityContext,
+            routePlanText,
           })
         : buildChapterDraftPrompt({
             idea: book.idea,
@@ -1267,6 +1282,7 @@ export function createBookService(deps: {
           modelId,
           draft: result.content,
           auditContext,
+          routePlanText,
         });
         deps.chapterAudits?.save({
           bookId,
@@ -1308,6 +1324,7 @@ export function createBookService(deps: {
             modelId,
             draft: result.content,
             auditContext,
+            routePlanText,
           });
           deps.chapterAudits?.save({
             bookId,

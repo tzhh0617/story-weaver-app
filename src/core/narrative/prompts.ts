@@ -83,11 +83,13 @@ export function buildNarrativeDraftPrompt(input: {
   idea: string;
   wordsPerChapter: number;
   commandContext: string;
+  routePlanText?: string | null;
 }) {
   return [
     'Write the next chapter of a long-form Chinese web novel.',
     `Book idea: ${input.idea}`,
     `Write approximately ${input.wordsPerChapter} Chinese characters.`,
+    input.routePlanText ? `Story route requirements:\n${input.routePlanText}` : '',
     input.commandContext,
     'Hard requirements: complete mustChange, fulfill the Tension Budget when provided, make forcedChoice visible through action, make costToPay visible before the chapter ends, preserve forbiddenMoves, show world-rule cost when a rule is used, and make relationship changes visible through action.',
     'Return only the final chapter prose. Do not summarize or explain.',
@@ -97,6 +99,7 @@ export function buildNarrativeDraftPrompt(input: {
 export function buildChapterAuditPrompt(input: {
   draft: string;
   auditContext: string;
+  routePlanText?: string | null;
 }) {
   return [
     'Audit this chapter draft for long-form narrative drift.',
@@ -105,6 +108,7 @@ export function buildChapterAuditPrompt(input: {
     'Also audit flatness with scoring.flatness: conflictEscalation, choicePressure, consequenceVisibility, irreversibleChange, hookStrength.',
     'Flatness questions: Did the chapter escalate, turn, or meaningfully redirect conflict? Did the POV character face a visible choice? Was a cost paid or consequence made visible? Did the ending create forward pressure? Did the chapter repeat the same tension pattern without new effect?',
     'Decision rules: accept for strong chapters, revise for fixable major issues, rewrite for blockers.',
+    input.routePlanText ? `Story route requirements:\n${input.routePlanText}` : '',
     `Audit context:\n${input.auditContext}`,
     `Draft:\n${input.draft}`,
   ].join('\n');

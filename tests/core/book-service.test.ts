@@ -765,6 +765,190 @@ describe('createBookService', () => {
     );
   });
 
+  it('injects story route plans into chapter writing and auditing', async () => {
+    const db = createDatabase(':memory:');
+    const savedBibles: Record<string, any> = {};
+    const savedCards: any[] = [];
+    const savedBudgets: any[] = [];
+    const writeChapter = vi.fn().mockResolvedValue({
+      content: '第一章正文',
+      usage: { inputTokens: 10, outputTokens: 20 },
+    });
+    const auditChapter = vi.fn().mockResolvedValue({
+      passed: true,
+      score: 90,
+      decision: 'accept',
+      issues: [],
+      scoring: {
+        characterLogic: 18,
+        mainlineProgress: 14,
+        relationshipChange: 12,
+        conflictDepth: 14,
+        worldRuleCost: 8,
+        threadManagement: 8,
+        pacingReward: 10,
+        themeAlignment: 6,
+        flatness: {
+          conflictEscalation: 80,
+          choicePressure: 80,
+          consequenceVisibility: 80,
+          irreversibleChange: 80,
+          hookStrength: 80,
+        },
+      },
+      stateUpdates: {
+        characterArcUpdates: [],
+        relationshipUpdates: [],
+        threadUpdates: [],
+        worldRuleUpdates: [],
+      },
+    });
+    const service = createBookService({
+      books: createBookRepository(db),
+      chapters: createChapterRepository(db),
+      characters: createCharacterRepository(db),
+      plotThreads: createPlotThreadRepository(db),
+      sceneRecords: createSceneRecordRepository(db),
+      progress: createProgressRepository(db),
+      outlineService: {
+        generateFromIdea: vi.fn().mockResolvedValue({
+          worldSetting: 'World rules',
+          masterOutline: 'Master outline',
+          volumeOutlines: ['Volume 1'],
+          chapterOutlines: [
+            {
+              volumeIndex: 1,
+              chapterIndex: 1,
+              title: 'Chapter 1',
+              outline: 'Opening conflict',
+            },
+          ],
+          narrativeBible: {
+            premise: '修复命簿的人发现家族被删除。',
+            genreContract: '悬疑升级。',
+            targetReaderExperience: '追问真相。',
+            themeQuestion: '自由是否需要代价？',
+            themeAnswerDirection: '自由需要承担代价。',
+            centralDramaticQuestion: '林牧能否夺回命运？',
+            endingState: {
+              protagonistWins: '夺回选择权。',
+              protagonistLoses: '失去旧身份。',
+              worldChange: '命簿规则公开。',
+              relationshipOutcome: '同伴仍愿同行。',
+              themeAnswer: '自由来自承担。',
+            },
+            voiceGuide: '冷静、具象、克制。',
+            characterArcs: [],
+            relationshipEdges: [],
+            worldRules: [],
+            narrativeThreads: [],
+          },
+          chapterCards: [
+            {
+              bookId: '',
+              volumeIndex: 1,
+              chapterIndex: 1,
+              title: 'Chapter 1',
+              plotFunction: '开局异常。',
+              povCharacterId: null,
+              externalConflict: '旧页出现。',
+              internalConflict: '是否相信旧页。',
+              relationshipChange: '向同伴隐瞒。',
+              worldRuleUsedOrTested: '改写有代价。',
+              informationReveal: '家族记录消失。',
+              readerReward: 'truth',
+              endingHook: '旧页写出新名字。',
+              mustChange: '林牧决定追查。',
+              forbiddenMoves: ['不能无代价改写命簿。'],
+            },
+          ],
+          chapterTensionBudgets: [
+            {
+              bookId: '',
+              volumeIndex: 1,
+              chapterIndex: 1,
+              pressureLevel: 'high',
+              dominantTension: 'mystery',
+              requiredTurn: '旧页回应林牧。',
+              forcedChoice: '保密或求助。',
+              costToPay: '失去一段记忆。',
+              irreversibleChange: '林牧开始追查。',
+              readerQuestion: '旧页为何回应？',
+              hookPressure: '章末出现新名字。',
+              flatnessRisks: ['不要只解释。'],
+            },
+          ],
+        }),
+      },
+      storyBibles: {
+        saveGraph: (bookId, bible) => {
+          savedBibles[bookId] = bible;
+        },
+        getByBook: (bookId) => savedBibles[bookId] ?? null,
+      },
+      chapterCards: {
+        upsertMany: (cards) => {
+          savedCards.push(...cards);
+        },
+        listByBook: () => savedCards,
+        listCharacterPressures: () => [],
+        listRelationshipActions: () => [],
+        listThreadActions: () => [],
+      },
+      chapterTensionBudgets: {
+        upsertMany: (budgets) => {
+          savedBudgets.push(...budgets);
+        },
+        getByChapter: (_bookId, volumeIndex, chapterIndex) =>
+          savedBudgets.find(
+            (budget) =>
+              budget.volumeIndex === volumeIndex &&
+              budget.chapterIndex === chapterIndex
+          ) ?? null,
+      },
+      worldRules: {
+        listByBook: () => [],
+      },
+      chapterWriter: { writeChapter },
+      chapterAuditor: { auditChapter },
+      summaryGenerator: {
+        summarizeChapter: vi.fn().mockResolvedValue('摘要'),
+      },
+      plotThreadExtractor: {
+        extractThreads: vi.fn().mockResolvedValue({
+          openedThreads: [],
+          resolvedThreadIds: [],
+        }),
+      },
+      characterStateExtractor: {
+        extractStates: vi.fn().mockResolvedValue([]),
+      },
+      sceneRecordExtractor: {
+        extractScene: vi.fn().mockResolvedValue(null),
+      },
+      resolveModelId: vi.fn().mockReturnValue('openai:gpt-4o-mini'),
+    });
+
+    const bookId = service.createBook({
+      idea: '命簿',
+      targetChapters: 1,
+      wordsPerChapter: 1200,
+    });
+
+    await service.startBook(bookId);
+    await service.writeNextChapter(bookId);
+
+    expect(writeChapter.mock.calls[0]?.[0].prompt).toContain(
+      'Story Skill Route Plan'
+    );
+    expect(writeChapter.mock.calls[0]?.[0].prompt).toContain('chapter-goal');
+    expect(auditChapter).toHaveBeenCalledWith(
+      expect.objectContaining({
+        routePlanText: expect.stringContaining('Story Skill Route Plan'),
+      })
+    );
+  });
+
   it('emits generation progress, stream chunks, and completion for the next chapter', async () => {
     const db = createDatabase(':memory:');
     const events: BookGenerationEvent[] = [];

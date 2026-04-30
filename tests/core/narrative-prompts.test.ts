@@ -50,6 +50,34 @@ describe('narrative prompts', () => {
     expect(prompt).toContain('approximately 2000 Chinese characters');
   });
 
+  it('injects story route plans into draft prompts', () => {
+    const prompt = buildNarrativeDraftPrompt({
+      idea: '命簿',
+      wordsPerChapter: 2000,
+      commandContext: 'Chapter Mission: 林牧必须主动追查。',
+      routePlanText:
+        'Story Skill Route Plan\nRequired Skills\n- story-structure',
+    });
+
+    expect(prompt).toContain('Story Skill Route Plan');
+    expect(prompt).toContain('Required Skills');
+    expect(prompt).toContain('story-structure');
+    expect(prompt).toContain('Chapter Mission');
+  });
+
+  it('injects story route plans into audit prompts', () => {
+    const prompt = buildChapterAuditPrompt({
+      draft: '林牧直接改写命簿，没有代价。',
+      auditContext: 'World Rule and Cost: 改写命簿会失去记忆。',
+      routePlanText: 'Story Skill Route Plan\nRed Flags\n- 章末没有追读压力。',
+    });
+
+    expect(prompt).toContain('Story Skill Route Plan');
+    expect(prompt).toContain('Red Flags');
+    expect(prompt).toContain('章末没有追读压力。');
+    expect(prompt).toContain('world_rule_violation');
+  });
+
   it('audit and revision prompts carry issues into the fix request', () => {
     expect(
       buildChapterAuditPrompt({
