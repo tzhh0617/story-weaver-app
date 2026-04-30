@@ -20,6 +20,9 @@ const taskRoutes: Record<
       'hook-technique',
       'dialogue-control',
       'genre-pattern',
+      'viral-promise',
+      'payoff-cadence',
+      'anti-cliche',
       'prose-style',
       'consistency-audit',
       'pacing-audit',
@@ -34,6 +37,9 @@ const taskRoutes: Record<
       'character-logic',
       'emotion-curve',
       'hook-technique',
+      'viral-promise',
+      'payoff-cadence',
+      'anti-cliche',
       'dialogue-control',
       'prose-style',
       'de-ai-style',
@@ -51,6 +57,8 @@ const taskRoutes: Record<
       'opening-hook',
       'hook-technique',
       'genre-pattern',
+      'viral-promise',
+      'anti-cliche',
       'pacing-audit',
     ],
     optional: [],
@@ -64,6 +72,8 @@ const taskRoutes: Record<
       'story-structure',
       'character-logic',
       'genre-pattern',
+      'viral-promise',
+      'payoff-cadence',
       'consistency-audit',
       'pacing-audit',
       'red-flag-audit',
@@ -95,6 +105,8 @@ const baseChecklist = [
   '人物行动必须符合动机链。',
   '章末必须保留追读压力。',
   '不得违反世界规则和已发生剧情。',
+  '必须服务作品读者承诺。',
+  '应有回报必须带代价或副作用。',
 ];
 
 function getRoute(taskType: StoryTaskType) {
@@ -151,5 +163,6 @@ export function routeStoryTask(input: RouteStoryTaskInput): StoryRoutePlan {
     checklist: baseChecklist,
     warnings,
     openingRetentionLines: [],
+    viralProtocolLines: [],
   };
 }

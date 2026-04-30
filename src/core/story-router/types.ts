@@ -39,6 +39,7 @@ export type StoryRoutePlan = {
   checklist: string[];
   warnings: string[];
   openingRetentionLines?: string[];
+  viralProtocolLines?: string[];
 };
 
 export type RouteStoryTaskInput = {

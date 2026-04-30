@@ -25,6 +25,9 @@ describe('story skill router', () => {
       'hook-technique',
       'dialogue-control',
       'genre-pattern',
+      'viral-promise',
+      'payoff-cadence',
+      'anti-cliche',
       'prose-style',
       'consistency-audit',
       'pacing-audit',
@@ -37,6 +40,7 @@ describe('story skill router', () => {
       '低优先级规则不能推翻用户要求、作品设定、章节卡和张力预算。'
     );
     expect(plan.checklist).toContain('必须完成章节卡 mustChange。');
+    expect(plan.checklist).toContain('必须服务作品读者承诺。');
   });
 
   it('routes de-ai work without outline or opening modules', () => {
@@ -95,6 +99,8 @@ describe('story skill router', () => {
       'opening-hook',
       'hook-technique',
       'genre-pattern',
+      'viral-promise',
+      'anti-cliche',
       'pacing-audit',
     ]);
   });
@@ -154,5 +160,27 @@ describe('story skill router', () => {
 
     expect(text).toContain('Opening Retention');
     expect(text).toContain('Current opening phase: chapter 1');
+  });
+
+  it('formats viral protocol lines when provided', () => {
+    const plan = routeStoryTask({
+      taskType: 'write_chapter',
+      context: {
+        hasNarrativeBible: true,
+        hasChapterCard: true,
+        hasTensionBudget: true,
+      },
+    });
+
+    const text = formatStoryRoutePlanForPrompt({
+      ...plan,
+      viralProtocolLines: [
+        'Viral Story Protocol',
+        'Reader promise: 压抑后翻盘。',
+      ],
+    });
+
+    expect(text).toContain('Viral Protocol');
+    expect(text).toContain('Reader promise: 压抑后翻盘。');
   });
 });

@@ -43,6 +43,12 @@ export function formatStoryRoutePlanForPrompt(plan: StoryRoutePlan) {
           '',
         ]
       : []),
+    ...(plan.viralProtocolLines?.length
+      ? [
+          ...renderSection('Viral Protocol', plan.viralProtocolLines),
+          '',
+        ]
+      : []),
     ...renderSection('Warnings', plan.warnings),
   ].join('\n');
 }
