@@ -147,6 +147,50 @@ function TensionBudgetSection({
   );
 }
 
+function TensionCurveSection({
+  budgets,
+}: {
+  budgets: ChapterTensionBudgetView[];
+}) {
+  if (budgets.length < 2) {
+    return null;
+  }
+
+  const sortedBudgets = [...budgets].sort(
+    (left, right) =>
+      left.volumeIndex - right.volumeIndex ||
+      left.chapterIndex - right.chapterIndex
+  );
+
+  return (
+    <DetailSection title="张力曲线">
+      <ol
+        aria-label="张力曲线"
+        className="m-0 grid list-none gap-2 p-0"
+      >
+        {sortedBudgets.map((budget) => (
+          <li
+            key={`${budget.volumeIndex}-${budget.chapterIndex}`}
+            className="grid gap-1 border-l-2 border-border/70 pl-3"
+          >
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="shrink-0 text-xs font-semibold text-foreground">
+                {`第 ${budget.chapterIndex} 章`}
+              </span>
+              <span className="min-w-0 text-xs font-medium text-muted-foreground">
+                {`${budget.pressureLevel} · ${budget.dominantTension}`}
+              </span>
+            </div>
+            <p className="line-clamp-2 text-xs leading-5 text-muted-foreground">
+              {budget.requiredTurn}
+            </p>
+          </li>
+        ))}
+      </ol>
+    </DetailSection>
+  );
+}
+
 function BookProgressPanel({
   phase,
   stepLabel,
@@ -469,6 +513,7 @@ export default function BookDetail({
             budget.chapterIndex === selectedChapter.chapterIndex
         ) ?? null
       : null;
+  const chapterTensionBudgets = narrative?.chapterTensionBudgets ?? [];
   useEffect(() => {
     if (activeChapterId) {
       if (shouldAutoFollowActiveChapterRef.current) {
@@ -696,6 +741,7 @@ export default function BookDetail({
                       {selectedTensionBudget ? (
                         <TensionBudgetSection budget={selectedTensionBudget} />
                       ) : null}
+                      <TensionCurveSection budgets={chapterTensionBudgets} />
                       {context?.worldSetting ? (
                         <DetailSection title="世界观">
                           <p>{context.worldSetting}</p>

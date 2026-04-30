@@ -155,6 +155,81 @@ describe('BookDetail', () => {
     expect(within(contextPanel).getByText('失去同伴信任。')).toBeInTheDocument();
   });
 
+  it('shows a compact tension curve for planned chapter budgets', async () => {
+    render(
+      <BookDetail
+        book={{ title: 'Book 1', status: 'writing', wordCount: 1200 }}
+        progress={{ phase: 'writing' }}
+        narrative={{
+          chapterTensionBudgets: [
+            {
+              bookId: 'book-1',
+              volumeIndex: 1,
+              chapterIndex: 1,
+              pressureLevel: 'medium',
+              dominantTension: 'mystery',
+              requiredTurn: '线索转向。',
+              forcedChoice: '保密或求助。',
+              costToPay: '失去安全感。',
+              irreversibleChange: '开始追查。',
+              readerQuestion: '旧页从何而来？',
+              hookPressure: '新线索出现。',
+              flatnessRisks: ['不要只解释。'],
+            },
+            {
+              bookId: 'book-1',
+              volumeIndex: 1,
+              chapterIndex: 2,
+              pressureLevel: 'high',
+              dominantTension: 'relationship',
+              requiredTurn: '同盟破裂。',
+              forcedChoice: '信任或隐瞒。',
+              costToPay: '失去同伴信任。',
+              irreversibleChange: '关系出现裂痕。',
+              readerQuestion: '同伴是否还会帮他？',
+              hookPressure: '误会升级。',
+              flatnessRisks: ['不要让关系回到原点。'],
+            },
+            {
+              bookId: 'book-1',
+              volumeIndex: 1,
+              chapterIndex: 3,
+              pressureLevel: 'peak',
+              dominantTension: 'moral_choice',
+              requiredTurn: '胜利伤害无辜者。',
+              forcedChoice: '救人或保住证据。',
+              costToPay: '失去关键证据。',
+              irreversibleChange: '公开禁忌身份。',
+              readerQuestion: '幕后是否已经发现他？',
+              hookPressure: '禁忌身份暴露。',
+              flatnessRisks: ['不要无代价胜利。'],
+            },
+          ],
+        }}
+        chapters={[
+          {
+            id: '1-1',
+            volumeIndex: 1,
+            chapterIndex: 1,
+            title: 'Chapter 1',
+            wordCount: 1200,
+            status: 'done',
+            content: '第一章正文',
+          },
+        ]}
+      />
+    );
+
+    const tensionCurve = screen.getByLabelText('张力曲线');
+
+    expect(within(tensionCurve).getByText('第 1 章')).toBeInTheDocument();
+    expect(within(tensionCurve).getByText('medium · mystery')).toBeInTheDocument();
+    expect(within(tensionCurve).getByText('第 2 章')).toBeInTheDocument();
+    expect(within(tensionCurve).getByText('high · relationship')).toBeInTheDocument();
+    expect(within(tensionCurve).getByText('第 3 章')).toBeInTheDocument();
+    expect(within(tensionCurve).getByText('peak · moral_choice')).toBeInTheDocument();
+  });
+
   it('keeps reading visible while switching context tabs', async () => {
     render(
       <BookDetail
