@@ -65,13 +65,39 @@ function normalizeGeneratedTitle(text: string) {
     .trim();
 }
 
-function renderWorldSettingFromBible(bible: NarrativeBible) {
+function normalizePlainContextText(text: string) {
+  return text
+    .trim()
+    .split('\n')
+    .map((line) =>
+      line
+        .trim()
+        .replace(/^#{1,6}\s+/, '')
+        .replace(/^[-*]\s+/, '')
+        .replace(/\*\*([^*]+)\*\*/g, '$1')
+    )
+    .filter(Boolean)
+    .join('\n');
+}
+
+function renderWorldSettingFromBible(
+  bible: NarrativeBible,
+  input: Pick<OutlineGenerationInput, 'targetChapters' | 'wordsPerChapter'>
+) {
   return [
-    `Premise: ${bible.premise}`,
-    `Theme: ${bible.themeQuestion}`,
-    `Theme answer direction: ${bible.themeAnswerDirection}`,
-    'World rules:',
-    ...bible.worldRules.map((rule) => `${rule.id}: ${rule.ruleText}; cost=${rule.cost}`),
+    `目标总章数：${input.targetChapters}`,
+    `每章字数：${input.wordsPerChapter}`,
+    `故事前提：${bible.premise}`,
+    `题材契约：${bible.genreContract}`,
+    `读者体验：${bible.targetReaderExperience}`,
+    `主题问题：${bible.themeQuestion}`,
+    `主题答案方向：${bible.themeAnswerDirection}`,
+    `核心戏剧问题：${bible.centralDramaticQuestion}`,
+    `语气指南：${bible.voiceGuide}`,
+    '世界规则：',
+    ...bible.worldRules.map(
+      (rule) => `${rule.id}：${rule.ruleText}；代价=${rule.cost}`
+    ),
   ].join('\n');
 }
 
@@ -186,7 +212,10 @@ export function createAiOutlineService(deps: {
           throw new Error(`Invalid narrative bible: ${bibleValidation.issues.join('; ')}`);
         }
 
-        const worldSetting = renderWorldSettingFromBible(narrativeBible);
+        const worldSetting = renderWorldSettingFromBible(
+          narrativeBible,
+          input
+        );
         input.onWorldSetting?.(worldSetting);
 
         const volumePlans = parseJsonObject<VolumePlan[]>(
@@ -295,7 +324,14 @@ export function createAiOutlineService(deps: {
         };
       }
 
-      const worldSetting = bibleText;
+      const worldSetting = normalizePlainContextText(
+        (
+          await deps.generateText({
+            model,
+            prompt: buildWorldPrompt(input),
+          })
+        ).text
+      );
       input.onWorldSetting?.(worldSetting);
 
       const masterOutline = (

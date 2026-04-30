@@ -46,6 +46,7 @@ describe('narrative prompts', () => {
     });
 
     expect(prompt).toContain('Return only the final chapter prose');
+    expect(prompt).toContain('Do not include any chapter title');
     expect(prompt).toContain('Chapter Mission');
     expect(prompt).toContain('approximately 2000 Chinese characters');
   });

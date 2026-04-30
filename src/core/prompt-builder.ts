@@ -48,6 +48,7 @@ export function buildWorldPrompt(
     ...buildLengthConstraintLines(input),
     'Treat these as hard structure constraints for all later outline and chapter work.',
     'Return world rules, character anchors, power system, core conflict, and tone guide.',
+    'Return plain Chinese text only. Do not use Markdown headings, bullets, bold markers, or code fences.',
   ].join('\n');
 }
 
@@ -138,6 +139,6 @@ export function buildChapterDraftPrompt(input: {
     input.routePlanText ? `Story route requirements:\n${input.routePlanText}` : '',
     `Chapter title: ${input.chapterTitle}`,
     `Chapter outline: ${input.chapterOutline}`,
-    'Return only the final chapter prose.',
+    'Return only the final chapter prose. Do not include any chapter title, heading, Markdown title, or title line in the正文.',
   ].join('\n');
 }

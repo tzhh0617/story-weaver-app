@@ -417,7 +417,12 @@ describe('BookDetail', () => {
 
     fireEvent.click(screen.getByRole('tab', { name: '人物' }));
 
+    const contextPanel = screen.getByLabelText('上下文面板');
+
     expect(await screen.findByText('人物状态')).toBeInTheDocument();
+    expect(within(contextPanel).getByRole('list').className).not.toContain(
+      'pl-5'
+    );
     expect(screen.queryByText('总纲')).toBeNull();
     expect(screen.getByText('Generated chapter content')).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: '人物' })).toHaveAttribute(
@@ -432,7 +437,62 @@ describe('BookDetail', () => {
     fireEvent.click(screen.getByRole('tab', { name: '伏笔' }));
 
     expect(await screen.findByText('伏笔追踪')).toBeInTheDocument();
+    expect(within(contextPanel).getByRole('list').className).not.toContain(
+      'pl-5'
+    );
     expect(screen.getByText('Generated chapter content')).toBeInTheDocument();
+  });
+
+  it('uses the context card header as tabs and keeps the tab body clean', async () => {
+    render(
+      <BookDetail
+        book={{ title: 'Book 1', status: 'writing', wordCount: 12000 }}
+        context={{
+          worldSetting: 'World rules',
+          outline: 'Master outline',
+        }}
+        latestScene={{
+          location: 'Rain Market',
+          timeInStory: 'Night',
+          charactersPresent: ['Lin Mo'],
+          events: 'Lin Mo discovers the forged ledger',
+        }}
+        chapters={[
+          {
+            id: '1-1',
+            title: 'Chapter 1',
+            wordCount: 1200,
+            status: 'done',
+            content: 'Generated chapter content',
+          },
+        ]}
+      />
+    );
+
+    const contextPanel = screen.getByLabelText('上下文面板');
+    const tabsHeader = within(contextPanel).getByTestId(
+      'context-panel-tabs-header'
+    );
+
+    expect(within(tabsHeader).getByRole('tab', { name: '场景' })).toBeInTheDocument();
+    expect(within(tabsHeader).getByRole('tab', { name: '大纲' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    );
+    const tabClassNames = within(tabsHeader)
+      .getAllByRole('tab')
+      .map((tab) => tab.className);
+
+    expect(new Set(tabClassNames)).toHaveLength(1);
+    expect(
+      within(contextPanel).queryByRole('heading', { name: '上下文' })
+    ).toBeNull();
+
+    fireEvent.click(within(tabsHeader).getByRole('tab', { name: '场景' }));
+
+    expect(await within(contextPanel).findByText('最近场景')).toBeInTheDocument();
+    expect(within(contextPanel).getByText('Rain Market · Night')).toBeInTheDocument();
+    expect(within(contextPanel).queryByText('总纲')).toBeNull();
   });
 
   it('shows an empty state when the selected tab has no content yet', async () => {
@@ -623,6 +683,44 @@ describe('BookDetail', () => {
       await screen.findByText(
         (_content, element) =>
           element?.tagName === 'P' && element.textContent === '第一段\n第二段'
+      )
+    ).toHaveClass('whitespace-pre-wrap');
+  });
+
+  it('renders world setting and outline as plain multiline text', async () => {
+    render(
+      <BookDetail
+        book={{ title: 'Book 1', status: 'writing', wordCount: 1200 }}
+        progress={{ phase: 'writing' }}
+        context={{
+          worldSetting: '题材基调：废柴逆袭\n故事核心：重建命运',
+          outline: '第一卷：开局受辱\n第二卷：反击升级',
+        }}
+        chapters={[
+          {
+            id: '1-1',
+            title: 'Chapter 1',
+            wordCount: 1200,
+            status: 'done',
+            content: 'Generated chapter content',
+            summary: 'Chapter summary',
+          },
+        ]}
+      />
+    );
+
+    expect(
+      screen.getByText(
+        (_content, element) =>
+          element?.tagName === 'P' &&
+          element.textContent === '题材基调：废柴逆袭\n故事核心：重建命运'
+      )
+    ).toHaveClass('whitespace-pre-wrap');
+    expect(
+      screen.getByText(
+        (_content, element) =>
+          element?.tagName === 'P' &&
+          element.textContent === '第一卷：开局受辱\n第二卷：反击升级'
       )
     ).toHaveClass('whitespace-pre-wrap');
   });

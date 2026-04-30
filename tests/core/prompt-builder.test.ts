@@ -63,6 +63,18 @@ describe('buildWorldPrompt', () => {
         wordsPerChapter: input.wordsPerChapter,
       })
     ).not.toContain('do not exceed');
+    expect(
+      buildChapterDraftPrompt({
+        idea: input.idea,
+        worldSetting: 'World setting',
+        masterOutline: 'Master outline',
+        continuityContext: null,
+        chapterTitle: 'Chapter 1',
+        chapterOutline: 'Opening',
+        targetChapters: input.targetChapters,
+        wordsPerChapter: input.wordsPerChapter,
+      })
+    ).toContain('Do not include any chapter title');
   });
 
   it('injects story route plans into legacy chapter draft prompts', () => {

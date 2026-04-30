@@ -80,6 +80,7 @@ describe('createAiOutlineService', () => {
     const generateText = vi
       .fn()
       .mockResolvedValueOnce({ text: '月税奇谈' })
+      .mockResolvedValueOnce({ text: 'not json' })
       .mockResolvedValueOnce({ text: 'world' })
       .mockResolvedValueOnce({ text: 'outline' })
       .mockResolvedValueOnce({ text: 'Volume 1' })
@@ -128,6 +129,58 @@ describe('createAiOutlineService', () => {
     ]);
   });
 
+  it('falls back to a plain world prompt when the narrative bible response is markdown', async () => {
+    const fakeModel = { id: 'model' };
+    const registry = {
+      languageModel: vi.fn().mockReturnValue(fakeModel),
+    };
+    const generateText = vi
+      .fn()
+      .mockResolvedValueOnce({
+        text: [
+          '# 长篇中文 web 小说设计方案',
+          '## 一、硬性结构约束',
+          '- **题材核心**：废柴逆袭',
+        ].join('\n'),
+      })
+      .mockResolvedValueOnce({
+        text: [
+          '题材基调：废柴逆袭长篇。',
+          '故事核心：废柴少年重建命运。',
+          '世界规则：力量越强，代价越重。',
+        ].join('\n'),
+      })
+      .mockResolvedValueOnce({ text: '主线：重建命运。' })
+      .mockResolvedValueOnce({ text: '第1卷：命运初鸣' })
+      .mockResolvedValueOnce({ text: '1|第一章|开局受辱后反击。' });
+
+    const service = createAiOutlineService({
+      registry: registry as never,
+      generateText: generateText as never,
+    });
+    const onWorldSetting = vi.fn();
+
+    const result = await service.generateFromIdea({
+      bookId: 'book-1',
+      idea: '废柴少年重建命运。',
+      targetChapters: 1,
+      wordsPerChapter: 2000,
+      modelId: 'model-1',
+      onWorldSetting,
+    });
+
+    expect(result.worldSetting).toContain('题材基调：废柴逆袭长篇。');
+    expect(result.worldSetting).not.toContain('# 长篇中文 web 小说设计方案');
+    expect(result.worldSetting).not.toContain('**题材核心**');
+    expect(onWorldSetting).toHaveBeenCalledWith(result.worldSetting);
+    expect(generateText).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        prompt: expect.stringContaining('Return world rules'),
+      })
+    );
+  });
+
   it('normalizes model chapter outlines to the requested target chapter count', async () => {
     const fakeModel = { id: 'model' };
     const registry = {
@@ -135,6 +188,7 @@ describe('createAiOutlineService', () => {
     };
     const generateText = vi
       .fn()
+      .mockResolvedValueOnce({ text: 'not json' })
       .mockResolvedValueOnce({ text: 'world' })
       .mockResolvedValueOnce({ text: 'outline' })
       .mockResolvedValueOnce({ text: 'Volume 1' })
@@ -175,6 +229,7 @@ describe('createAiOutlineService', () => {
     };
     const generateText = vi
       .fn()
+      .mockResolvedValueOnce({ text: 'not json' })
       .mockResolvedValueOnce({ text: 'world' })
       .mockResolvedValueOnce({ text: 'outline' })
       .mockResolvedValueOnce({ text: 'Volume 1\n---\nVolume 2' })
@@ -196,7 +251,7 @@ describe('createAiOutlineService', () => {
     });
 
     expect(result.chapterOutlines).toHaveLength(2);
-    expect(generateText).toHaveBeenCalledTimes(4);
+    expect(generateText).toHaveBeenCalledTimes(5);
   });
 
   it('renumbers volume-local chapter outlines into cumulative book chapter numbers', async () => {
@@ -206,6 +261,7 @@ describe('createAiOutlineService', () => {
     };
     const generateText = vi
       .fn()
+      .mockResolvedValueOnce({ text: 'not json' })
       .mockResolvedValueOnce({ text: 'world' })
       .mockResolvedValueOnce({ text: 'outline' })
       .mockResolvedValueOnce({ text: 'Volume 1\n---\nVolume 2' })
@@ -321,6 +377,9 @@ describe('createAiOutlineService', () => {
         flatnessRisks: ['不要用解释代替冲突。'],
       },
     ]);
+    expect(result.worldSetting).toContain('目标总章数：1');
+    expect(result.worldSetting).toContain('故事前提：被剥夺记忆的档案修复师追查天命账簿。');
+    expect(result.worldSetting).not.toContain('Premise:');
     expect(generateText).toHaveBeenCalledTimes(4);
   });
 });

@@ -92,7 +92,7 @@ export function buildNarrativeDraftPrompt(input: {
     input.routePlanText ? `Story route requirements:\n${input.routePlanText}` : '',
     input.commandContext,
     'Hard requirements: complete mustChange, fulfill the Tension Budget when provided, make forcedChoice visible through action, make costToPay visible before the chapter ends, preserve forbiddenMoves, show world-rule cost when a rule is used, and make relationship changes visible through action.',
-    'Return only the final chapter prose. Do not summarize or explain.',
+    'Return only the final chapter prose. Do not include any chapter title, heading, Markdown title, or title line in the正文. Do not summarize or explain.',
   ].join('\n');
 }
 

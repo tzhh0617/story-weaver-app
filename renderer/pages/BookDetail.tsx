@@ -30,7 +30,7 @@ import {
 import { getStatusLabel } from '../status-labels';
 import { formatTotalWordCount } from '../word-count-format';
 
-type ContextTab = 'outline' | 'characters' | 'threads';
+type ContextTab = 'scene' | 'outline' | 'characters' | 'threads';
 
 type ChapterTensionBudgetView = {
   bookId: string;
@@ -90,6 +90,9 @@ const flatnessIssueLabels: Record<string, string> = {
   soft_hook: '软钩子',
   repeated_tension_pattern: '张力重复',
 };
+
+const contextPanelTabTriggerClassName =
+  'rounded-none border-b-2 border-transparent bg-transparent px-2 shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -925,51 +928,62 @@ export default function BookDetail({
 
           <aside
             aria-label="上下文面板"
-            className={`${layoutCardClassName} grid min-h-0 grid-rows-[auto_minmax(0,1fr)] overflow-hidden`}
+            className={`${layoutCardClassName} min-h-0 overflow-hidden`}
           >
-            <header className="border-b border-border/60 px-5 py-3">
-              <h2 className="text-sm font-semibold tracking-tight text-foreground">
-                上下文
-              </h2>
-            </header>
-            <ScrollArea aria-label="上下文滚动区" className="h-full min-h-0 px-4 py-4">
-              <div className="grid content-start gap-4 pr-2">
-                {latestScene ? (
-                  <DetailSection title="最近场景">
-                    <p>{`${latestScene.location} · ${latestScene.timeInStory}`}</p>
-                    {latestScene.events ? <p>{latestScene.events}</p> : null}
-                  </DetailSection>
-                ) : (
-                  <DetailEmpty message="暂无场景记录" />
-                )}
-                <Tabs
-                  value={contextTab}
-                  onValueChange={(value) => setContextTab(value as ContextTab)}
-                  className="grid gap-4"
-                >
-                  <TabsList className="grid h-9 w-full grid-cols-3 justify-start rounded-none border-b border-border/60 bg-transparent p-0 shadow-none">
-                    <TabsTrigger
-                      value="outline"
-                      className="rounded-none border-b-2 border-transparent bg-transparent px-2 shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-                      onClick={() => setContextTab('outline')}
-                    >
-                      大纲
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="characters"
-                      className="rounded-none border-b-2 border-transparent bg-transparent px-2 shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-                      onClick={() => setContextTab('characters')}
-                    >
-                      人物
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="threads"
-                      className="rounded-none border-b-2 border-transparent bg-transparent px-2 shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-                      onClick={() => setContextTab('threads')}
-                    >
-                      伏笔
-                    </TabsTrigger>
-                  </TabsList>
+            <Tabs
+              value={contextTab}
+              onValueChange={(value) => setContextTab(value as ContextTab)}
+              className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)]"
+            >
+              <header
+                data-testid="context-panel-tabs-header"
+                className="border-b border-border/60 px-3 pt-2"
+              >
+                <TabsList className="grid h-10 w-full grid-cols-4 justify-start rounded-none bg-transparent p-0 shadow-none">
+                  <TabsTrigger
+                    value="scene"
+                    className={contextPanelTabTriggerClassName}
+                    onClick={() => setContextTab('scene')}
+                  >
+                    场景
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="outline"
+                    className={contextPanelTabTriggerClassName}
+                    onClick={() => setContextTab('outline')}
+                  >
+                    大纲
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="characters"
+                    className={contextPanelTabTriggerClassName}
+                    onClick={() => setContextTab('characters')}
+                  >
+                    人物
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="threads"
+                    className={contextPanelTabTriggerClassName}
+                    onClick={() => setContextTab('threads')}
+                  >
+                    伏笔
+                  </TabsTrigger>
+                </TabsList>
+              </header>
+              <ScrollArea aria-label="上下文滚动区" className="h-full min-h-0 px-4 py-4">
+                <div className="grid content-start gap-4 pr-2">
+                  <TabsContent value="scene" className="mt-0">
+                    <div className="grid content-start gap-4">
+                      {latestScene ? (
+                        <DetailSection title="最近场景">
+                          <p>{`${latestScene.location} · ${latestScene.timeInStory}`}</p>
+                          {latestScene.events ? <p>{latestScene.events}</p> : null}
+                        </DetailSection>
+                      ) : (
+                        <DetailEmpty message="暂无场景记录" />
+                      )}
+                    </div>
+                  </TabsContent>
                   <TabsContent value="outline" className="mt-0">
                     <div className="grid content-start gap-4">
                       {selectedStoryRoutePlan ? (
@@ -990,12 +1004,16 @@ export default function BookDetail({
                       ) : null}
                       {context?.worldSetting ? (
                         <DetailSection title="世界观">
-                          <p>{context.worldSetting}</p>
+                          <p className="whitespace-pre-wrap">
+                            {context.worldSetting}
+                          </p>
                         </DetailSection>
                       ) : null}
                       {context?.outline ? (
                         <DetailSection title="总纲">
-                          <p>{context.outline}</p>
+                          <p className="whitespace-pre-wrap">
+                            {context.outline}
+                          </p>
                         </DetailSection>
                       ) : null}
                       {!hasOutlineTabContent ? (
@@ -1010,7 +1028,7 @@ export default function BookDetail({
                     <div className="grid content-start gap-4">
                       {characterStates?.length ? (
                         <DetailSection title="人物状态">
-                          <ul className="m-0 pl-5">
+                          <ul className="m-0 grid list-none gap-1 p-0">
                             {characterStates.map((state) => (
                               <li key={state.characterId}>
                                 {state.characterName}
@@ -1030,7 +1048,7 @@ export default function BookDetail({
                     <div className="grid content-start gap-4">
                       {plotThreads?.length ? (
                         <DetailSection title="伏笔追踪">
-                          <ul className="m-0 pl-5">
+                          <ul className="m-0 grid list-none gap-1 p-0">
                             {plotThreads.map((thread) => (
                               <li key={thread.id}>
                                 {thread.description}
@@ -1047,9 +1065,9 @@ export default function BookDetail({
                       ) : null}
                     </div>
                   </TabsContent>
-                </Tabs>
-              </div>
-            </ScrollArea>
+                </div>
+              </ScrollArea>
+            </Tabs>
           </aside>
         </div>
       </div>
