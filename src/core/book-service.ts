@@ -1342,7 +1342,9 @@ export function createBookService(deps: {
           audit,
         });
 
-        const auditAction = decideAuditAction(audit);
+        const auditAction = decideAuditAction(audit, {
+          chapterIndex: nextChapter.chapterIndex,
+        });
         if (auditAction !== 'accept' && deps.chapterRevision) {
           draftAttempts += 1;
           const revisionStepLabel = `正在修订第 ${nextChapter.chapterIndex} 章`;
