@@ -1,4 +1,5 @@
 import type { NarrativeAudit } from './types.js';
+import { buildOpeningRetentionProtocolLines } from './opening-retention.js';
 
 export { parseJsonObject } from './json.js';
 
@@ -52,6 +53,9 @@ export function buildChapterCardPrompt(input: {
     'Every chapter must produce an irreversible mustChange.',
     'threadActions must use action plant, advance, misdirect, or payoff.',
     'Do not create extra major characters unless required by the bible.',
+    ...buildOpeningRetentionProtocolLines({
+      targetChapters: input.targetChapters,
+    }),
   ].join('\n');
 }
 
@@ -76,6 +80,9 @@ export function buildTensionBudgetPrompt(input: {
     'Do not assign the same dominantTension to more than three consecutive chapters.',
     'Low pressure chapters must still include visible internal, relational, informational, or thematic movement.',
     'Peak chapters should align with volume turns, major payoffs, betrayals, failures, or irreversible decisions.',
+    ...buildOpeningRetentionProtocolLines({
+      targetChapters: input.targetChapters,
+    }),
   ].join('\n');
 }
 
