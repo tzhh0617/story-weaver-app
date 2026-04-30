@@ -5,6 +5,7 @@ import {
   buildNarrativeBiblePrompt,
   buildNarrativeDraftPrompt,
   buildRevisionPrompt,
+  buildTensionBudgetPrompt,
   parseJsonObject,
 } from '../../src/core/narrative/prompts';
 
@@ -71,6 +72,35 @@ describe('narrative prompts', () => {
         ],
       })
     ).toContain('加入记忆损失');
+  });
+
+  it('builds a tension budget prompt with anti-flatness requirements', () => {
+    const prompt = buildTensionBudgetPrompt({
+      bookId: 'book-1',
+      targetChapters: 3,
+      bibleSummary: 'theme: freedom requires cost',
+      volumePlansText: 'Volume 1: chapters 1-3',
+      chapterCardsText: 'Chapter 1: must change',
+    });
+
+    expect(prompt).toContain('Create tension budgets');
+    expect(prompt).toContain('forcedChoice');
+    expect(prompt).toContain('costToPay');
+    expect(prompt).toContain('irreversibleChange');
+    expect(prompt).toContain('hookPressure');
+    expect(prompt).toContain('Do not assign the same dominantTension');
+  });
+
+  it('asks audits to score flatness', () => {
+    const prompt = buildChapterAuditPrompt({
+      draft: '林牧翻开旧页。',
+      auditContext: 'Tension Budget: forcedChoice=保密或求助',
+    });
+
+    expect(prompt).toContain('flatness');
+    expect(prompt).toContain('choice');
+    expect(prompt).toContain('consequence');
+    expect(prompt).toContain('ending create forward pressure');
   });
 });
 

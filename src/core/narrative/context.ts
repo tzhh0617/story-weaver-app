@@ -18,6 +18,18 @@ type CompactChapterCard = {
   forbiddenMoves: string[];
 };
 
+type CompactTensionBudget = {
+  pressureLevel: string;
+  dominantTension: string;
+  requiredTurn: string;
+  forcedChoice: string;
+  costToPay: string;
+  irreversibleChange: string;
+  readerQuestion: string;
+  hookPressure: string;
+  flatnessRisks: string[];
+};
+
 function appendIfFits(
   lines: string[],
   line: string,
@@ -31,6 +43,7 @@ function appendIfFits(
 export function buildNarrativeCommandContext(input: {
   bible: CompactBible;
   chapterCard: CompactChapterCard;
+  tensionBudget?: CompactTensionBudget | null;
   hardContinuity: string[];
   characterPressures: string[];
   relationshipActions: string[];
@@ -40,7 +53,24 @@ export function buildNarrativeCommandContext(input: {
   previousChapterEnding: string | null;
   maxCharacters?: number;
 }) {
+  const tensionBudgetLines = input.tensionBudget
+    ? [
+        'Tension Budget:',
+        `pressureLevel: ${input.tensionBudget.pressureLevel}`,
+        `dominantTension: ${input.tensionBudget.dominantTension}`,
+        `requiredTurn: ${input.tensionBudget.requiredTurn}`,
+        `forcedChoice: ${input.tensionBudget.forcedChoice}`,
+        `costToPay: ${input.tensionBudget.costToPay}`,
+        `irreversibleChange: ${input.tensionBudget.irreversibleChange}`,
+        `readerQuestion: ${input.tensionBudget.readerQuestion}`,
+        `hookPressure: ${input.tensionBudget.hookPressure}`,
+        'Flatness Risks:',
+        ...input.tensionBudget.flatnessRisks,
+      ]
+    : [];
+
   const requiredTail = [
+    ...tensionBudgetLines,
     'Chapter Mission:',
     `title: ${input.chapterCard.title}`,
     `plotFunction: ${input.chapterCard.plotFunction}`,

@@ -55,6 +55,30 @@ export function buildChapterCardPrompt(input: {
   ].join('\n');
 }
 
+export function buildTensionBudgetPrompt(input: {
+  bookId: string;
+  targetChapters: number;
+  bibleSummary: string;
+  volumePlansText: string;
+  chapterCardsText: string;
+}) {
+  return [
+    'Create tension budgets for a long-form Chinese web novel.',
+    'Return valid JSON only: an array of chapter tension budget objects.',
+    `Book id: ${input.bookId}`,
+    `Target chapters: ${input.targetChapters}`,
+    `Narrative bible summary:\n${input.bibleSummary}`,
+    `Volume plans:\n${input.volumePlansText}`,
+    `Chapter cards:\n${input.chapterCardsText}`,
+    'Each chapter must include volumeIndex, chapterIndex, pressureLevel, dominantTension, requiredTurn, forcedChoice, costToPay, irreversibleChange, readerQuestion, hookPressure, flatnessRisks.',
+    'pressureLevel must be low, medium, high, or peak.',
+    'dominantTension must be danger, desire, relationship, mystery, moral_choice, deadline, status_loss, or resource_cost.',
+    'Do not assign the same dominantTension to more than three consecutive chapters.',
+    'Low pressure chapters must still include visible internal, relational, informational, or thematic movement.',
+    'Peak chapters should align with volume turns, major payoffs, betrayals, failures, or irreversible decisions.',
+  ].join('\n');
+}
+
 export function buildNarrativeDraftPrompt(input: {
   idea: string;
   wordsPerChapter: number;
@@ -65,7 +89,7 @@ export function buildNarrativeDraftPrompt(input: {
     `Book idea: ${input.idea}`,
     `Write approximately ${input.wordsPerChapter} Chinese characters.`,
     input.commandContext,
-    'Hard requirements: complete mustChange, preserve forbiddenMoves, show world-rule cost when a rule is used, and make relationship changes visible through action.',
+    'Hard requirements: complete mustChange, fulfill the Tension Budget when provided, make forcedChoice visible through action, make costToPay visible before the chapter ends, preserve forbiddenMoves, show world-rule cost when a rule is used, and make relationship changes visible through action.',
     'Return only the final chapter prose. Do not summarize or explain.',
   ].join('\n');
 }
@@ -77,7 +101,9 @@ export function buildChapterAuditPrompt(input: {
   return [
     'Audit this chapter draft for long-form narrative drift.',
     'Return valid JSON only with passed, score, decision, issues, scoring, stateUpdates.',
-    'Issue type enum: character_logic, relationship_static, world_rule_violation, mainline_stall, thread_leak, pacing_problem, theme_drift, chapter_too_empty, forbidden_move, missing_reader_reward.',
+    'Issue type enum: character_logic, relationship_static, world_rule_violation, mainline_stall, thread_leak, pacing_problem, theme_drift, chapter_too_empty, forbidden_move, missing_reader_reward, flat_chapter, weak_choice_pressure, missing_consequence, soft_hook, repeated_tension_pattern.',
+    'Also audit flatness with scoring.flatness: conflictEscalation, choicePressure, consequenceVisibility, irreversibleChange, hookStrength.',
+    'Flatness questions: Did the chapter escalate, turn, or meaningfully redirect conflict? Did the POV character face a visible choice? Was a cost paid or consequence made visible? Did the ending create forward pressure? Did the chapter repeat the same tension pattern without new effect?',
     'Decision rules: accept for strong chapters, revise for fixable major issues, rewrite for blockers.',
     `Audit context:\n${input.auditContext}`,
     `Draft:\n${input.draft}`,
