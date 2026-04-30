@@ -37,7 +37,7 @@
 - Create: `src/core/story-router/index.ts`
 - Test: `tests/core/story-router.test.ts`
 
-- [ ] **Step 1: Write failing router tests**
+- [x] **Step 1: Write failing router tests**
 
 Create `tests/core/story-router.test.ts`:
 
@@ -158,7 +158,7 @@ describe('story skill router', () => {
 });
 ```
 
-- [ ] **Step 2: Run the failing router tests**
+- [x] **Step 2: Run the failing router tests**
 
 Run:
 
@@ -168,7 +168,7 @@ pnpm vitest run tests/core/story-router.test.ts
 
 Expected: FAIL because `../../src/core/story-router` does not exist.
 
-- [ ] **Step 3: Add router types**
+- [x] **Step 3: Add router types**
 
 Create `src/core/story-router/types.ts`:
 
@@ -221,7 +221,7 @@ export type RouteStoryTaskInput = {
 };
 ```
 
-- [ ] **Step 4: Add the V1 skill registry**
+- [x] **Step 4: Add the V1 skill registry**
 
 Create `src/core/story-router/registry.ts`:
 
@@ -446,7 +446,7 @@ export const storySkillRegistry: StorySkill[] = [
 ];
 ```
 
-- [ ] **Step 5: Add deterministic routing**
+- [x] **Step 5: Add deterministic routing**
 
 Create `src/core/story-router/router.ts`:
 
@@ -602,7 +602,7 @@ export function routeStoryTask(input: RouteStoryTaskInput): StoryRoutePlan {
 }
 ```
 
-- [ ] **Step 6: Add prompt formatting and exports**
+- [x] **Step 6: Add prompt formatting and exports**
 
 Create `src/core/story-router/prompt-rules.ts`:
 
@@ -663,7 +663,7 @@ export type {
 } from './types.js';
 ```
 
-- [ ] **Step 7: Run router tests**
+- [x] **Step 7: Run router tests**
 
 Run:
 
@@ -673,7 +673,7 @@ pnpm vitest run tests/core/story-router.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 8: Commit core router**
+- [x] **Step 8: Commit core router**
 
 Run:
 
@@ -689,7 +689,7 @@ git commit -m "feat: add story skill router"
 - Modify: `src/core/ai-post-chapter.ts`
 - Test: `tests/core/narrative-prompts.test.ts`
 
-- [ ] **Step 1: Write failing prompt tests**
+- [x] **Step 1: Write failing prompt tests**
 
 Append to `tests/core/narrative-prompts.test.ts` inside `describe('narrative prompts', () => { ... })`:
 
@@ -723,7 +723,7 @@ Append to `tests/core/narrative-prompts.test.ts` inside `describe('narrative pro
   });
 ```
 
-- [ ] **Step 2: Run failing prompt tests**
+- [x] **Step 2: Run failing prompt tests**
 
 Run:
 
@@ -733,7 +733,7 @@ pnpm vitest run tests/core/narrative-prompts.test.ts
 
 Expected: FAIL because `routePlanText` is not accepted yet.
 
-- [ ] **Step 3: Add optional route-plan prompt fields**
+- [x] **Step 3: Add optional route-plan prompt fields**
 
 Modify `src/core/narrative/prompts.ts`:
 
@@ -774,7 +774,7 @@ export function buildChapterAuditPrompt(input: {
 }
 ```
 
-- [ ] **Step 4: Extend AI chapter auditor input**
+- [x] **Step 4: Extend AI chapter auditor input**
 
 Modify `src/core/ai-post-chapter.ts` in `createAiChapterAuditor` so `auditChapter` accepts and forwards `routePlanText`:
 
@@ -791,7 +791,7 @@ Modify `src/core/ai-post-chapter.ts` in `createAiChapterAuditor` so `auditChapte
       });
 ```
 
-- [ ] **Step 5: Run prompt tests**
+- [x] **Step 5: Run prompt tests**
 
 Run:
 
@@ -801,7 +801,7 @@ pnpm vitest run tests/core/narrative-prompts.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit prompt integration**
+- [x] **Step 6: Commit prompt integration**
 
 Run:
 
@@ -816,7 +816,7 @@ git commit -m "feat: inject story routes into narrative prompts"
 - Modify: `src/core/book-service.ts`
 - Test: `tests/core/book-service.test.ts`
 
-- [ ] **Step 1: Write failing book-service tests**
+- [x] **Step 1: Write failing book-service tests**
 
 Append to `tests/core/book-service.test.ts`:
 
@@ -974,7 +974,7 @@ it('injects story route plans into chapter writing and auditing', async () => {
 });
 ```
 
-- [ ] **Step 2: Run failing book-service test**
+- [x] **Step 2: Run failing book-service test**
 
 Run:
 
@@ -984,7 +984,7 @@ pnpm vitest run tests/core/book-service.test.ts -- -t "injects story route plans
 
 Expected: FAIL because book-service does not create route plans.
 
-- [ ] **Step 3: Import router helpers**
+- [x] **Step 3: Import router helpers**
 
 Modify imports in `src/core/book-service.ts`:
 
@@ -995,7 +995,7 @@ import {
 } from './story-router/index.js';
 ```
 
-- [ ] **Step 4: Build the route plan before the narrative draft prompt**
+- [x] **Step 4: Build the route plan before the narrative draft prompt**
 
 In `generateNextChapter`, immediately after `commandContext` is built, add:
 
@@ -1022,7 +1022,7 @@ Then update the narrative draft prompt call:
             })
 ```
 
-- [ ] **Step 5: Pass route text to chapter audits**
+- [x] **Step 5: Pass route text to chapter audits**
 
 Update both `deps.chapterAuditor.auditChapter` calls in `generateNextChapter`:
 
@@ -1059,7 +1059,7 @@ Update the dependency type near `chapterAuditor`:
   };
 ```
 
-- [ ] **Step 6: Run the targeted test**
+- [x] **Step 6: Run the targeted test**
 
 Run:
 
@@ -1069,7 +1069,7 @@ pnpm vitest run tests/core/book-service.test.ts -- -t "injects story route plans
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit book-service route injection**
+- [x] **Step 7: Commit book-service route injection**
 
 Run:
 
@@ -1087,7 +1087,7 @@ git commit -m "feat: route chapter generation through story skills"
 - Test: `tests/renderer/book-detail.test.tsx`
 - Test: `tests/core/book-service.test.ts`
 
-- [ ] **Step 1: Add failing contract/detail expectations**
+- [x] **Step 1: Add failing contract/detail expectations**
 
 Append to `tests/core/book-service.test.ts`:
 
@@ -1202,7 +1202,7 @@ Append to `tests/renderer/book-detail.test.tsx`:
   });
 ```
 
-- [ ] **Step 2: Run failing detail tests**
+- [x] **Step 2: Run failing detail tests**
 
 Run:
 
@@ -1213,7 +1213,7 @@ pnpm vitest run tests/renderer/book-detail.test.tsx -- -t "story route summary"
 
 Expected: FAIL because contracts and UI do not include `storyRoutePlan`.
 
-- [ ] **Step 3: Add shared contract shape**
+- [x] **Step 3: Add shared contract shape**
 
 Modify `src/shared/contracts.ts` before `BookDetail`:
 
@@ -1245,7 +1245,7 @@ Add to each chapter record in `BookDetail.chapters`:
     storyRoutePlan?: StoryRoutePlanView | null;
 ```
 
-- [ ] **Step 4: Add route-plan view mapping in book-service**
+- [x] **Step 4: Add route-plan view mapping in book-service**
 
 Add helper functions near the top of `src/core/book-service.ts`:
 
@@ -1312,7 +1312,7 @@ and:
           ].join('\n'),
 ```
 
-- [ ] **Step 5: Add renderer route summary types and component**
+- [x] **Step 5: Add renderer route summary types and component**
 
 Modify `renderer/pages/BookDetail.tsx`.
 
@@ -1391,7 +1391,7 @@ Render it in the outline tab before `TensionBudgetSection`:
                       ) : null}
 ```
 
-- [ ] **Step 6: Run detail tests**
+- [x] **Step 6: Run detail tests**
 
 Run:
 
@@ -1402,7 +1402,7 @@ pnpm vitest run tests/renderer/book-detail.test.tsx -- -t "story route summary"
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit read-only route summary**
+- [x] **Step 7: Commit read-only route summary**
 
 Run:
 
@@ -1419,7 +1419,7 @@ git commit -m "feat: show story route summaries"
 - Review: `src/core/book-service.ts`
 - Review: `renderer/pages/BookDetail.tsx`
 
-- [ ] **Step 1: Run focused tests**
+- [x] **Step 1: Run focused tests**
 
 Run:
 
@@ -1429,7 +1429,7 @@ pnpm vitest run tests/core/story-router.test.ts tests/core/narrative-prompts.tes
 
 Expected: PASS.
 
-- [ ] **Step 2: Run typecheck**
+- [x] **Step 2: Run typecheck**
 
 Run:
 
@@ -1439,7 +1439,7 @@ pnpm run typecheck
 
 Expected: PASS with no TypeScript errors.
 
-- [ ] **Step 3: Run full test suite**
+- [x] **Step 3: Run full test suite**
 
 Run:
 
@@ -1449,7 +1449,7 @@ pnpm test
 
 Expected: PASS. If `better-sqlite3` rebuild output appears, wait for Vitest results and verify all tests pass.
 
-- [ ] **Step 4: Inspect final diff**
+- [x] **Step 4: Inspect final diff**
 
 Run:
 
@@ -1460,7 +1460,7 @@ git diff -- src/core/story-router src/core/narrative/prompts.ts src/core/book-se
 
 Expected: only Story Skill Router, prompt injection, book-service route usage, contracts, UI summary, and tests changed.
 
-- [ ] **Step 5: Commit verification fixes if needed**
+- [x] **Step 5: Commit verification fixes if needed**
 
 If Steps 1-3 required fixes, commit them:
 
