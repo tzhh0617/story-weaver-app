@@ -55,6 +55,75 @@ export type ReaderReward =
   | 'dread'
   | 'relief';
 
+export type ViralTargetEmotion =
+  | 'comeback'
+  | 'revenge'
+  | 'survival'
+  | 'wonder'
+  | 'romantic_tension'
+  | 'power_climb'
+  | 'mystery_breakthrough'
+  | 'being_chosen'
+  | 'moral_pressure';
+
+export type ViralTropeContract =
+  | 'rebirth_change_fate'
+  | 'system_growth'
+  | 'hidden_identity'
+  | 'revenge_payback'
+  | 'weak_to_strong'
+  | 'forbidden_bond'
+  | 'case_breaking'
+  | 'sect_or_family_pressure'
+  | 'survival_game'
+  | 'business_or_power_game';
+
+export type ViralPayoffType =
+  | 'face_slap'
+  | 'upgrade'
+  | 'truth_reveal'
+  | 'relationship_shift'
+  | 'resource_gain'
+  | 'local_victory'
+  | 'identity_reveal'
+  | 'enemy_setback';
+
+export type ViralPayoffCadence = {
+  mode: 'fast' | 'steady' | 'slow_burn' | 'suppressed_then_burst';
+  minorPayoffEveryChapters: number;
+  majorPayoffEveryChapters: number;
+  payoffTypes: ViralPayoffType[];
+};
+
+export type ViralStoryProtocol = {
+  readerPromise: string;
+  targetEmotion: ViralTargetEmotion;
+  coreDesire: string;
+  protagonistDrive: string;
+  hookEngine: string;
+  payoffCadence: ViralPayoffCadence;
+  tropeContract: ViralTropeContract[];
+  antiClicheRules: string[];
+  longTermQuestion: string;
+};
+
+export type ViralStrategyInput = {
+  readerPayoff?: string;
+  protagonistDesire?: string;
+  tropeContracts?: ViralTropeContract[];
+  cadenceMode?: ViralPayoffCadence['mode'];
+  antiClicheDirection?: string;
+};
+
+export type ViralScoring = {
+  openingHook: number;
+  desireClarity: number;
+  payoffStrength: number;
+  readerQuestionStrength: number;
+  tropeFulfillment: number;
+  antiClicheFreshness: number;
+};
+
 export type ThreadAction = 'plant' | 'advance' | 'misdirect' | 'payoff';
 export type RelationshipAction =
   | 'strain'
@@ -91,7 +160,14 @@ export type AuditIssueType =
   | 'weak_choice_pressure'
   | 'missing_consequence'
   | 'soft_hook'
-  | 'repeated_tension_pattern';
+  | 'repeated_tension_pattern'
+  | 'weak_reader_promise'
+  | 'unclear_desire'
+  | 'missing_payoff'
+  | 'payoff_without_cost'
+  | 'generic_trope'
+  | 'weak_reader_question'
+  | 'stale_hook_engine';
 
 export type AuditSeverity = 'blocker' | 'major' | 'minor';
 export type AuditDecision = 'accept' | 'revise' | 'rewrite';
@@ -180,6 +256,7 @@ export type NarrativeBible = {
   relationshipEdges: RelationshipEdge[];
   worldRules: WorldRule[];
   narrativeThreads: NarrativeThread[];
+  viralStoryProtocol?: ViralStoryProtocol;
 };
 
 export type VolumePlan = {
@@ -299,6 +376,7 @@ export type NarrativeAudit = {
     pacingReward: number;
     themeAlignment: number;
     flatness?: FlatnessScoring;
+    viral?: ViralScoring;
   };
   stateUpdates: {
     characterArcUpdates: string[];

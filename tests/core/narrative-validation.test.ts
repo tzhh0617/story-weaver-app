@@ -100,6 +100,33 @@ describe('validateNarrativeBible', () => {
     expect(result.issues).toContain('Character lin-mu must include desire.');
     expect(result.issues).toContain('World rule record-cost must include cost.');
   });
+
+  it('validates optional viral story protocol fields', () => {
+    const bible = validBible();
+    bible.viralStoryProtocol = {
+      readerPromise: '',
+      targetEmotion: 'revenge',
+      coreDesire: '复仇',
+      protagonistDrive: '主动追查。',
+      hookEngine: '旧案递进。',
+      payoffCadence: {
+        mode: 'steady',
+        minorPayoffEveryChapters: 2,
+        majorPayoffEveryChapters: 8,
+        payoffTypes: ['truth_reveal'],
+      },
+      tropeContract: ['revenge_payback'],
+      antiClicheRules: ['反派不降智。'],
+      longTermQuestion: '幕后是谁？',
+    };
+
+    const result = validateNarrativeBible(bible, { targetChapters: 30 });
+
+    expect(result.valid).toBe(false);
+    expect(result.issues).toContain(
+      'Viral story protocol must include readerPromise.'
+    );
+  });
 });
 
 describe('validateVolumePlans', () => {

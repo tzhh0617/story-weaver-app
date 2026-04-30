@@ -5,6 +5,7 @@ import type {
   ValidationResult,
   VolumePlan,
 } from './types.js';
+import { validateViralStoryProtocol } from './viral-story-protocol.js';
 
 function isBlank(value: string | null | undefined) {
   return !value || value.trim().length === 0;
@@ -79,6 +80,10 @@ export function validateNarrativeBible(
         `Thread ${thread.id} references missing relatedRelationshipId ${thread.relatedRelationshipId}.`
       );
     }
+  }
+
+  if (bible.viralStoryProtocol) {
+    issues.push(...validateViralStoryProtocol(bible.viralStoryProtocol).issues);
   }
 
   return result(issues);
