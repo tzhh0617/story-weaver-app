@@ -8,18 +8,21 @@ import {
 import {
   buildChapterCardPrompt,
   buildNarrativeBiblePrompt,
+  buildTensionBudgetPrompt,
   buildVolumePlanPrompt,
 } from './narrative/prompts.js';
 import { parseJsonObject } from './narrative/json.js';
 import {
   validateChapterCards,
   validateNarrativeBible,
+  validateTensionBudgets,
   validateVolumePlans,
 } from './narrative/validation.js';
 import type {
   ChapterCard,
   ChapterCharacterPressure,
   ChapterRelationshipAction,
+  ChapterTensionBudget,
   ChapterThreadAction,
   NarrativeBible,
   VolumePlan,
@@ -117,6 +120,15 @@ function volumePlansText(volumePlans: VolumePlan[]) {
     .map(
       (volume) =>
         `Volume ${volume.volumeIndex}: ${volume.title}, chapters ${volume.chapterStart}-${volume.chapterEnd}, payoff=${volume.promisedPayoff}`
+    )
+    .join('\n');
+}
+
+function chapterCardsText(cards: ChapterCard[]) {
+  return cards
+    .map(
+      (card) =>
+        `Chapter ${card.chapterIndex}: ${card.title}; function=${card.plotFunction}; mustChange=${card.mustChange}; readerReward=${card.readerReward}; endingHook=${card.endingHook}`
     )
     .join('\n');
 }
@@ -230,6 +242,38 @@ export function createAiOutlineService(deps: {
           throw new Error(`Invalid chapter cards: ${cardValidation.issues.join('; ')}`);
         }
 
+        const generatedTensionBudgets = parseJsonObject<
+          Array<Omit<ChapterTensionBudget, 'bookId'> & { bookId?: string }>
+        >(
+          (
+            await deps.generateText({
+              model,
+              prompt: buildTensionBudgetPrompt({
+                bookId: input.bookId,
+                targetChapters: input.targetChapters,
+                bibleSummary: bibleSummary(narrativeBible),
+                volumePlansText: volumePlansText(volumePlans),
+                chapterCardsText: chapterCardsText(chapterCards),
+              }),
+            })
+          ).text
+        );
+        const chapterTensionBudgets = generatedTensionBudgets.map((budget) => ({
+          ...budget,
+          bookId: input.bookId,
+        })) as ChapterTensionBudget[];
+        const tensionBudgetValidation = validateTensionBudgets(
+          chapterTensionBudgets,
+          {
+            targetChapters: input.targetChapters,
+          }
+        );
+        if (!tensionBudgetValidation.valid) {
+          throw new Error(
+            `Invalid tension budgets: ${tensionBudgetValidation.issues.join('; ')}`
+          );
+        }
+
         const chapterOutlines = chapterOutlinesFromCards(chapterCards);
         input.onChapterOutlines?.(chapterOutlines);
 
@@ -244,6 +288,7 @@ export function createAiOutlineService(deps: {
           narrativeBible,
           volumePlans,
           chapterCards,
+          chapterTensionBudgets,
           chapterThreadActions: cardBundle.threadActions ?? [],
           chapterCharacterPressures: cardBundle.characterPressures ?? [],
           chapterRelationshipActions: cardBundle.relationshipActions ?? [],
