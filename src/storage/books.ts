@@ -155,6 +155,7 @@ export function createBookRepository(db: SqliteDatabase) {
         'narrative_checkpoints',
         'chapter_generation_audits',
         'chapter_relationship_actions',
+        'chapter_tension_budgets',
         'chapter_character_pressures',
         'chapter_thread_actions',
         'chapter_cards',

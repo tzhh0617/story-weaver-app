@@ -4,6 +4,7 @@ import { migrations } from './migrations.js';
 import { createBookRepository } from './books.js';
 import { createChapterAuditRepository } from './chapter-audits.js';
 import { createChapterCardRepository } from './chapter-cards.js';
+import { createChapterTensionBudgetRepository } from './chapter-tension-budgets.js';
 import { createChapterRepository } from './chapters.js';
 import { createCharacterArcRepository } from './character-arcs.js';
 import { createCharacterRepository } from './characters.js';
@@ -39,6 +40,7 @@ function resetDevelopmentStorySchema(db: SqliteDatabase) {
     DROP TABLE IF EXISTS narrative_checkpoints;
     DROP TABLE IF EXISTS chapter_generation_audits;
     DROP TABLE IF EXISTS chapter_relationship_actions;
+    DROP TABLE IF EXISTS chapter_tension_budgets;
     DROP TABLE IF EXISTS chapter_character_pressures;
     DROP TABLE IF EXISTS chapter_thread_actions;
     DROP TABLE IF EXISTS chapter_cards;
@@ -101,6 +103,7 @@ export function createRepositories(db: SqliteDatabase) {
     narrativeThreads,
     volumePlans: createVolumePlanRepository(db),
     chapterCards: createChapterCardRepository(db),
+    chapterTensionBudgets: createChapterTensionBudgetRepository(db),
     chapterAudits: createChapterAuditRepository(db),
     relationshipStates: createRelationshipStateRepository(db),
     narrativeCheckpoints: createNarrativeCheckpointRepository(db),

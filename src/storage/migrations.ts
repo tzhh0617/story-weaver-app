@@ -211,6 +211,25 @@ export const migrations = [
     FOREIGN KEY (book_id) REFERENCES books(id)
   );
 
+  CREATE TABLE IF NOT EXISTS chapter_tension_budgets (
+    book_id TEXT NOT NULL,
+    volume_index INTEGER NOT NULL,
+    chapter_index INTEGER NOT NULL,
+    pressure_level TEXT NOT NULL,
+    dominant_tension TEXT NOT NULL,
+    required_turn TEXT NOT NULL,
+    forced_choice TEXT NOT NULL,
+    cost_to_pay TEXT NOT NULL,
+    irreversible_change TEXT NOT NULL,
+    reader_question TEXT NOT NULL,
+    hook_pressure TEXT NOT NULL,
+    flatness_risks_json TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (book_id, volume_index, chapter_index),
+    FOREIGN KEY (book_id) REFERENCES books(id)
+  );
+
   CREATE TABLE IF NOT EXISTS chapters (
     book_id TEXT NOT NULL,
     volume_index INTEGER NOT NULL,
