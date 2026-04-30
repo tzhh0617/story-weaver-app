@@ -16,6 +16,7 @@ import type {
   ChapterCard,
   ChapterCharacterPressure,
   ChapterRelationshipAction,
+  ChapterTensionBudget,
   ChapterThreadAction,
   NarrativeAudit,
   NarrativeStateDelta,
@@ -422,6 +423,15 @@ export function createBookService(deps: {
       chapterIndex: number
     ) => ChapterRelationshipAction[];
   };
+  chapterTensionBudgets?: {
+    upsertMany: (budgets: ChapterTensionBudget[]) => void;
+    getByChapter?: (
+      bookId: string,
+      volumeIndex: number,
+      chapterIndex: number
+    ) => ChapterTensionBudget | null;
+    listByBook?: (bookId: string) => ChapterTensionBudget[];
+  };
   chapterAudits?: {
     save: (input: {
       bookId: string;
@@ -673,6 +683,8 @@ export function createBookService(deps: {
       const worldRules = deps.worldRules?.listByBook(bookId) ?? [];
       const volumePlans = deps.volumePlans?.listByBook?.(bookId) ?? [];
       const chapterCards = deps.chapterCards?.listByBook?.(bookId) ?? [];
+      const chapterTensionBudgets =
+        deps.chapterTensionBudgets?.listByBook?.(bookId) ?? [];
       const context = bible
         ? {
             bookId,
@@ -732,6 +744,7 @@ export function createBookService(deps: {
           worldRules,
           narrativeThreads: deps.narrativeThreads?.listByBook(bookId) ?? [],
           chapterCards,
+          chapterTensionBudgets,
         },
         chapters,
         progress: deps.progress.getByBookId(bookId) ?? null,
@@ -856,6 +869,9 @@ export function createBookService(deps: {
       if (outlineBundle.chapterCards) {
         deps.chapterCards?.upsertMany(outlineBundle.chapterCards);
       }
+      if (outlineBundle.chapterTensionBudgets?.length) {
+        deps.chapterTensionBudgets?.upsertMany(outlineBundle.chapterTensionBudgets);
+      }
       for (const card of outlineBundle.chapterCards ?? []) {
         const threadActions = (outlineBundle.chapterThreadActions ?? []).filter(
           (action) =>
@@ -957,6 +973,14 @@ export function createBookService(deps: {
               card.volumeIndex === nextChapter.volumeIndex &&
               card.chapterIndex === nextChapter.chapterIndex
           ) ?? null;
+      const tensionBudget =
+        chapterCard && deps.chapterTensionBudgets?.getByChapter
+          ? deps.chapterTensionBudgets.getByChapter(
+              bookId,
+              nextChapter.volumeIndex,
+              nextChapter.chapterIndex
+            )
+          : null;
       const legacyContinuityContext = buildStoredChapterContext({
         worldSetting: context?.worldSetting ?? null,
         characterStates: deps.characters.listLatestStatesByBook(bookId),
@@ -981,6 +1005,7 @@ export function createBookService(deps: {
               voiceGuide: deps.storyBibles?.getByBook?.(bookId)?.voiceGuide ?? '',
             },
             chapterCard,
+            tensionBudget,
             hardContinuity: legacyContinuityContext.split('\n').slice(0, 20),
             characterPressures:
               deps.chapterCards

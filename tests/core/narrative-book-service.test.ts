@@ -3,6 +3,7 @@ import { createBookService } from '../../src/core/book-service';
 import { createDatabase, createRepositories } from '../../src/storage/database';
 import type {
   ChapterCard,
+  ChapterTensionBudget,
   NarrativeBible,
   VolumePlan,
 } from '../../src/core/narrative/types';
@@ -116,6 +117,25 @@ function chapterCards(bookId: string): ChapterCard[] {
   ];
 }
 
+function tensionBudgets(bookId: string): ChapterTensionBudget[] {
+  return [
+    {
+      bookId,
+      volumeIndex: 1,
+      chapterIndex: 1,
+      pressureLevel: 'high',
+      dominantTension: 'moral_choice',
+      requiredTurn: '胜利会伤害同伴。',
+      forcedChoice: '保住证据，或救下同伴。',
+      costToPay: '失去同伴信任。',
+      irreversibleChange: '林牧无法继续旁观。',
+      readerQuestion: '谁安排了这次选择？',
+      hookPressure: '章末出现更坏记录。',
+      flatnessRisks: ['不要用解释代替冲突。'],
+    },
+  ];
+}
+
 describe('narrative book-service integration', () => {
   it('persists non-resolving narrative thread state updates after an approved chapter', async () => {
     const db = createDatabase(':memory:');
@@ -138,6 +158,7 @@ describe('narrative book-service integration', () => {
           narrativeBible: bible(),
           volumePlans: volumePlans(),
           chapterCards: chapterCards(input.bookId),
+          chapterTensionBudgets: tensionBudgets(input.bookId),
           chapterThreadActions: [],
           chapterCharacterPressures: [],
           chapterRelationshipActions: [],
@@ -224,6 +245,21 @@ describe('narrative book-service integration', () => {
       auditScore: 88,
       draftAttempts: 1,
     });
+    expect(repos.chapterTensionBudgets.listByBook(bookId)[0]).toMatchObject({
+      bookId,
+      chapterIndex: 1,
+      dominantTension: 'moral_choice',
+    });
+    expect(
+      service.getBookDetail(bookId)?.narrative?.chapterTensionBudgets[0]
+    ).toMatchObject({
+      bookId,
+      chapterIndex: 1,
+      pressureLevel: 'high',
+    });
+    expect(
+      service.getBookDetail(bookId)?.chapters[0]?.content
+    ).toBeTruthy();
   });
 
   it('maps structured narrative records back into compatible book detail fields', async () => {
@@ -248,6 +284,7 @@ describe('narrative book-service integration', () => {
             narrativeBible: bible(),
             volumePlans: volumePlans(),
             chapterCards: chapterCards(input.bookId),
+            chapterTensionBudgets: tensionBudgets(input.bookId),
             chapterThreadActions: [],
             chapterCharacterPressures: [],
             chapterRelationshipActions: [],
@@ -292,6 +329,10 @@ describe('narrative book-service integration', () => {
     expect(detail?.context?.worldSetting).toContain('主题问题：人能否摆脱命运？');
     expect(detail?.context?.outline).toContain('第1卷 命簿初鸣');
     expect(detail?.chapters[0]?.outline).toContain('必须变化：林牧从逃避变成主动追查。');
+    expect(detail?.narrative.chapterTensionBudgets[0]).toMatchObject({
+      chapterIndex: 1,
+      pressureLevel: 'high',
+    });
   });
 
   it('runs and stores a checkpoint after completing chapter 10', async () => {
@@ -340,6 +381,11 @@ describe('narrative book-service integration', () => {
             chapterCards: cards.map((card) => ({
               ...card,
               bookId: input.bookId,
+            })),
+            chapterTensionBudgets: cards.map((card) => ({
+              ...tensionBudgets(input.bookId)[0],
+              volumeIndex: card.volumeIndex,
+              chapterIndex: card.chapterIndex,
             })),
             chapterThreadActions: [],
             chapterCharacterPressures: [],

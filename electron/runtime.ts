@@ -804,6 +804,7 @@ export function getRuntimeServices() {
     narrativeThreads: repositories.narrativeThreads,
     volumePlans: repositories.volumePlans,
     chapterCards: repositories.chapterCards,
+    chapterTensionBudgets: repositories.chapterTensionBudgets,
     chapterAudits: repositories.chapterAudits,
     relationshipStates: repositories.relationshipStates,
     narrativeCheckpoints: repositories.narrativeCheckpoints,
