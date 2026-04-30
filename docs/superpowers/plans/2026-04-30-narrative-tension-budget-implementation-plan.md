@@ -1,6 +1,6 @@
 # Narrative Tension Budget Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Add a first-version narrative tension budget loop so each generated chapter carries explicit pressure, choice, cost, irreversible change, and anti-flatness audit checks.
 
@@ -37,7 +37,7 @@
 - Test: `tests/core/narrative-validation.test.ts`
 - Test: `tests/core/narrative-audit-state-checkpoint.test.ts`
 
-- [ ] **Step 1: Write failing validation tests**
+- [x] **Step 1: Write failing validation tests**
 
 Add these imports in `tests/core/narrative-validation.test.ts`:
 
@@ -145,7 +145,7 @@ describe('validateTensionBudgets', () => {
 });
 ```
 
-- [ ] **Step 2: Write failing audit decision tests**
+- [x] **Step 2: Write failing audit decision tests**
 
 Append in `tests/core/narrative-audit-state-checkpoint.test.ts`:
 
@@ -221,7 +221,7 @@ it('revises drafts with weak choice pressure even when the total audit score is 
 });
 ```
 
-- [ ] **Step 3: Run tests to verify failure**
+- [x] **Step 3: Run tests to verify failure**
 
 Run:
 
@@ -231,7 +231,7 @@ pnpm exec vitest run tests/core/narrative-validation.test.ts tests/core/narrativ
 
 Expected: FAIL because `ChapterTensionBudget`, `validateTensionBudgets`, and `scoring.flatness` do not exist.
 
-- [ ] **Step 4: Add core types**
+- [x] **Step 4: Add core types**
 
 In `src/core/narrative/types.ts`, add:
 
@@ -300,7 +300,7 @@ In `src/core/types.ts`, import `ChapterTensionBudget` and extend `OutlineBundle`
   chapterTensionBudgets?: ChapterTensionBudget[];
 ```
 
-- [ ] **Step 5: Add validation**
+- [x] **Step 5: Add validation**
 
 In `src/core/narrative/validation.ts`, import `ChapterTensionBudget` and add:
 
@@ -368,7 +368,7 @@ export function validateTensionBudgets(
 }
 ```
 
-- [ ] **Step 6: Update audit decision**
+- [x] **Step 6: Update audit decision**
 
 In `src/core/narrative/audit.ts`, insert after the blocker check:
 
@@ -394,7 +394,7 @@ In `src/core/narrative/audit.ts`, insert after the blocker check:
   }
 ```
 
-- [ ] **Step 7: Run tests to verify pass**
+- [x] **Step 7: Run tests to verify pass**
 
 Run:
 
@@ -404,7 +404,7 @@ pnpm exec vitest run tests/core/narrative-validation.test.ts tests/core/narrativ
 
 Expected: PASS.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add src/core/narrative/types.ts src/core/types.ts src/core/narrative/validation.ts src/core/narrative/audit.ts tests/core/narrative-validation.test.ts tests/core/narrative-audit-state-checkpoint.test.ts
@@ -419,7 +419,7 @@ git commit -m "feat: add narrative tension budget types"
 - Test: `tests/core/narrative-prompts.test.ts`
 - Test: `tests/core/narrative-context.test.ts`
 
-- [ ] **Step 1: Write failing prompt tests**
+- [x] **Step 1: Write failing prompt tests**
 
 Append in `tests/core/narrative-prompts.test.ts`:
 
@@ -456,7 +456,7 @@ it('asks audits to score flatness', () => {
 
 Update the import list to include `buildTensionBudgetPrompt`.
 
-- [ ] **Step 2: Write failing context tests**
+- [x] **Step 2: Write failing context tests**
 
 Append in `tests/core/narrative-context.test.ts`:
 
@@ -555,7 +555,7 @@ it('preserves tension budget when context is trimmed', () => {
 });
 ```
 
-- [ ] **Step 3: Run tests to verify failure**
+- [x] **Step 3: Run tests to verify failure**
 
 Run:
 
@@ -565,7 +565,7 @@ pnpm exec vitest run tests/core/narrative-prompts.test.ts tests/core/narrative-c
 
 Expected: FAIL because `buildTensionBudgetPrompt` and `tensionBudget` context support do not exist.
 
-- [ ] **Step 4: Implement prompt changes**
+- [x] **Step 4: Implement prompt changes**
 
 In `src/core/narrative/prompts.ts`, add:
 
@@ -609,7 +609,7 @@ Update `buildChapterAuditPrompt`:
     'Flatness questions: Did the chapter escalate, turn, or meaningfully redirect conflict? Did the POV character face a visible choice? Was a cost paid or consequence made visible? Did the ending create forward pressure? Did the chapter repeat the same tension pattern without new effect?',
 ```
 
-- [ ] **Step 5: Implement context changes**
+- [x] **Step 5: Implement context changes**
 
 In `src/core/narrative/context.ts`, add:
 
@@ -657,7 +657,7 @@ Include it in `requiredTail` before `Chapter Mission`:
     'Chapter Mission:',
 ```
 
-- [ ] **Step 6: Run tests to verify pass**
+- [x] **Step 6: Run tests to verify pass**
 
 Run:
 
@@ -667,7 +667,7 @@ pnpm exec vitest run tests/core/narrative-prompts.test.ts tests/core/narrative-c
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/core/narrative/prompts.ts src/core/narrative/context.ts tests/core/narrative-prompts.test.ts tests/core/narrative-context.test.ts
@@ -680,7 +680,7 @@ git commit -m "feat: add tension budget prompts"
 - Modify: `src/core/ai-outline.ts`
 - Test: `tests/core/ai-outline.test.ts`
 
-- [ ] **Step 1: Write failing test**
+- [x] **Step 1: Write failing test**
 
 Add a test in `tests/core/ai-outline.test.ts` that feeds four model responses: bible, volume plans, chapter cards, tension budgets.
 
@@ -777,7 +777,7 @@ it('generates tension budgets after chapter cards', async () => {
 
 If the file has existing helpers with different names, reuse the existing `validNarrativeBible` helper or create one in the test with the same complete shape used by current tests.
 
-- [ ] **Step 2: Run test to verify failure**
+- [x] **Step 2: Run test to verify failure**
 
 Run:
 
@@ -787,7 +787,7 @@ pnpm exec vitest run tests/core/ai-outline.test.ts
 
 Expected: FAIL because outline generation does not call `buildTensionBudgetPrompt`.
 
-- [ ] **Step 3: Add rendering helper and generation**
+- [x] **Step 3: Add rendering helper and generation**
 
 In `src/core/ai-outline.ts`, import:
 
@@ -851,7 +851,7 @@ After `cardValidation` passes:
 
 Return `chapterTensionBudgets`.
 
-- [ ] **Step 4: Run test to verify pass**
+- [x] **Step 4: Run test to verify pass**
 
 Run:
 
@@ -861,7 +861,7 @@ pnpm exec vitest run tests/core/ai-outline.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/core/ai-outline.ts tests/core/ai-outline.test.ts
@@ -877,7 +877,7 @@ git commit -m "feat: generate chapter tension budgets"
 - Modify: `src/storage/books.ts`
 - Test: `tests/storage/narrative-schema.test.ts`
 
-- [ ] **Step 1: Write failing storage tests**
+- [x] **Step 1: Write failing storage tests**
 
 Append in `tests/storage/narrative-schema.test.ts`:
 
@@ -934,7 +934,7 @@ Add import:
 import { createChapterTensionBudgetRepository } from '../../src/storage/chapter-tension-budgets';
 ```
 
-- [ ] **Step 2: Run test to verify failure**
+- [x] **Step 2: Run test to verify failure**
 
 Run:
 
@@ -944,7 +944,7 @@ pnpm exec vitest run tests/storage/narrative-schema.test.ts
 
 Expected: FAIL because the repository/table do not exist.
 
-- [ ] **Step 3: Add migration**
+- [x] **Step 3: Add migration**
 
 In `src/storage/migrations.ts`, after `chapter_relationship_actions`, add:
 
@@ -969,7 +969,7 @@ In `src/storage/migrations.ts`, after `chapter_relationship_actions`, add:
   );
 ```
 
-- [ ] **Step 4: Create repository**
+- [x] **Step 4: Create repository**
 
 Create `src/storage/chapter-tension-budgets.ts`:
 
@@ -1083,7 +1083,7 @@ export function createChapterTensionBudgetRepository(db: SqliteDatabase) {
 }
 ```
 
-- [ ] **Step 5: Wire database and cleanup**
+- [x] **Step 5: Wire database and cleanup**
 
 In `src/storage/database.ts`, import and expose:
 
@@ -1099,7 +1099,7 @@ chapterTensionBudgets: createChapterTensionBudgetRepository(db),
 
 In `src/storage/books.ts`, include `chapter_tension_budgets` in any table cleanup arrays near other chapter/narrative tables.
 
-- [ ] **Step 6: Run storage tests**
+- [x] **Step 6: Run storage tests**
 
 Run:
 
@@ -1109,7 +1109,7 @@ pnpm exec vitest run tests/storage/narrative-schema.test.ts tests/storage/books.
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/storage/chapter-tension-budgets.ts src/storage/migrations.ts src/storage/database.ts src/storage/books.ts tests/storage/narrative-schema.test.ts
@@ -1124,7 +1124,7 @@ git commit -m "feat: persist chapter tension budgets"
 - Test: `tests/core/narrative-book-service.test.ts`
 - Test: `tests/electron/runtime-mock-fallback.test.ts`
 
-- [ ] **Step 1: Write failing book-service tests**
+- [x] **Step 1: Write failing book-service tests**
 
 In `tests/core/narrative-book-service.test.ts`, extend the existing outline bundle fixture with:
 
@@ -1197,7 +1197,7 @@ expect(chapterAuditor.auditChapter).toHaveBeenCalledWith(
 );
 ```
 
-- [ ] **Step 2: Run tests to verify failure**
+- [x] **Step 2: Run tests to verify failure**
 
 Run:
 
@@ -1207,7 +1207,7 @@ pnpm exec vitest run tests/core/narrative-book-service.test.ts
 
 Expected: FAIL because `createBookService` does not accept/save/read `chapterTensionBudgets`.
 
-- [ ] **Step 3: Extend dependency type and save budgets**
+- [x] **Step 3: Extend dependency type and save budgets**
 
 In `src/core/book-service.ts`, import `ChapterTensionBudget`.
 
@@ -1239,7 +1239,7 @@ In `getBookDetail`, include:
           chapterTensionBudgets: deps.chapterTensionBudgets?.listByBook?.(bookId) ?? [],
 ```
 
-- [ ] **Step 4: Inject budget while writing**
+- [x] **Step 4: Inject budget while writing**
 
 Near `chapterCard` resolution in `writeNextChapter`, add:
 
@@ -1260,7 +1260,7 @@ Pass into `buildNarrativeCommandContext`:
           tensionBudget,
 ```
 
-- [ ] **Step 5: Wire runtime repository**
+- [x] **Step 5: Wire runtime repository**
 
 In `electron/runtime.ts`, pass the repository from database services into `createBookService`:
 
@@ -1276,7 +1276,7 @@ pnpm exec vitest run tests/electron/runtime-mock-fallback.test.ts
 
 Expected: update any expected repository key list or runtime wiring assertions to include `chapterTensionBudgets`; final result PASS.
 
-- [ ] **Step 6: Run integration tests**
+- [x] **Step 6: Run integration tests**
 
 Run:
 
@@ -1286,7 +1286,7 @@ pnpm exec vitest run tests/core/narrative-book-service.test.ts tests/electron/ru
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/core/book-service.ts electron/runtime.ts tests/core/narrative-book-service.test.ts tests/electron/runtime-mock-fallback.test.ts
@@ -1299,7 +1299,7 @@ git commit -m "feat: wire tension budgets into book generation"
 - Modify: `src/mock/story-services.ts`
 - Test: `tests/mock/story-services.test.ts`
 
-- [ ] **Step 1: Write failing mock test**
+- [x] **Step 1: Write failing mock test**
 
 Append in `tests/mock/story-services.test.ts`:
 
@@ -1346,7 +1346,7 @@ it('mock auditor returns flatness scoring', async () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify failure**
+- [x] **Step 2: Run test to verify failure**
 
 Run:
 
@@ -1356,7 +1356,7 @@ pnpm exec vitest run tests/mock/story-services.test.ts
 
 Expected: FAIL because mock services do not return budgets or flatness.
 
-- [ ] **Step 3: Add mock budgets**
+- [x] **Step 3: Add mock budgets**
 
 In `src/mock/story-services.ts`, import `ChapterTensionBudget` if not already covered.
 
@@ -1417,7 +1417,7 @@ chapterTensionBudgets: createMockTensionBudgets({
 }),
 ```
 
-- [ ] **Step 4: Add mock flatness scoring**
+- [x] **Step 4: Add mock flatness scoring**
 
 In mock `chapterAuditor.auditChapter`, add:
 
@@ -1431,7 +1431,7 @@ In mock `chapterAuditor.auditChapter`, add:
             },
 ```
 
-- [ ] **Step 5: Run tests**
+- [x] **Step 5: Run tests**
 
 Run:
 
@@ -1441,7 +1441,7 @@ pnpm exec vitest run tests/mock/story-services.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/mock/story-services.ts tests/mock/story-services.test.ts
@@ -1456,7 +1456,7 @@ git commit -m "feat: add mock tension budgets"
 - Test: `tests/core/ipc-contracts.test.ts`
 - Test: `tests/renderer/book-detail.test.tsx`
 
-- [ ] **Step 1: Write failing contract test**
+- [x] **Step 1: Write failing contract test**
 
 In `tests/core/ipc-contracts.test.ts`, add a `chapterTensionBudgets` item to the narrative detail fixture and assert it survives:
 
@@ -1468,7 +1468,7 @@ expect(detail.narrative.chapterTensionBudgets[0]).toMatchObject({
 });
 ```
 
-- [ ] **Step 2: Run test to verify failure**
+- [x] **Step 2: Run test to verify failure**
 
 Run:
 
@@ -1478,7 +1478,7 @@ pnpm exec vitest run tests/core/ipc-contracts.test.ts
 
 Expected: FAIL because contracts do not include `chapterTensionBudgets`.
 
-- [ ] **Step 3: Extend shared contract**
+- [x] **Step 3: Extend shared contract**
 
 In `src/shared/contracts.ts`, add to the narrative detail type:
 
@@ -1501,7 +1501,7 @@ In `src/shared/contracts.ts`, add to the narrative detail type:
 
 Mirror the same shape in `renderer/types/book-detail.ts` if it defines a renderer-local narrative type.
 
-- [ ] **Step 4: Keep UI unchanged but type-safe**
+- [x] **Step 4: Keep UI unchanged but type-safe**
 
 If `BookDetail.tsx` destructures `detail.narrative`, ensure default values include the new array:
 
@@ -1511,7 +1511,7 @@ const chapterTensionBudgets = detail.narrative.chapterTensionBudgets ?? [];
 
 Do not add a full visual panel in this task.
 
-- [ ] **Step 5: Run tests**
+- [x] **Step 5: Run tests**
 
 Run:
 
@@ -1521,7 +1521,7 @@ pnpm exec vitest run tests/core/ipc-contracts.test.ts tests/renderer/book-detail
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/shared/contracts.ts renderer/types/book-detail.ts renderer/pages/BookDetail.tsx tests/core/ipc-contracts.test.ts tests/renderer/book-detail.test.tsx
@@ -1533,7 +1533,7 @@ git commit -m "feat: expose chapter tension budgets in detail"
 **Files:**
 - Verify all touched source and tests.
 
-- [ ] **Step 1: Run focused suite**
+- [x] **Step 1: Run focused suite**
 
 Run:
 
@@ -1543,7 +1543,7 @@ pnpm exec vitest run tests/core/narrative-validation.test.ts tests/core/narrativ
 
 Expected: PASS.
 
-- [ ] **Step 2: Run typecheck**
+- [x] **Step 2: Run typecheck**
 
 Run:
 
@@ -1553,7 +1553,7 @@ pnpm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 3: Run all tests**
+- [x] **Step 3: Run all tests**
 
 Run:
 
@@ -1563,7 +1563,7 @@ pnpm test
 
 Expected: PASS.
 
-- [ ] **Step 4: Inspect git status**
+- [x] **Step 4: Inspect git status**
 
 Run:
 
