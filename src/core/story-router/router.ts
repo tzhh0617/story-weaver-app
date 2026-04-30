@@ -46,10 +46,12 @@ const taskRoutes: Record<
   design_opening: {
     required: [
       'story-structure',
+      'chapter-goal',
       'emotion-curve',
       'opening-hook',
       'hook-technique',
       'genre-pattern',
+      'pacing-audit',
     ],
     optional: [],
   },
@@ -148,5 +150,6 @@ export function routeStoryTask(input: RouteStoryTaskInput): StoryRoutePlan {
     redFlags: uniqueLines(selectedSkills.flatMap((skill) => skill.redFlags)),
     checklist: baseChecklist,
     warnings,
+    openingRetentionLines: [],
   };
 }

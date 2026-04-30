@@ -19,6 +19,7 @@ import {
   shouldRunNarrativeCheckpoint,
 } from './narrative/checkpoint.js';
 import { buildNarrativeCommandContext } from './narrative/context.js';
+import { buildOpeningRetentionContextLines } from './narrative/opening-retention.js';
 import {
   formatStoryRoutePlanForPrompt,
   routeStoryTask,
@@ -1181,7 +1182,13 @@ export function createBookService(deps: {
           hasTensionBudget: Boolean(tensionBudget),
         },
       });
-      const routePlanText = formatStoryRoutePlanForPrompt(storyRoutePlan);
+      const openingRetentionLines = buildOpeningRetentionContextLines(
+        nextChapter.chapterIndex
+      );
+      const routePlanText = formatStoryRoutePlanForPrompt({
+        ...storyRoutePlan,
+        openingRetentionLines,
+      });
       const prompt = chapterCard
         ? buildNarrativeDraftPrompt({
             idea: book.idea,

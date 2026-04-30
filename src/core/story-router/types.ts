@@ -38,6 +38,7 @@ export type StoryRoutePlan = {
   redFlags: string[];
   checklist: string[];
   warnings: string[];
+  openingRetentionLines?: string[];
 };
 
 export type RouteStoryTaskInput = {

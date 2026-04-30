@@ -78,6 +78,27 @@ describe('story skill router', () => {
     ]);
   });
 
+  it('routes opening design through chapter goal and pacing audit', () => {
+    const plan = routeStoryTask({
+      taskType: 'design_opening',
+      context: {
+        hasNarrativeBible: true,
+        hasChapterCard: true,
+        hasTensionBudget: true,
+      },
+    });
+
+    expect(plan.requiredSkills.map((skill) => skill.id)).toEqual([
+      'story-structure',
+      'chapter-goal',
+      'emotion-curve',
+      'opening-hook',
+      'hook-technique',
+      'genre-pattern',
+      'pacing-audit',
+    ]);
+  });
+
   it('throws for unsupported task types', () => {
     expect(() =>
       routeStoryTask({
@@ -110,5 +131,6 @@ describe('story skill router', () => {
     expect(text).toContain('Hard Constraints');
     expect(text).toContain('Red Flags');
     expect(text).toContain('Checklist');
+    expect(text).toContain('Opening Retention');
   });
 });
