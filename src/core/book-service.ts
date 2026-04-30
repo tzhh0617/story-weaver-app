@@ -176,6 +176,20 @@ function buildShortChapterRewritePrompt(input: {
   ].join('\n');
 }
 
+function buildOutlineFromChapterCard(card: ChapterCard) {
+  return [
+    card.plotFunction,
+    `必须变化：${card.mustChange}`,
+    `外部冲突：${card.externalConflict}`,
+    `内部冲突：${card.internalConflict}`,
+    `关系变化：${card.relationshipChange}`,
+    `章末钩子：${card.endingHook}`,
+  ]
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join('\n');
+}
+
 function saveChapterOutlines(
   deps: {
     chapters: {
@@ -1152,27 +1166,49 @@ export function createBookService(deps: {
 
       const context = deps.books.getContext(bookId);
       const chapters = deps.chapters.listByBook(bookId);
+      const chapterCards = deps.chapterCards?.listByBook?.(bookId) ?? [];
       const nextChapter = chapters.find(
-        (chapter) => chapter.outline && !chapter.content
+        (chapter) =>
+          !chapter.content &&
+          (Boolean(chapter.outline?.trim()) ||
+            chapterCards.some(
+              (card) =>
+                card.volumeIndex === chapter.volumeIndex &&
+                card.chapterIndex === chapter.chapterIndex
+            ))
       );
 
-      if (!nextChapter || !nextChapter.outline || !nextChapter.title) {
+      if (!nextChapter) {
         throw new Error('No outlined chapter available to write');
       }
 
-      const nextChapterTitle = nextChapter.title;
+      const chapterCard =
+        chapterCards.find(
+          (card) =>
+            card.volumeIndex === nextChapter.volumeIndex &&
+            card.chapterIndex === nextChapter.chapterIndex
+        ) ?? null;
+      const nextChapterOutline =
+        nextChapter.outline?.trim() ||
+        (chapterCard ? buildOutlineFromChapterCard(chapterCard) : '');
+      const nextChapterTitle = nextChapter.title ?? chapterCard?.title;
+
+      if (!nextChapterOutline || !nextChapterTitle) {
+        throw new Error('No outlined chapter available to write');
+      }
+
       const modelId = resolveModelId();
       const storyBible = deps.storyBibles?.getByBook?.(bookId) ?? null;
-      const chapterCard =
-        deps.chapterCards
-          ?.listByBook?.(bookId)
-          .find(
-            (card) =>
-              card.volumeIndex === nextChapter.volumeIndex &&
-              card.chapterIndex === nextChapter.chapterIndex
-          ) ?? null;
+      const effectiveChapterCard = chapterCard
+        ? {
+            ...chapterCard,
+            title: nextChapterTitle,
+            plotFunction:
+              chapterCard.plotFunction.trim() || nextChapterOutline,
+          }
+        : null;
       const tensionBudget =
-        chapterCard && deps.chapterTensionBudgets?.getByChapter
+        effectiveChapterCard && deps.chapterTensionBudgets?.getByChapter
           ? deps.chapterTensionBudgets.getByChapter(
               bookId,
               nextChapter.volumeIndex,
@@ -1188,11 +1224,11 @@ export function createBookService(deps: {
         currentChapter: {
           volumeIndex: nextChapter.volumeIndex,
           chapterIndex: nextChapter.chapterIndex,
-          outline: nextChapter.outline,
+          outline: nextChapterOutline,
         },
         maxCharacters: CHAPTER_CONTEXT_MAX_CHARACTERS,
       });
-      const commandContext = chapterCard
+      const commandContext = effectiveChapterCard
         ? buildNarrativeCommandContext({
             bible: {
               themeQuestion: storyBible?.themeQuestion ?? '',
@@ -1200,7 +1236,7 @@ export function createBookService(deps: {
               voiceGuide: storyBible?.voiceGuide ?? '',
               viralStoryProtocol: storyBible?.viralStoryProtocol ?? null,
             },
-            chapterCard,
+            chapterCard: effectiveChapterCard,
             tensionBudget,
             hardContinuity: legacyContinuityContext.split('\n').slice(0, 20),
             characterPressures:
@@ -1253,7 +1289,7 @@ export function createBookService(deps: {
         taskType: 'write_chapter',
         context: {
           hasNarrativeBible: Boolean(storyBible),
-          hasChapterCard: Boolean(chapterCard),
+          hasChapterCard: Boolean(effectiveChapterCard),
           hasTensionBudget: Boolean(tensionBudget),
         },
       });
@@ -1271,7 +1307,7 @@ export function createBookService(deps: {
             ]
           : [],
       });
-      const prompt = chapterCard
+      const prompt = effectiveChapterCard
         ? buildNarrativeDraftPrompt({
             idea: book.idea,
             wordsPerChapter: book.wordsPerChapter,
@@ -1286,7 +1322,7 @@ export function createBookService(deps: {
             masterOutline: context?.outline ?? null,
             continuityContext: legacyContinuityContext,
             chapterTitle: nextChapterTitle,
-            chapterOutline: nextChapter.outline,
+            chapterOutline: nextChapterOutline,
             targetChapters: book.targetChapters,
             wordsPerChapter: book.wordsPerChapter,
             routePlanText,
@@ -1402,7 +1438,7 @@ export function createBookService(deps: {
 
       let auditScore: number | null = null;
       let draftAttempts = 1;
-      if (deps.chapterAuditor && chapterCard) {
+      if (deps.chapterAuditor && effectiveChapterCard) {
         const auditContext = commandContext ?? legacyContinuityContext;
         const auditStepLabel = `正在审校第 ${nextChapter.chapterIndex} 章叙事质量`;
         updateTrackedPhase({
@@ -1705,7 +1741,7 @@ export function createBookService(deps: {
 
         const nextChapter = deps.chapters
           .listByBook(bookId)
-          .find((chapter) => chapter.outline && !chapter.content);
+          .find((chapter) => !chapter.content);
 
         if (!nextChapter) {
           break;

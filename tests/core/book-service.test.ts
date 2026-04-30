@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createDatabase } from '../../src/storage/database';
 import { createBookRepository } from '../../src/storage/books';
 import { createChapterAuditRepository } from '../../src/storage/chapter-audits';
+import { createChapterCardRepository } from '../../src/storage/chapter-cards';
 import { createChapterRepository } from '../../src/storage/chapters';
 import { createCharacterRepository } from '../../src/storage/characters';
 import { createPlotThreadRepository } from '../../src/storage/plot-threads';
@@ -2545,6 +2546,99 @@ describe('createBookService', () => {
         summary: 'Resumed summary',
       })
     );
+  });
+
+  it('writes planned chapter cards even when the legacy outline field is blank', async () => {
+    const db = createDatabase(':memory:');
+    const writeChapter = vi.fn().mockResolvedValue({
+      content: '林牧终于翻开旧页，发现自己的名字被提前抹去。',
+    });
+    const chapterCards = createChapterCardRepository(db);
+
+    const service = createBookService({
+      books: createBookRepository(db),
+      chapters: createChapterRepository(db),
+      chapterCards,
+      characters: createCharacterRepository(db),
+      plotThreads: createPlotThreadRepository(db),
+      sceneRecords: createSceneRecordRepository(db),
+      progress: createProgressRepository(db),
+      outlineService: {
+        generateFromIdea: vi.fn().mockImplementation((input) =>
+          Promise.resolve({
+            worldSetting: '命簿会用记忆交换真相。',
+            masterOutline: '林牧追查被抹去的家族记录。',
+            volumeOutlines: ['第一卷'],
+            chapterOutlines: [
+              {
+                volumeIndex: 1,
+                chapterIndex: 1,
+                title: '旧页初鸣',
+                outline: '',
+              },
+            ],
+            chapterCards: [
+              {
+                bookId: input.bookId,
+                volumeIndex: 1,
+                chapterIndex: 1,
+                title: '旧页初鸣',
+                plotFunction: '林牧发现旧页会回应他的血。',
+                povCharacterId: 'lin-mu',
+                externalConflict: '宗门执事逼他交出旧页。',
+                internalConflict: '他想独自保密，却必须求助。',
+                relationshipChange: '他欠下同伴一次人情。',
+                worldRuleUsedOrTested: 'record-cost',
+                informationReveal: '命簿改写会吞掉记忆。',
+                readerReward: 'truth',
+                endingHook: '旧页浮现林家姓名。',
+                mustChange: '林牧从逃避变成主动追查。',
+                forbiddenMoves: ['不能提前揭示幕后主使。'],
+              },
+            ],
+          })
+        ),
+      },
+      chapterWriter: { writeChapter },
+      summaryGenerator: {
+        summarizeChapter: vi.fn().mockResolvedValue('林牧开始追查命簿。'),
+      },
+      plotThreadExtractor: {
+        extractThreads: vi.fn().mockResolvedValue({
+          openedThreads: [],
+          resolvedThreadIds: [],
+        }),
+      },
+      characterStateExtractor: {
+        extractStates: vi.fn().mockResolvedValue([]),
+      },
+      sceneRecordExtractor: {
+        extractScene: vi.fn().mockResolvedValue(null),
+      },
+    });
+
+    const bookId = service.createBook({
+      idea: '命簿',
+      targetChapters: 1,
+      wordsPerChapter: 1200,
+    });
+
+    await service.startBook(bookId);
+    const result = await service.writeRemainingChapters(bookId);
+    const detail = service.getBookDetail(bookId);
+
+    expect(result).toEqual({
+      completedChapters: 1,
+      status: 'completed',
+    });
+    expect(writeChapter).toHaveBeenCalledTimes(1);
+    expect(writeChapter.mock.calls[0]?.[0].prompt).toContain(
+      '宗门执事逼他交出旧页'
+    );
+    expect(detail?.chapters[0]).toMatchObject({
+      content: '林牧终于翻开旧页，发现自己的名字被提前抹去。',
+      summary: '林牧开始追查命簿。',
+    });
   });
 
   it('restarts a book by clearing generated state and rewriting chapters from outline', async () => {
