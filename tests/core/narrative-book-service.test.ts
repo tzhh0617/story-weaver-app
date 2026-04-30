@@ -184,6 +184,13 @@ describe('narrative book-service integration', () => {
             threadManagement: 8,
             pacingReward: 9,
             themeAlignment: 4,
+            flatness: {
+              conflictEscalation: 65,
+              choicePressure: 75,
+              consequenceVisibility: 65,
+              irreversibleChange: 75,
+              hookStrength: 65,
+            },
           },
           stateUpdates: {
             characterArcUpdates: [],
@@ -413,6 +420,13 @@ describe('narrative book-service integration', () => {
             threadManagement: 8,
             pacingReward: 9,
             themeAlignment: 4,
+            flatness: {
+              conflictEscalation: 65,
+              choicePressure: 75,
+              consequenceVisibility: 65,
+              irreversibleChange: 75,
+              hookStrength: 65,
+            },
           },
           stateUpdates: {
             characterArcUpdates: [],
@@ -475,6 +489,12 @@ describe('narrative book-service integration', () => {
         checkpointType: 'arc',
         report: expect.objectContaining({
           arcReport: { protagonist: '欲望仍清晰。' },
+          tensionCheckpoint: expect.objectContaining({
+            flatChapterIndexes: [6, 7, 8, 9, 10],
+            repeatedPatterns: [
+              'dominantTension moral_choice repeated for 5 chapters',
+            ],
+          }),
         }),
       }),
     ]);

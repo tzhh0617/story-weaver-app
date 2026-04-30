@@ -266,6 +266,19 @@ export type FlatnessScoring = {
   hookStrength: number;
 };
 
+export type TensionCheckpoint = {
+  recentPressureCurve: Array<{
+    chapterIndex: number;
+    pressureLevel: TensionPressureLevel;
+    dominantTension: DominantTension;
+    flatnessScore: number | null;
+  }>;
+  repeatedPatterns: string[];
+  flatChapterIndexes: number[];
+  rewardGaps: string[];
+  nextBudgetInstruction: string;
+};
+
 export type NarrativeAudit = {
   passed: boolean;
   score: number;

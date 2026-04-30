@@ -10,7 +10,10 @@ import {
   buildNarrativeDraftPrompt,
 } from './prompt-builder.js';
 import { decideAuditAction } from './narrative/audit.js';
-import { shouldRunNarrativeCheckpoint } from './narrative/checkpoint.js';
+import {
+  buildTensionCheckpoint,
+  shouldRunNarrativeCheckpoint,
+} from './narrative/checkpoint.js';
 import { buildNarrativeCommandContext } from './narrative/context.js';
 import type {
   ChapterCard,
@@ -440,6 +443,12 @@ export function createBookService(deps: {
       attempt: number;
       audit: NarrativeAudit;
     }) => void;
+    listLatestByBook?: (bookId: string) => Array<{
+      volumeIndex: number;
+      chapterIndex: number;
+      attempt: number;
+      scoring: NarrativeAudit['scoring'];
+    }>;
   };
   relationshipStates?: {
     save: (input: RelationshipStateInput) => void;
@@ -460,11 +469,13 @@ export function createBookService(deps: {
     save: (input: {
       bookId: string;
       chapterIndex: number;
-      checkpointType: string;
-      arcReport: unknown;
-      threadDebt: unknown;
-      pacingReport: unknown;
-      replanningNotes: string | null;
+      report?: unknown;
+      checkpointType?: string;
+      arcReport?: unknown;
+      threadDebt?: unknown;
+      pacingReport?: unknown;
+      replanningNotes?: string | null;
+      futureCardRevisions?: unknown[];
     }) => void;
   };
   progress: {
@@ -1396,10 +1407,32 @@ export function createBookService(deps: {
           bookId,
           chapterIndex: nextChapter.chapterIndex,
         });
+        const tensionCheckpoint =
+          deps.chapterTensionBudgets?.listByBook &&
+          deps.chapterAudits?.listLatestByBook
+            ? buildTensionCheckpoint({
+                chapterIndex: nextChapter.chapterIndex,
+                budgets: deps.chapterTensionBudgets.listByBook(bookId),
+                audits: deps.chapterAudits.listLatestByBook(bookId),
+              })
+            : null;
         deps.narrativeCheckpoints.save({
           bookId,
           chapterIndex: nextChapter.chapterIndex,
-          ...checkpoint,
+          ...(tensionCheckpoint
+            ? {
+                report: {
+                  ...checkpoint,
+                  tensionCheckpoint,
+                },
+                futureCardRevisions: [
+                  {
+                    type: 'tension_budget_rebalance',
+                    instruction: tensionCheckpoint.nextBudgetInstruction,
+                  },
+                ],
+              }
+            : checkpoint),
         });
       }
 

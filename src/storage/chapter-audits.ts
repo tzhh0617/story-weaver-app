@@ -76,5 +76,57 @@ export function createChapterAuditRepository(db: SqliteDatabase) {
         createdAt: row.createdAt,
       }));
     },
+
+    listLatestByBook(bookId: string) {
+      const rows = db
+        .prepare(
+          `
+            SELECT
+              volume_index AS volumeIndex,
+              chapter_index AS chapterIndex,
+              attempt,
+              passed,
+              score,
+              decision,
+              issues_json AS issuesJson,
+              scoring_json AS scoringJson,
+              state_updates_json AS stateUpdatesJson,
+              created_at AS createdAt
+            FROM chapter_generation_audits
+            WHERE book_id = ?
+            ORDER BY chapter_index ASC, attempt ASC, id ASC
+          `
+        )
+        .all(bookId) as Array<{
+        volumeIndex: number;
+        chapterIndex: number;
+        attempt: number;
+        passed: number;
+        score: number;
+        decision: NarrativeAudit['decision'];
+        issuesJson: string;
+        scoringJson: string;
+        stateUpdatesJson: string;
+        createdAt: string;
+      }>;
+
+      const latest = new Map<number, (typeof rows)[number]>();
+      for (const row of rows) {
+        latest.set(row.chapterIndex, row);
+      }
+
+      return [...latest.values()].map((row) => ({
+        volumeIndex: row.volumeIndex,
+        chapterIndex: row.chapterIndex,
+        attempt: row.attempt,
+        passed: Boolean(row.passed),
+        score: row.score,
+        decision: row.decision,
+        issues: JSON.parse(row.issuesJson) as NarrativeAudit['issues'],
+        scoring: JSON.parse(row.scoringJson) as NarrativeAudit['scoring'],
+        stateUpdates: JSON.parse(row.stateUpdatesJson) as NarrativeAudit['stateUpdates'],
+        createdAt: row.createdAt,
+      }));
+    },
   };
 }
