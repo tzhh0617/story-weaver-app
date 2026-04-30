@@ -871,7 +871,7 @@ describe('createBookService', () => {
       {
         bookId,
         type: 'progress',
-        phase: 'writing',
+        phase: 'extracting_continuity',
         stepLabel: '正在生成第 1 章摘要与连续性',
         currentVolume: 1,
         currentChapter: 1,

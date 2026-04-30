@@ -24,4 +24,20 @@ describe('StatusBadge', () => {
       'text-muted-foreground'
     );
   });
+
+  it('renders labels for narrative review phases', () => {
+    const { rerender } = render(<StatusBadge status="auditing_chapter" />);
+
+    expect(screen.getByText('章节审校')).toHaveClass('text-muted-foreground');
+
+    rerender(<StatusBadge status="extracting_state" />);
+    expect(screen.getByText('提取叙事状态')).toHaveClass(
+      'text-muted-foreground'
+    );
+
+    rerender(<StatusBadge status="checkpoint_review" />);
+    expect(screen.getByText('叙事复盘')).toHaveClass(
+      'text-muted-foreground'
+    );
+  });
 });

@@ -627,12 +627,50 @@ export function getRuntimeServices() {
     });
   }
 
+  function classifyProgressEvent(event: Extract<BookGenerationEvent, { type: 'progress' }>) {
+    if (event.phase === 'naming_title') {
+      return 'book_title_generation';
+    }
+    if (event.phase === 'building_world') {
+      return 'story_world_planning';
+    }
+    if (event.phase === 'building_outline') {
+      return 'story_outline_planning';
+    }
+    if (event.phase === 'planning_chapters') {
+      return 'chapter_planning';
+    }
+    if (event.phase === 'auditing_chapter') {
+      return 'chapter_auditing';
+    }
+    if (event.phase === 'revising_chapter') {
+      return 'chapter_revision';
+    }
+    if (event.phase === 'extracting_continuity') {
+      return 'chapter_continuity_extraction';
+    }
+    if (event.phase === 'extracting_state') {
+      return 'chapter_state_extraction';
+    }
+    if (event.phase === 'checkpoint_review') {
+      return 'narrative_checkpoint';
+    }
+    if (/重写第 \d+ 章/.test(event.stepLabel)) {
+      return 'chapter_rewriting';
+    }
+    if (/写第 \d+ 章/.test(event.stepLabel)) {
+      return 'chapter_writing';
+    }
+
+    return 'book_progress';
+  }
+
   function logGenerationEvent(event: BookGenerationEvent) {
     if (event.type === 'progress') {
       logExecution({
         bookId: event.bookId,
         level: 'info',
-        eventType: 'book_progress',
+        eventType: classifyProgressEvent(event),
         phase: event.phase,
         message: event.stepLabel,
         volumeIndex: event.currentVolume ?? null,

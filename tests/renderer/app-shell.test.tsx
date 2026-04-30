@@ -176,16 +176,20 @@ describe('App shell', () => {
       bookId: 'book-1',
       bookTitle: 'Archive',
       level: 'info',
-      eventType: 'book_started',
-      phase: 'writing',
-      message: '开始后台写作',
+      eventType: 'narrative_checkpoint',
+      phase: 'checkpoint_review',
+      message: '正在复盘第 10 章叙事状态',
       volumeIndex: null,
-      chapterIndex: null,
+      chapterIndex: 10,
       errorMessage: null,
       createdAt: '2026-04-30T01:00:00.000Z',
     });
 
-    expect(await screen.findByText('开始后台写作')).toBeInTheDocument();
+    expect(
+      await screen.findByText('正在复盘第 10 章叙事状态')
+    ).toBeInTheDocument();
+    expect(screen.getAllByText('叙事复盘').length).toBeGreaterThan(0);
+    expect(screen.getByText('阶段：叙事复盘 / 第 10 章')).toBeInTheDocument();
     expect(scrollIntoView).toHaveBeenCalled();
     expect(screen.getByRole('button', { name: '日志' })).toHaveAttribute(
       'data-active',

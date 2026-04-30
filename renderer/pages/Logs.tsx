@@ -15,26 +15,13 @@ import {
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import {
+  executionEventLabels,
   executionLogLevelLabels,
+  getExecutionEventLabel,
+  getExecutionPhaseLabel,
   getExecutionLogLevelClassName,
   getExecutionLogLevelIcon,
 } from '../execution-log-format';
-
-const eventLabels: Record<string, string> = {
-  scheduler_start_all: '批量开始',
-  scheduler_pause_all: '批量暂停',
-  book_queued: '加入队列',
-  book_started: '开始执行',
-  book_paused: '暂停执行',
-  book_resumed: '恢复执行',
-  book_restarted: '重新执行',
-  book_write_next: '手动下一章',
-  book_write_all: '手动写完',
-  book_progress: '阶段进度',
-  chapter_completed: '章节完成',
-  book_completed: '执行完成',
-  book_failed: '执行失败',
-};
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat('zh-CN', {
@@ -74,8 +61,8 @@ export default function Logs({
             log.message,
             log.errorMessage,
             log.eventType,
-            eventLabels[log.eventType],
-            log.phase,
+            getExecutionEventLabel(log.eventType),
+            getExecutionPhaseLabel(log.phase),
           ]
             .filter(Boolean)
             .some((value) =>
@@ -163,7 +150,7 @@ export default function Logs({
               <option value="all">全部事件</option>
               {eventTypes.map((type) => (
                 <option key={type} value={type}>
-                  {eventLabels[type] ?? type}
+                  {executionEventLabels[type] ?? type}
                 </option>
               ))}
             </select>
@@ -195,7 +182,7 @@ export default function Logs({
                       {executionLogLevelLabels[log.level]}
                     </Badge>
                     <Badge variant="secondary">
-                      {eventLabels[log.eventType] ?? log.eventType}
+                      {getExecutionEventLabel(log.eventType)}
                     </Badge>
                     {log.bookTitle ? (
                       <span className="text-sm font-medium text-foreground">
@@ -218,7 +205,9 @@ export default function Logs({
                     ) : null}
                     <p className="text-xs text-muted-foreground">
                       {[
-                        log.phase ? `阶段：${log.phase}` : null,
+                        log.phase
+                          ? `阶段：${getExecutionPhaseLabel(log.phase)}`
+                          : null,
                         log.chapterIndex ? `第 ${log.chapterIndex} 章` : null,
                       ]
                         .filter(Boolean)

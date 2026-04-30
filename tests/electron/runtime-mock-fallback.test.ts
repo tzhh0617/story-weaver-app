@@ -151,6 +151,73 @@ describe('runtime mock fallback', () => {
     expect(generateText).not.toHaveBeenCalled();
   });
 
+  it('records detailed narrative lifecycle events for visual tracking', async () => {
+    const generateText = vi.fn().mockResolvedValue({
+      text: 'should not be used',
+    });
+    const services = await loadRuntimeServices({
+      tempHome,
+      generateTextImpl: generateText,
+      mockDelayMs: 0,
+    });
+    const logs: Array<{
+      eventType: string;
+      phase: string | null;
+      message: string;
+      chapterIndex: number | null;
+    }> = [];
+    const unsubscribe = services.subscribeExecutionLogs((log) => {
+      logs.push({
+        eventType: log.eventType,
+        phase: log.phase,
+        message: log.message,
+        chapterIndex: log.chapterIndex,
+      });
+    });
+
+    const bookId = services.bookService.createBook({
+      idea: '一个被宗门逐出的少年，意外继承了会吞噬因果的古镜。',
+      targetChapters: 10,
+      wordsPerChapter: 90,
+    });
+
+    await services.bookService.startBook(bookId);
+    await services.bookService.writeRemainingChapters(bookId);
+    unsubscribe();
+
+    expect(logs.map((log) => log.eventType)).toEqual(
+      expect.arrayContaining([
+        'book_title_generation',
+        'story_world_planning',
+        'story_outline_planning',
+        'chapter_planning',
+        'chapter_writing',
+        'chapter_auditing',
+        'chapter_continuity_extraction',
+        'chapter_state_extraction',
+        'narrative_checkpoint',
+        'chapter_completed',
+      ])
+    );
+    expect(logs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          eventType: 'chapter_auditing',
+          phase: 'auditing_chapter',
+          chapterIndex: 1,
+          message: '正在审校第 1 章叙事质量',
+        }),
+        expect.objectContaining({
+          eventType: 'narrative_checkpoint',
+          phase: 'checkpoint_review',
+          chapterIndex: 10,
+          message: '正在复盘第 10 章叙事状态',
+        }),
+      ])
+    );
+    expect(generateText).not.toHaveBeenCalled();
+  });
+
   it('emits deterministic mock chapter stream events through runtime subscriptions', async () => {
     const generateText = vi.fn().mockResolvedValue({
       text: 'should not be used',

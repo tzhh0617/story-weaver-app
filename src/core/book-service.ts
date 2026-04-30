@@ -592,6 +592,42 @@ export function createBookService(deps: {
 }) {
   const resolveModelId = deps.resolveModelId ?? (() => DEFAULT_MOCK_MODEL_ID);
 
+  function emitProgress(input: {
+    bookId: string;
+    phase: string;
+    stepLabel: string;
+    currentVolume?: number | null;
+    currentChapter?: number | null;
+  }) {
+    deps.onGenerationEvent?.({
+      bookId: input.bookId,
+      type: 'progress',
+      phase: input.phase,
+      stepLabel: input.stepLabel,
+      currentVolume: input.currentVolume ?? null,
+      currentChapter: input.currentChapter ?? null,
+    });
+  }
+
+  function updateTrackedPhase(input: {
+    bookId: string;
+    phase: string;
+    stepLabel: string;
+    currentVolume?: number | null;
+    currentChapter?: number | null;
+    notifyBookUpdated?: boolean;
+  }) {
+    deps.progress.updatePhase(input.bookId, input.phase, {
+      currentVolume: input.currentVolume ?? null,
+      currentChapter: input.currentChapter ?? null,
+      stepLabel: input.stepLabel,
+    });
+    emitProgress(input);
+    if (input.notifyBookUpdated) {
+      deps.onBookUpdated?.(input.bookId);
+    }
+  }
+
   return {
     createBook(input: {
       idea: string;
@@ -712,8 +748,12 @@ export function createBookService(deps: {
       const modelId = resolveModelId();
 
       if (deps.outlineService.generateTitleFromIdea) {
-        deps.progress.updatePhase(bookId, 'naming_title');
-        deps.onBookUpdated?.(bookId);
+        updateTrackedPhase({
+          bookId,
+          phase: 'naming_title',
+          stepLabel: '正在生成书名',
+          notifyBookUpdated: true,
+        });
 
         const generatedTitle = (
           await deps.outlineService.generateTitleFromIdea({
@@ -736,8 +776,12 @@ export function createBookService(deps: {
         deps.onBookUpdated?.(bookId);
       }
 
-      deps.progress.updatePhase(bookId, 'building_world');
-      deps.onBookUpdated?.(bookId);
+      updateTrackedPhase({
+        bookId,
+        phase: 'building_world',
+        stepLabel: '正在构建世界观与叙事圣经',
+        notifyBookUpdated: true,
+      });
 
       const outlineBundle = await deps.outlineService.generateFromIdea({
         bookId,
@@ -750,8 +794,12 @@ export function createBookService(deps: {
             return;
           }
 
-          deps.progress.updatePhase(bookId, 'building_outline');
-          deps.onBookUpdated?.(bookId);
+          updateTrackedPhase({
+            bookId,
+            phase: 'building_outline',
+            stepLabel: '正在生成故事大纲',
+            notifyBookUpdated: true,
+          });
 
           deps.books.saveContext({
             bookId,
@@ -766,8 +814,12 @@ export function createBookService(deps: {
             return;
           }
 
-          deps.progress.updatePhase(bookId, 'planning_chapters');
-          deps.onBookUpdated?.(bookId);
+          updateTrackedPhase({
+            bookId,
+            phase: 'planning_chapters',
+            stepLabel: '正在规划章节卡',
+            notifyBookUpdated: true,
+          });
 
           deps.books.saveContext({
             bookId,
@@ -1105,6 +1157,14 @@ export function createBookService(deps: {
       let draftAttempts = 1;
       if (deps.chapterAuditor && chapterCard) {
         const auditContext = commandContext ?? legacyContinuityContext;
+        const auditStepLabel = `正在审校第 ${nextChapter.chapterIndex} 章叙事质量`;
+        updateTrackedPhase({
+          bookId,
+          phase: 'auditing_chapter',
+          stepLabel: auditStepLabel,
+          currentVolume: nextChapter.volumeIndex,
+          currentChapter: nextChapter.chapterIndex,
+        });
         let audit = await deps.chapterAuditor.auditChapter({
           modelId,
           draft: result.content,
@@ -1121,6 +1181,14 @@ export function createBookService(deps: {
         const auditAction = decideAuditAction(audit);
         if (auditAction !== 'accept' && deps.chapterRevision) {
           draftAttempts += 1;
+          const revisionStepLabel = `正在修订第 ${nextChapter.chapterIndex} 章`;
+          updateTrackedPhase({
+            bookId,
+            phase: 'revising_chapter',
+            stepLabel: revisionStepLabel,
+            currentVolume: nextChapter.volumeIndex,
+            currentChapter: nextChapter.chapterIndex,
+          });
           result = {
             ...result,
             content: await deps.chapterRevision.reviseChapter({
@@ -1130,6 +1198,14 @@ export function createBookService(deps: {
               issues: audit.issues,
             }),
           };
+          const reauditStepLabel = `正在复审第 ${nextChapter.chapterIndex} 章叙事质量`;
+          updateTrackedPhase({
+            bookId,
+            phase: 'auditing_chapter',
+            stepLabel: reauditStepLabel,
+            currentVolume: nextChapter.volumeIndex,
+            currentChapter: nextChapter.chapterIndex,
+          });
           audit = await deps.chapterAuditor.auditChapter({
             modelId,
             draft: result.content,
@@ -1148,15 +1224,9 @@ export function createBookService(deps: {
       }
 
       const postChapterStepLabel = `正在生成第 ${nextChapter.chapterIndex} 章摘要与连续性`;
-      deps.progress.updatePhase(bookId, 'writing', {
-        currentVolume: nextChapter.volumeIndex,
-        currentChapter: nextChapter.chapterIndex,
-        stepLabel: postChapterStepLabel,
-      });
-      deps.onGenerationEvent?.({
+      updateTrackedPhase({
         bookId,
-        type: 'progress',
-        phase: 'writing',
+        phase: 'extracting_continuity',
         stepLabel: postChapterStepLabel,
         currentVolume: nextChapter.volumeIndex,
         currentChapter: nextChapter.chapterIndex,
@@ -1229,6 +1299,14 @@ export function createBookService(deps: {
       }
 
       if (deps.narrativeStateExtractor) {
+        const stateStepLabel = `正在提取第 ${nextChapter.chapterIndex} 章叙事状态`;
+        updateTrackedPhase({
+          bookId,
+          phase: 'extracting_state',
+          stepLabel: stateStepLabel,
+          currentVolume: nextChapter.volumeIndex,
+          currentChapter: nextChapter.chapterIndex,
+        });
         const delta = await deps.narrativeStateExtractor.extractState({
           modelId,
           content: result.content,
@@ -1281,6 +1359,13 @@ export function createBookService(deps: {
           currentVolume: nextChapter.volumeIndex,
           currentChapter: nextChapter.chapterIndex,
           stepLabel: checkpointStepLabel,
+        });
+        emitProgress({
+          bookId,
+          phase: 'checkpoint_review',
+          stepLabel: checkpointStepLabel,
+          currentVolume: nextChapter.volumeIndex,
+          currentChapter: nextChapter.chapterIndex,
         });
         const checkpoint = await deps.narrativeCheckpoint.reviewCheckpoint({
           bookId,

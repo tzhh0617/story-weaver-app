@@ -22,6 +22,8 @@ import { ScrollArea } from '../components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import {
   executionLogLevelLabels,
+  getExecutionEventLabel,
+  getExecutionPhaseLabel,
   getExecutionLogLevelClassName,
   getExecutionLogLevelIcon,
 } from '../execution-log-format';
@@ -193,8 +195,9 @@ function RealtimeLogPanel({ logs }: { logs: ExecutionLogRecord[] }) {
                       {log.message}
                     </p>
                     <p className="flex flex-wrap gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                      <span>{getExecutionEventLabel(log.eventType)}</span>
                       {log.phase ? (
-                        <span>{getStatusLabel(log.phase)}</span>
+                        <span>{getExecutionPhaseLabel(log.phase)}</span>
                       ) : null}
                       {log.chapterIndex ? (
                         <span>{`第 ${log.chapterIndex} 章`}</span>
