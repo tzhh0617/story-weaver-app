@@ -105,7 +105,7 @@ describe('mock story services', () => {
       choicePressure: 76,
       consequenceVisibility: 74,
       irreversibleChange: 80,
-      hookStrength: 72,
+      hookStrength: 82,
     });
   });
 

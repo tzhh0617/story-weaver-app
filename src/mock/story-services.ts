@@ -735,7 +735,7 @@ export function createMockStoryServices(): MockStoryServices {
               choicePressure: 76,
               consequenceVisibility: 74,
               irreversibleChange: 80,
-              hookStrength: 72,
+              hookStrength: 82,
             },
           },
           stateUpdates: {
