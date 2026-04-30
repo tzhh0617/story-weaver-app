@@ -34,6 +34,22 @@ function makeBookDetailContractFixture(): BookDetail {
           endingHook: '旧页浮现林家姓名。',
         },
       ],
+      chapterTensionBudgets: [
+        {
+          bookId: 'book-1',
+          volumeIndex: 1,
+          chapterIndex: 1,
+          pressureLevel: 'high',
+          dominantTension: 'moral_choice',
+          requiredTurn: '胜利会伤害同伴。',
+          forcedChoice: '保住证据，或救下同伴。',
+          costToPay: '失去同伴信任。',
+          irreversibleChange: '林牧无法继续旁观。',
+          readerQuestion: '谁安排了这次选择？',
+          hookPressure: '章末出现更坏记录。',
+          flatnessRisks: ['不要用解释代替冲突。'],
+        },
+      ],
     },
     chapters: [
       {
@@ -72,6 +88,11 @@ describe('ipcChannels', () => {
     expect(detail.context?.outline).toEqual(expect.any(String));
     expect(detail.narrative?.storyBible?.themeQuestion).toEqual(expect.any(String));
     expect(Array.isArray(detail.narrative?.chapterCards)).toBe(true);
+    expect(detail.narrative?.chapterTensionBudgets[0]).toMatchObject({
+      chapterIndex: 1,
+      pressureLevel: 'high',
+      dominantTension: 'moral_choice',
+    });
     expect(detail.chapters[0]?.auditScore).toBe(88);
   });
 });

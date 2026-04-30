@@ -39,6 +39,20 @@ export type BookDetail = {
       readerReward: string;
       endingHook: string;
     }>;
+    chapterTensionBudgets: Array<{
+      bookId: string;
+      volumeIndex: number;
+      chapterIndex: number;
+      pressureLevel: string;
+      dominantTension: string;
+      requiredTurn: string;
+      forcedChoice: string;
+      costToPay: string;
+      irreversibleChange: string;
+      readerQuestion: string;
+      hookPressure: string;
+      flatnessRisks: string[];
+    }>;
   };
   latestScene: {
     location: string;
