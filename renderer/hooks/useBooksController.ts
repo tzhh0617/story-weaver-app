@@ -1,10 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  ipcChannels,
-  type BookListItem,
-} from '../../src/shared/contracts';
+import type { BookListItem } from '../../src/shared/contracts';
 import type { BookDetailData } from '../types/book-detail';
-import type { StoryWeaverIpc } from './useIpc';
+import type { StoryWeaverApi } from './useStoryWeaverApi';
 
 function normalizeBookListItem(book: BookListItem): BookListItem {
   return {
@@ -15,7 +12,7 @@ function normalizeBookListItem(book: BookListItem): BookListItem {
   };
 }
 
-export function useBooksController(ipc: StoryWeaverIpc) {
+export function useBooksController(api: StoryWeaverApi) {
   const [books, setBooks] = useState<BookListItem[]>([]);
   const [selectedBookId, setSelectedBookId] = useState<string | null>(null);
   const selectedBookIdRef = useRef<string | null>(null);
@@ -23,18 +20,18 @@ export function useBooksController(ipc: StoryWeaverIpc) {
     useState<BookDetailData | null>(null);
 
   const loadBooks = useCallback(async () => {
-    const nextBooks = await ipc.invoke(ipcChannels.bookList);
+    const nextBooks = await api.listBooks();
     const safeBooks = Array.isArray(nextBooks) ? nextBooks : [];
 
     setBooks(safeBooks.map(normalizeBookListItem));
-  }, [ipc]);
+  }, [api]);
 
   const loadBookDetail = useCallback(async (
     bookId: string,
     options?: { openView?: boolean; preserveExistingOnMissing?: boolean }
   ) => {
     setSelectedBookId(bookId);
-    const detail = await ipc.invoke(ipcChannels.bookDetail, { bookId });
+    const detail = await api.getBookDetail(bookId);
     setSelectedBookDetail((currentDetail) => {
       if (detail) {
         return detail;
@@ -51,7 +48,7 @@ export function useBooksController(ipc: StoryWeaverIpc) {
     });
 
     return options?.openView ?? true;
-  }, [ipc]);
+  }, [api]);
 
   const clearSelectedBook = useCallback(() => {
     setSelectedBookId(null);

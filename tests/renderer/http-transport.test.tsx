@@ -1,35 +1,40 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { ipcChannels } from '../../src/shared/contracts';
-import { useIpc } from '../../renderer/hooks/useIpc';
+import { createHttpStoryWeaverClient } from '../../renderer/lib/story-weaver-http-client';
+import { useStoryWeaverApi } from '../../renderer/hooks/useStoryWeaverApi';
 
 function Probe() {
-  const ipc = useIpc();
+  const api = useStoryWeaverApi();
 
-  void ipc.invoke(ipcChannels.bookList).then((books) => {
+  void api.listBooks().then((books) => {
     document.body.dataset.bookCount = String(books.length);
   });
 
-  return <div>{ipc.isAvailable ? 'available' : 'unavailable'}</div>;
+  return <div>available</div>;
 }
 
 function ExportProbe() {
-  const ipc = useIpc();
+  const api = useStoryWeaverApi();
 
-  void ipc
-    .invoke(ipcChannels.bookExport, { bookId: 'book-1', format: 'txt' })
-    .then((message) => {
-      document.body.dataset.exportMessage = message;
-    });
+  void api.exportBook('book-1', 'txt').then((message) => {
+    document.body.dataset.exportMessage = message;
+  });
 
   return <div>exporting</div>;
 }
 
 describe('browser HTTP transport', () => {
-  it('uses /api/invoke when the Electron preload bridge is absent', async () => {
-    delete window.storyWeaver;
+  it('uses concrete book routes even when the old Electron bridge exists', async () => {
+    (window as typeof window & { storyWeaver?: unknown }).storyWeaver = {
+      invoke: vi.fn(() => {
+        throw new Error('old bridge should not be called');
+      }),
+      onProgress: vi.fn(),
+      onBookGeneration: vi.fn(),
+      onExecutionLog: vi.fn(),
+    };
     const fetchMock = vi.fn(async () =>
-      new Response(JSON.stringify({ data: [] }), {
+      new Response(JSON.stringify([]), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       })
@@ -42,27 +47,24 @@ describe('browser HTTP transport', () => {
     await waitFor(() => {
       expect(document.body.dataset.bookCount).toBe('0');
     });
-    expect(fetchMock).toHaveBeenCalledWith(
-      new URL('/api/invoke', window.location.href),
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ channel: 'book:list', payload: undefined }),
-      }
-    );
+    expect(fetchMock).toHaveBeenCalledWith(new URL('/api/books', window.location.href), {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    expect(
+      ((window as typeof window & { storyWeaver: { invoke: ReturnType<typeof vi.fn> } })
+        .storyWeaver.invoke)
+    ).not.toHaveBeenCalled();
   });
 
   it('formats browser export responses with a download URL', async () => {
-    delete window.storyWeaver;
     vi.stubGlobal(
       'fetch',
       vi.fn(async () =>
         new Response(
           JSON.stringify({
-            data: {
-              filePath: '/tmp/story-weaver/exports/Book.txt',
-              downloadUrl: '/api/exports/export-1',
-            },
+            filePath: '/tmp/story-weaver/exports/Book.txt',
+            downloadUrl: '/api/exports/export-1',
           }),
           {
             status: 200,
@@ -79,5 +81,29 @@ describe('browser HTTP transport', () => {
         '/tmp/story-weaver/exports/Book.txt（下载：/api/exports/export-1）'
       );
     });
+  });
+
+  it('uses an explicit API base URL for fetch endpoints', async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(JSON.stringify([]), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const api = createHttpStoryWeaverClient({
+      baseUrl: 'http://127.0.0.1:5174',
+    });
+
+    await api.listBooks();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      new URL('/api/books', 'http://127.0.0.1:5174'),
+      {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
   });
 });

@@ -1,9 +1,6 @@
 import { useEffect, useState } from 'react';
-import {
-  ipcChannels,
-  type SchedulerStatus,
-} from '../../src/shared/contracts';
-import { useIpc } from './useIpc';
+import type { SchedulerStatus } from '../../src/shared/contracts';
+import { useStoryWeaverApi } from './useStoryWeaverApi';
 
 const emptyStatus: SchedulerStatus = {
   runningBookIds: [],
@@ -13,21 +10,19 @@ const emptyStatus: SchedulerStatus = {
 };
 
 export function useProgress() {
-  const ipc = useIpc();
+  const api = useStoryWeaverApi();
   const [status, setStatus] = useState<SchedulerStatus>(emptyStatus);
 
   useEffect(() => {
     let isMounted = true;
 
-    void ipc
-      .invoke(ipcChannels.schedulerStatus)
-      .then((payload) => {
-        if (isMounted && payload) {
-          setStatus(payload);
-        }
-      });
+    void api.getSchedulerStatus().then((payload) => {
+      if (isMounted && payload) {
+        setStatus(payload);
+      }
+    });
 
-    const unsubscribe = ipc.onProgress((payload) => {
+    const unsubscribe = api.onProgress((payload) => {
       setStatus(payload as SchedulerStatus);
     });
 
@@ -35,7 +30,7 @@ export function useProgress() {
       isMounted = false;
       unsubscribe();
     };
-  }, [ipc]);
+  }, [api]);
 
   return status;
 }

@@ -4,10 +4,10 @@ import {
   type BookGenerationEvent,
 } from '../../src/shared/contracts';
 import type { BookDetailData } from '../types/book-detail';
-import type { StoryWeaverIpc } from './useIpc';
+import type { StoryWeaverApi } from './useStoryWeaverApi';
 
 export function useBookGenerationEvents(input: {
-  ipc: StoryWeaverIpc;
+  api: StoryWeaverApi;
   selectedBookId: string | null;
   selectedBookIdRef: React.MutableRefObject<string | null>;
   setSelectedBookDetail: React.Dispatch<React.SetStateAction<BookDetailData | null>>;
@@ -17,7 +17,7 @@ export function useBookGenerationEvents(input: {
   ) => Promise<boolean>;
 }) {
   const {
-    ipc,
+    api,
     selectedBookId,
     selectedBookIdRef,
     setSelectedBookDetail,
@@ -36,7 +36,7 @@ export function useBookGenerationEvents(input: {
   }, [selectedBookId]);
 
   useEffect(() => {
-    const unsubscribe = ipc.onBookGeneration((payload) => {
+    const unsubscribe = api.onBookGeneration((payload) => {
       const event = payload as BookGenerationEvent;
 
       setSelectedBookDetail((currentDetail) => {
@@ -104,7 +104,7 @@ export function useBookGenerationEvents(input: {
     });
 
     return unsubscribe;
-  }, [ipc, loadBookDetail, selectedBookId, selectedBookIdRef, setSelectedBookDetail]);
+  }, [api, loadBookDetail, selectedBookId, selectedBookIdRef, setSelectedBookDetail]);
 
   return liveOutput;
 }
