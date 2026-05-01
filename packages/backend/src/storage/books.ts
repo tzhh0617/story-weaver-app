@@ -180,18 +180,28 @@ export function createBookRepository(db: SqliteDatabase) {
     },
 
     clearGeneratedState(bookId: string) {
-      deleteBookPlanningData(db, bookId);
-      db.prepare('DELETE FROM book_context WHERE book_id = ?').run(bookId);
-      db.prepare('DELETE FROM world_settings WHERE book_id = ?').run(bookId);
-      db.prepare('DELETE FROM api_logs WHERE book_id = ?').run(bookId);
+      db.transaction(() => {
+        deleteBookPlanningData(db, bookId);
+        db.prepare('DELETE FROM book_context WHERE book_id = ?').run(bookId);
+        db.prepare('DELETE FROM world_settings WHERE book_id = ?').run(bookId);
+        db.prepare('DELETE FROM api_logs WHERE book_id = ?').run(bookId);
+      })();
     },
 
     delete(bookId: string) {
-      deleteBookPlanningData(db, bookId);
-      db.prepare('DELETE FROM book_context WHERE book_id = ?').run(bookId);
-      db.prepare('DELETE FROM world_settings WHERE book_id = ?').run(bookId);
-      db.prepare('DELETE FROM api_logs WHERE book_id = ?').run(bookId);
-      db.prepare('DELETE FROM books WHERE id = ?').run(bookId);
+      db.transaction(() => {
+        deleteBookPlanningData(db, bookId);
+        db.prepare('DELETE FROM chapters WHERE book_id = ?').run(bookId);
+        db.prepare('DELETE FROM characters WHERE book_id = ?').run(bookId);
+        db.prepare('DELETE FROM plot_threads WHERE book_id = ?').run(bookId);
+        db.prepare('DELETE FROM scene_records WHERE book_id = ?').run(bookId);
+        db.prepare('DELETE FROM writing_progress WHERE book_id = ?').run(bookId);
+        db.prepare('DELETE FROM character_states WHERE book_id = ?').run(bookId);
+        db.prepare('DELETE FROM book_context WHERE book_id = ?').run(bookId);
+        db.prepare('DELETE FROM world_settings WHERE book_id = ?').run(bookId);
+        db.prepare('DELETE FROM api_logs WHERE book_id = ?').run(bookId);
+        db.prepare('DELETE FROM books WHERE id = ?').run(bookId);
+      })();
     },
   };
 }
