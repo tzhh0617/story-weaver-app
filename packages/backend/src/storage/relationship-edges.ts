@@ -1,5 +1,23 @@
 import type { Database as SqliteDatabase } from 'better-sqlite3';
-import type { RelationshipEdge } from '../core/narrative/types.js';
+
+export type RelationshipEdge = {
+  id: string;
+  fromCharacterId: string;
+  toCharacterId: string;
+  visibleLabel: string;
+  hiddenTruth: string | null;
+  dependency: string | null;
+  debt: string | null;
+  misunderstanding: string | null;
+  affection: string | null;
+  harmPattern: string | null;
+  sharedGoal: string | null;
+  valueConflict: string | null;
+  trustLevel: number;
+  tensionLevel: number;
+  currentState: string;
+  plannedTurns: Array<{ chapterRange: string; change: string }>;
+};
 
 export function createRelationshipEdgeRepository(db: SqliteDatabase) {
   return {

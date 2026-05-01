@@ -1,5 +1,30 @@
 import type { Database as SqliteDatabase } from 'better-sqlite3';
-import type { ChapterTensionBudget } from '../core/narrative/types.js';
+
+type TensionPressureLevel = 'low' | 'medium' | 'high' | 'peak';
+type DominantTension =
+  | 'danger'
+  | 'desire'
+  | 'relationship'
+  | 'mystery'
+  | 'moral_choice'
+  | 'deadline'
+  | 'status_loss'
+  | 'resource_cost';
+
+type ChapterTensionBudget = {
+  bookId: string;
+  volumeIndex: number;
+  chapterIndex: number;
+  pressureLevel: TensionPressureLevel;
+  dominantTension: DominantTension;
+  requiredTurn: string;
+  forcedChoice: string;
+  costToPay: string;
+  irreversibleChange: string;
+  readerQuestion: string;
+  hookPressure: string;
+  flatnessRisks: string[];
+};
 
 type TensionBudgetRow = Omit<ChapterTensionBudget, 'flatnessRisks'> & {
   flatnessRisksJson: string;

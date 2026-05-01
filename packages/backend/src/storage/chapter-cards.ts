@@ -1,10 +1,70 @@
 import type { Database as SqliteDatabase } from 'better-sqlite3';
-import type {
-  ChapterCard,
-  ChapterCharacterPressure,
-  ChapterRelationshipAction,
-  ChapterThreadAction,
-} from '../core/narrative/types.js';
+
+type ReaderReward =
+  | 'reversal'
+  | 'breakthrough'
+  | 'failure'
+  | 'truth'
+  | 'upgrade'
+  | 'confession'
+  | 'dread'
+  | 'relief';
+
+type ChapterCard = {
+  bookId: string;
+  volumeIndex: number;
+  chapterIndex: number;
+  title: string;
+  plotFunction: string;
+  povCharacterId: string | null;
+  externalConflict: string;
+  internalConflict: string;
+  relationshipChange: string;
+  worldRuleUsedOrTested: string;
+  informationReveal: string;
+  readerReward: ReaderReward;
+  endingHook: string;
+  mustChange: string;
+  forbiddenMoves: string[];
+};
+
+type ThreadAction = 'plant' | 'advance' | 'misdirect' | 'payoff';
+type RelationshipAction =
+  | 'strain'
+  | 'repair'
+  | 'betray'
+  | 'reveal'
+  | 'deepen'
+  | 'reverse';
+
+type ChapterThreadAction = {
+  bookId: string;
+  volumeIndex: number;
+  chapterIndex: number;
+  threadId: string;
+  action: ThreadAction;
+  requiredEffect: string;
+};
+
+type ChapterCharacterPressure = {
+  bookId: string;
+  volumeIndex: number;
+  chapterIndex: number;
+  characterId: string;
+  desirePressure: string;
+  fearPressure: string;
+  flawTrigger: string;
+  expectedChoice: string;
+};
+
+type ChapterRelationshipAction = {
+  bookId: string;
+  volumeIndex: number;
+  chapterIndex: number;
+  relationshipId: string;
+  action: RelationshipAction;
+  requiredChange: string;
+};
 
 function safeJsonParse<T>(value: string | null | undefined, fallback: T): T {
   if (!value) return fallback;

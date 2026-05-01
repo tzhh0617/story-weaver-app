@@ -1,5 +1,43 @@
 import type { Database as SqliteDatabase } from 'better-sqlite3';
-import type { NarrativeThread } from '../core/narrative/types.js';
+
+export type NarrativeThreadType =
+  | 'main'
+  | 'subplot'
+  | 'relationship'
+  | 'mystery'
+  | 'theme'
+  | 'antagonist'
+  | 'world';
+
+export type NarrativeThreadState =
+  | 'open'
+  | 'advanced'
+  | 'twisted'
+  | 'paid_off'
+  | 'abandoned';
+
+export type ThreadImportance = 'critical' | 'normal' | 'minor';
+export type PayoffChangeTarget =
+  | 'plot'
+  | 'relationship'
+  | 'world'
+  | 'character'
+  | 'theme';
+
+export type NarrativeThread = {
+  id: string;
+  type: NarrativeThreadType;
+  promise: string;
+  plantedAt: number;
+  expectedPayoff: number | null;
+  resolvedAt: number | null;
+  currentState: NarrativeThreadState;
+  importance: ThreadImportance;
+  payoffMustChange: PayoffChangeTarget;
+  ownerCharacterId: string | null;
+  relatedRelationshipId: string | null;
+  notes: string | null;
+};
 
 export function createNarrativeThreadRepository(db: SqliteDatabase) {
   function upsertThread(bookId: string, thread: NarrativeThread) {

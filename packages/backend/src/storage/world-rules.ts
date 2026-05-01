@@ -1,5 +1,26 @@
 import type { Database as SqliteDatabase } from 'better-sqlite3';
-import type { WorldRule } from '../core/narrative/types.js';
+
+export type WorldRuleCategory =
+  | 'power'
+  | 'society'
+  | 'resource'
+  | 'taboo'
+  | 'law'
+  | 'daily_life'
+  | 'history';
+
+export type WorldRule = {
+  id: string;
+  category: WorldRuleCategory;
+  ruleText: string;
+  cost: string;
+  whoBenefits: string | null;
+  whoSuffers: string | null;
+  taboo: string | null;
+  violationConsequence: string | null;
+  allowedException: string | null;
+  currentStatus: string;
+};
 
 export function createWorldRuleRepository(db: SqliteDatabase) {
   return {

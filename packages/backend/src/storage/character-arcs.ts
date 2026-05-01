@@ -1,9 +1,58 @@
 import type { Database as SqliteDatabase } from 'better-sqlite3';
-import type {
-  CharacterArc,
-  CharacterStateInput,
-  CharacterStateOutput,
-} from '../core/narrative/types.js';
+
+export type CharacterRoleType =
+  | 'protagonist'
+  | 'deuteragonist'
+  | 'supporting'
+  | 'antagonist'
+  | 'minor';
+
+export type ArcDirection =
+  | 'growth'
+  | 'fall'
+  | 'corruption'
+  | 'recovery'
+  | 'flat';
+
+export type CharacterArc = {
+  id: string;
+  name: string;
+  roleType: CharacterRoleType;
+  desire: string;
+  fear: string;
+  flaw: string;
+  misbelief: string;
+  wound: string | null;
+  externalGoal: string;
+  internalNeed: string;
+  arcDirection: ArcDirection;
+  decisionLogic: string;
+  lineWillNotCross: string | null;
+  lineMayEventuallyCross: string | null;
+  currentArcPhase: string;
+};
+
+export type CharacterStateInput = {
+  bookId: string;
+  characterId: string;
+  characterName: string;
+  volumeIndex: number;
+  chapterIndex: number;
+  location?: string | null;
+  status?: string | null;
+  knowledge?: string | null;
+  emotion?: string | null;
+  powerLevel?: string | null;
+  arcPhase?: string | null;
+};
+
+export type CharacterStateOutput = Required<
+  Pick<CharacterStateInput, 'bookId' | 'characterId' | 'characterName' | 'volumeIndex' | 'chapterIndex'>
+> &
+  Pick<
+    CharacterStateInput,
+    'location' | 'status' | 'knowledge' | 'emotion' | 'powerLevel' | 'arcPhase'
+  >;
 
 export function createCharacterArcRepository(db: SqliteDatabase) {
   return {

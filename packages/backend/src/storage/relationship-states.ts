@@ -1,8 +1,17 @@
 import type { Database as SqliteDatabase } from 'better-sqlite3';
-import type {
-  RelationshipStateInput,
-  RelationshipStateOutput,
-} from '../core/narrative/types.js';
+
+type RelationshipStateInput = {
+  bookId: string;
+  relationshipId: string;
+  volumeIndex: number;
+  chapterIndex: number;
+  trustLevel: number;
+  tensionLevel: number;
+  currentState: string;
+  changeSummary?: string | null;
+};
+
+type RelationshipStateOutput = RelationshipStateInput;
 
 export function createRelationshipStateRepository(db: SqliteDatabase) {
   return {

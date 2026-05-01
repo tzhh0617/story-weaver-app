@@ -1,5 +1,18 @@
 import type { Database as SqliteDatabase } from 'better-sqlite3';
-import type { VolumePlan } from '../core/narrative/types.js';
+
+type VolumePlan = {
+  volumeIndex: number;
+  title: string;
+  chapterStart: number;
+  chapterEnd: number;
+  roleInStory: string;
+  mainPressure: string;
+  promisedPayoff: string;
+  characterArcMovement: string;
+  relationshipMovement: string;
+  worldExpansion: string;
+  endingTurn: string;
+};
 
 export function createVolumePlanRepository(db: SqliteDatabase) {
   return {

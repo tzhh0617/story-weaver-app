@@ -1,9 +1,84 @@
 import type { Database as SqliteDatabase } from 'better-sqlite3';
-import type { NarrativeBible } from '../core/narrative/types.js';
-import type { createCharacterArcRepository } from './character-arcs.js';
-import type { createNarrativeThreadRepository } from './narrative-threads.js';
-import type { createRelationshipEdgeRepository } from './relationship-edges.js';
-import type { createWorldRuleRepository } from './world-rules.js';
+import type { createCharacterArcRepository, CharacterArc } from './character-arcs.js';
+import type { createNarrativeThreadRepository, NarrativeThread } from './narrative-threads.js';
+import type { createRelationshipEdgeRepository, RelationshipEdge } from './relationship-edges.js';
+import type { createWorldRuleRepository, WorldRule } from './world-rules.js';
+
+type EndingState = {
+  protagonistWins: string;
+  protagonistLoses: string;
+  worldChange: string;
+  relationshipOutcome: string;
+  themeAnswer: string;
+};
+
+type ViralPayoffType =
+  | 'face_slap'
+  | 'upgrade'
+  | 'truth_reveal'
+  | 'relationship_shift'
+  | 'resource_gain'
+  | 'local_victory'
+  | 'identity_reveal'
+  | 'enemy_setback';
+
+type ViralPayoffCadence = {
+  mode: 'fast' | 'steady' | 'slow_burn' | 'suppressed_then_burst';
+  minorPayoffEveryChapters: number;
+  majorPayoffEveryChapters: number;
+  payoffTypes: ViralPayoffType[];
+};
+
+type ViralTargetEmotion =
+  | 'comeback'
+  | 'revenge'
+  | 'survival'
+  | 'wonder'
+  | 'romantic_tension'
+  | 'power_climb'
+  | 'mystery_breakthrough'
+  | 'being_chosen'
+  | 'moral_pressure';
+
+type ViralTropeContract =
+  | 'rebirth_change_fate'
+  | 'system_growth'
+  | 'hidden_identity'
+  | 'revenge_payback'
+  | 'weak_to_strong'
+  | 'forbidden_bond'
+  | 'case_breaking'
+  | 'sect_or_family_pressure'
+  | 'survival_game'
+  | 'business_or_power_game';
+
+type ViralStoryProtocol = {
+  readerPromise: string;
+  targetEmotion: ViralTargetEmotion;
+  coreDesire: string;
+  protagonistDrive: string;
+  hookEngine: string;
+  payoffCadence: ViralPayoffCadence;
+  tropeContract: ViralTropeContract[];
+  antiClicheRules: string[];
+  longTermQuestion: string;
+};
+
+type NarrativeBible = {
+  premise: string;
+  genreContract: string;
+  targetReaderExperience: string;
+  themeQuestion: string;
+  themeAnswerDirection: string;
+  centralDramaticQuestion: string;
+  endingState: EndingState;
+  voiceGuide: string;
+  characterArcs: CharacterArc[];
+  relationshipEdges: RelationshipEdge[];
+  worldRules: WorldRule[];
+  narrativeThreads: NarrativeThread[];
+  viralStoryProtocol?: ViralStoryProtocol;
+};
 
 function safeJsonParse<T>(value: string | null | undefined, fallback: T): T {
   if (!value) return fallback;

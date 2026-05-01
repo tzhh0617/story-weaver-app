@@ -117,6 +117,22 @@ describe('workspace import boundaries', () => {
     expect(offenders).toEqual([]);
   });
 
+  it('keeps storage from importing core domain logic', () => {
+    const offenders = listTrackedSourceFiles()
+      .filter((file) => file.startsWith('packages/backend/src/storage/'))
+      .flatMap((file) =>
+        importsIn(file)
+          .filter(
+            (specifier) =>
+              specifier.includes('/core/') ||
+              specifier.includes('../core/')
+          )
+          .map((specifier) => `${file} -> ${specifier}`)
+      );
+
+    expect(offenders).toEqual([]);
+  });
+
   it('does not keep application source in legacy root directories', () => {
     const legacySources = listTrackedSourceFiles().filter(
       (file) =>
