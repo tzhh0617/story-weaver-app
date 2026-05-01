@@ -1,4 +1,4 @@
-import { integer, primaryKey, sqliteTable, text, unique } from 'drizzle-orm/sqlite-core';
+import { index, integer, primaryKey, sqliteTable, text, unique } from 'drizzle-orm/sqlite-core';
 
 export const books = sqliteTable('books', {
   id: text('id').primaryKey(),
@@ -11,7 +11,9 @@ export const books = sqliteTable('books', {
   viralStrategyJson: text('viral_strategy_json'),
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
-});
+}, (table) => ({
+  statusIdx: index('idx_books_status').on(table.status),
+}));
 
 export const bookContext = sqliteTable('book_context', {
   bookId: text('book_id').primaryKey(),
@@ -54,6 +56,7 @@ export const chapters = sqliteTable(
     pk: primaryKey({
       columns: [table.bookId, table.volumeIndex, table.chapterIndex],
     }),
+    bookIdIdx: index('idx_chapters_book_id').on(table.bookId),
   })
 );
 
@@ -388,7 +391,9 @@ export const writingProgress = sqliteTable('writing_progress', {
   stepLabel: text('step_label'),
   retryCount: integer('retry_count').notNull().default(0),
   errorMsg: text('error_msg'),
-});
+}, (table) => ({
+  bookIdIdx: index('idx_writing_progress_book_id').on(table.bookId),
+}));
 
 export const apiLogs = sqliteTable('api_logs', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -399,7 +404,9 @@ export const apiLogs = sqliteTable('api_logs', {
   outputTokens: integer('output_tokens'),
   durationMs: integer('duration_ms'),
   createdAt: text('created_at').notNull(),
-});
+}, (table) => ({
+  bookIdCreatedAtIndex: index('idx_api_logs_book_id_created_at').on(table.bookId, table.createdAt),
+}));
 
 export const modelConfigs = sqliteTable('model_configs', {
   id: text('id').primaryKey(),

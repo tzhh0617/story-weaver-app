@@ -364,5 +364,10 @@ export const migrations = [
     PRIMARY KEY (book_id, category, key),
     FOREIGN KEY (book_id) REFERENCES books(id)
   );
+
+  CREATE INDEX IF NOT EXISTS idx_books_status ON books(status);
+  CREATE INDEX IF NOT EXISTS idx_chapters_book_id ON chapters(book_id);
+  CREATE INDEX IF NOT EXISTS idx_api_logs_book_id_created_at ON api_logs(book_id, created_at);
+  CREATE INDEX IF NOT EXISTS idx_writing_progress_book_id ON writing_progress(book_id);
   `,
 ];
