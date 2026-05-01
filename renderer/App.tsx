@@ -361,7 +361,10 @@ export default function App() {
                   await ipc.invoke(ipcChannels.schedulerStartAll);
                   await loadBooks();
                   flushSync(() => {
-                    setBanner(null);
+                    setBanner({
+                      tone: 'success',
+                      message: '批量写作已开始',
+                    });
                   });
                 } catch (error) {
                   flushSync(() => {
@@ -389,7 +392,10 @@ export default function App() {
                     await loadBookDetail(selectedBookId, { openView: false });
                   }
                   flushSync(() => {
-                    setBanner(null);
+                    setBanner({
+                      tone: 'success',
+                      message: '全部书籍已暂停',
+                    });
                   });
                 } catch (error) {
                   flushSync(() => {
@@ -432,16 +438,18 @@ export default function App() {
               onBackToLibrary={() => setCurrentView('library')}
               onResume={async () => {
                 await runSelectedBookAction({
-                  startMessage: null,
+                  startMessage: '正在恢复写作...',
                   errorMessage: 'Failed to resume book',
                   channel: ipcChannels.bookResume,
+                  successMessage: '作品已恢复写作',
                 });
               }}
               onRestart={async () => {
                 await runSelectedBookAction({
-                  startMessage: null,
+                  startMessage: '正在重新开始写作...',
                   errorMessage: 'Failed to restart book',
                   channel: ipcChannels.bookRestart,
+                  successMessage: '作品已重新开始',
                 });
               }}
               chapters={selectedBookDetail.chapters.map((chapter) => ({
@@ -463,9 +471,10 @@ export default function App() {
               }))}
               onPause={async () => {
                 await runSelectedBookAction({
-                  startMessage: null,
+                  startMessage: '正在暂停作品...',
                   errorMessage: 'Failed to pause book',
                   channel: ipcChannels.bookPause,
+                  successMessage: '作品已暂停',
                 });
               }}
               onExport={async (format: BookExportFormat) => {
@@ -474,6 +483,7 @@ export default function App() {
                 }
 
                 try {
+                  showBanner('info', `正在导出 ${format.toUpperCase()}...`);
                   const filePath = await ipc.invoke(ipcChannels.bookExport, {
                     bookId: selectedBookId,
                     format,
@@ -488,7 +498,7 @@ export default function App() {
               }}
               onDelete={async () => {
                 await runSelectedBookAction({
-                  startMessage: null,
+                  startMessage: '正在删除作品...',
                   errorMessage: 'Failed to delete book',
                   channel: ipcChannels.bookDelete,
                   successMessage: '作品已删除',
@@ -572,8 +582,19 @@ export default function App() {
           {currentView === 'settings' ? (
             <Settings
               onSaveModel={async (input) => {
-                await ipc.invoke(ipcChannels.modelSave, input);
-                await loadModels();
+                try {
+                  clearBanner();
+                  showToast('info', '正在保存模型...');
+                  await ipc.invoke(ipcChannels.modelSave, input);
+                  await loadModels();
+                  showToast('success', '模型已保存');
+                } catch (error) {
+                  showToast(
+                    'error',
+                    error instanceof Error ? error.message : 'Failed to save model'
+                  );
+                  throw error;
+                }
               }}
               onTestModel={async (input) => {
                 try {

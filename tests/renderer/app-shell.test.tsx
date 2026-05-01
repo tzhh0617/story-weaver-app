@@ -1245,10 +1245,13 @@ describe('App shell', () => {
 
     fireEvent.click(startAllButton);
 
+    expect(await screen.findByText('正在批量推进书籍写作...')).toBeInTheDocument();
+
     await waitFor(() => {
       expect(invoke).toHaveBeenCalledWith('scheduler:startAll', undefined);
     });
 
+    expect(await screen.findByText('批量写作已开始')).toBeInTheDocument();
     expect(await screen.findByText('已完成')).toBeInTheDocument();
   });
 
@@ -1301,10 +1304,13 @@ describe('App shell', () => {
 
     fireEvent.click(pauseAllButton);
 
+    expect(await screen.findByText('正在暂停所有书籍...')).toBeInTheDocument();
+
     await waitFor(() => {
       expect(invoke).toHaveBeenCalledWith('scheduler:pauseAll', undefined);
     });
 
+    expect(await screen.findByText('全部书籍已暂停')).toBeInTheDocument();
     expect(await screen.findByRole('button', { name: '作品' })).toHaveAttribute(
       'data-active',
       'true'
@@ -1459,12 +1465,15 @@ describe('App shell', () => {
 
     fireEvent.click(screen.getByText('暂停'));
 
+    expect(await screen.findByText('正在暂停作品...')).toBeInTheDocument();
+
     await waitFor(() => {
       expect(invoke).toHaveBeenCalledWith('book:pause', {
         bookId: 'book-1',
       });
     });
 
+    expect(await screen.findByText('作品已暂停')).toBeInTheDocument();
     expect(
       await screen.findByRole('heading', {
         name: /^Existing Book（已暂停 · 0 万字）/,
@@ -1551,7 +1560,7 @@ describe('App shell', () => {
     await selectBook('Existing Book');
     fireEvent.click(await screen.findByText('导出 TXT'));
 
-    expect(screen.queryByText('正在导出 TXT...')).toBeNull();
+    expect(await screen.findByText('正在导出 TXT...')).toBeInTheDocument();
 
     await waitFor(() => {
       expect(invoke).toHaveBeenCalledWith('book:export', {
@@ -1635,7 +1644,7 @@ describe('App shell', () => {
     await selectBook('Existing Book');
     fireEvent.click(await screen.findByText('删除作品'));
 
-    expect(screen.queryByText('正在删除作品...')).toBeNull();
+    expect(await screen.findByText('正在删除作品...')).toBeInTheDocument();
 
     await waitFor(() => {
       expect(invoke).toHaveBeenCalledWith('book:delete', {
@@ -1783,7 +1792,7 @@ describe('App shell', () => {
     await selectBook('Existing Book');
     fireEvent.click(await screen.findByText('恢复写作'));
 
-    expect(screen.queryByText('正在恢复写作...')).toBeNull();
+    expect(await screen.findByText('正在恢复写作...')).toBeInTheDocument();
 
     await waitFor(() => {
       expect(invoke).toHaveBeenCalledWith('book:resume', {
@@ -1791,6 +1800,7 @@ describe('App shell', () => {
       });
     });
 
+    expect(await screen.findByText('作品已恢复写作')).toBeInTheDocument();
     expect(
       await screen.findByRole('heading', {
         name: /^Existing Book（已完成 · 0.1 万字）/,
@@ -1929,7 +1939,7 @@ describe('App shell', () => {
     await selectBook('Existing Book');
     fireEvent.click(await screen.findByText('重新开始'));
 
-    expect(screen.queryByText('正在重新开始写作...')).toBeNull();
+    expect(await screen.findByText('正在重新开始写作...')).toBeInTheDocument();
 
     await waitFor(() => {
       expect(invoke).toHaveBeenCalledWith('book:restart', {
@@ -1937,6 +1947,7 @@ describe('App shell', () => {
       });
     });
 
+    expect(await screen.findByText('作品已重新开始')).toBeInTheDocument();
     expect(await screen.findByText('Restarted content')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('tab', { name: '人物' }));
     expect((await screen.findAllByText(/Debt Court/)).length).toBeGreaterThan(0);
@@ -2383,6 +2394,49 @@ describe('App shell', () => {
     expect(screen.getByLabelText('Model Name')).toHaveValue(
       'claude-3-5-sonnet'
     );
+    expect(await screen.findByRole('status')).toHaveTextContent('模型已保存');
+  });
+
+  it('shows model save progress and failure feedback in toasts', async () => {
+    const saveDeferred: {
+      reject?: (error: Error) => void;
+    } = {};
+
+    installIpcMock(async (channel, payload) => {
+      switch (channel) {
+        case 'book:list':
+          return [];
+        case 'model:list':
+          return [];
+        case 'model:save':
+          return new Promise((_resolve, reject) => {
+            saveDeferred.reject = reject;
+          });
+        default:
+          return payload ?? null;
+      }
+    });
+
+    render(<App />);
+
+    await openSettingsView();
+
+    await selectProvider('openai');
+    fireEvent.change(screen.getByLabelText('Model Name'), {
+      target: { value: 'gpt-4o-mini' },
+    });
+    fireEvent.change(screen.getByLabelText('API Key'), {
+      target: { value: 'sk-test' },
+    });
+    fireEvent.click(screen.getByText('保存模型'));
+
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      '正在保存模型...'
+    );
+
+    saveDeferred.reject?.(new Error('模型保存失败'));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('模型保存失败');
   });
 
   it('loads a saved model into the settings form for editing', async () => {
