@@ -86,6 +86,10 @@ describe('desktop runtime config', () => {
     expect(electronMainSource).toContain("path.join(app.getAppPath(), 'dist')");
   });
 
+  it('starts the Electron-owned server on an available local port', () => {
+    expect(electronMainSource).toContain('port: 0');
+  });
+
   it('packages compiled server files with the Electron app', () => {
     expect(electronBuilderConfigSource).toContain('dist-server/**');
   });

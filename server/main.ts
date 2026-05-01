@@ -1,5 +1,6 @@
 import cors from '@fastify/cors';
 import Fastify from 'fastify';
+import type { AddressInfo } from 'node:net';
 import { createRuntimeServices } from '../src/runtime/create-runtime-services.js';
 import { resolveServerConfig } from './config.js';
 import { createExportRegistry } from './export-registry.js';
@@ -60,10 +61,13 @@ export async function startServer(options?: {
   });
 
   await app.listen({ host, port });
+  const address = app.server.address() as AddressInfo | string | null;
+  const boundPort =
+    address && typeof address === 'object' ? address.port : port;
 
   return {
     app,
-    url: `http://${host}:${port}`,
+    url: `http://${host}:${boundPort}`,
   };
 }
 
