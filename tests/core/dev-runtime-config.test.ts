@@ -81,6 +81,18 @@ describe('desktop runtime config', () => {
     expect(electronBuilderConfigSource).toContain('dist-server/**');
   });
 
+  it('removes obsolete command bus source files', () => {
+    expect(
+      fs.existsSync(path.resolve(__dirname, '../../server/routes/invoke.ts'))
+    ).toBe(false);
+    expect(
+      fs.existsSync(path.resolve(__dirname, '../../server/channel-dispatch.ts'))
+    ).toBe(false);
+    expect(
+      fs.existsSync(path.resolve(__dirname, '../../electron/preload.cts'))
+    ).toBe(false);
+  });
+
   it('uses the generated icon for the macOS development dock', () => {
     expect(electronMainSource).toContain('nativeImage');
     expect(electronMainSource).toContain("'build/icon.png'");
@@ -116,7 +128,9 @@ describe('desktop runtime config', () => {
       'node scripts/smoke-browser-persistence.mjs'
     );
     expect(browserPersistenceSmokeSource).toContain('STORY_WEAVER_ROOT_DIR');
-    expect(browserPersistenceSmokeSource).toContain('/api/invoke');
+    expect(browserPersistenceSmokeSource).toContain("method: 'POST'");
+    expect(browserPersistenceSmokeSource).toContain('/api/books');
+    expect(browserPersistenceSmokeSource).not.toContain('/api/invoke');
     expect(browserPersistenceSmokeSource).toContain('better-sqlite3');
     expect(browserPersistenceSmokeSource).toContain(
       "['rebuild', 'better-sqlite3']"

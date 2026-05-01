@@ -3,6 +3,7 @@ import type {
   BookCreatePayload,
   BookExportFormat,
   BookExportResponse,
+  ViralTropeContractPayload,
 } from '../../src/shared/contracts.js';
 import type { RuntimeServices } from '../../src/runtime/create-runtime-services.js';
 import type { createExportRegistry } from '../export-registry.js';
@@ -13,12 +14,57 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object';
 }
 
+function isViralTropeContract(value: unknown): value is ViralTropeContractPayload {
+  return (
+    value === 'rebirth_change_fate' ||
+    value === 'system_growth' ||
+    value === 'hidden_identity' ||
+    value === 'revenge_payback' ||
+    value === 'weak_to_strong' ||
+    value === 'forbidden_bond' ||
+    value === 'case_breaking' ||
+    value === 'sect_or_family_pressure' ||
+    value === 'survival_game' ||
+    value === 'business_or_power_game'
+  );
+}
+
+function isViralStrategyPayload(value: unknown) {
+  if (value === undefined) {
+    return true;
+  }
+
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  const cadence = value.cadenceMode;
+  return (
+    (value.readerPayoff === undefined || typeof value.readerPayoff === 'string') &&
+    (value.protagonistDesire === undefined ||
+      typeof value.protagonistDesire === 'string') &&
+    (value.tropeContracts === undefined ||
+      (Array.isArray(value.tropeContracts) &&
+        value.tropeContracts.every(isViralTropeContract))) &&
+    (cadence === undefined ||
+      cadence === 'fast' ||
+      cadence === 'steady' ||
+      cadence === 'slow_burn' ||
+      cadence === 'suppressed_then_burst') &&
+    (value.antiClicheDirection === undefined ||
+      typeof value.antiClicheDirection === 'string')
+  );
+}
+
 function isBookCreatePayload(value: unknown): value is BookCreatePayload {
   return (
     isRecord(value) &&
     typeof value.idea === 'string' &&
     Number.isInteger(value.targetChapters) &&
-    Number.isInteger(value.wordsPerChapter)
+    Number(value.targetChapters) > 0 &&
+    Number.isInteger(value.wordsPerChapter) &&
+    Number(value.wordsPerChapter) > 0 &&
+    isViralStrategyPayload(value.viralStrategy)
   );
 }
 

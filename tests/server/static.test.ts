@@ -74,4 +74,29 @@ describe('server static frontend routes', () => {
       await server.close();
     }
   });
+
+  it('keeps health available when static serving is enabled', async () => {
+    const staticDir = makeTempDir('story-weaver-static-');
+    writeFileSync(
+      path.join(staticDir, 'index.html'),
+      '<!doctype html><title>Story Weaver SPA</title>',
+      'utf8'
+    );
+    const server = await buildServer({
+      rootDir: makeTempDir('story-weaver-static-root-'),
+      staticDir,
+    });
+
+    try {
+      const response = await server.inject({
+        method: 'GET',
+        url: '/api/health',
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({ ok: true });
+    } finally {
+      await server.close();
+    }
+  });
 });

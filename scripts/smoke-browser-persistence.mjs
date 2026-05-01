@@ -76,19 +76,18 @@ async function waitForHealth(baseUrl) {
   throw new Error(`Timed out waiting for ${baseUrl}/api/health`);
 }
 
-async function invoke(baseUrl, channel, payload) {
-  const response = await fetch(`${baseUrl}/api/invoke`, {
-    method: 'POST',
+async function requestJson(baseUrl, route, options = {}) {
+  const response = await fetch(`${baseUrl}${route}`, {
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ channel, payload }),
+    ...options,
   });
   const body = await response.json();
 
   if (!response.ok) {
-    throw new Error(body?.error ?? `Invoke failed with ${response.status}`);
+    throw new Error(body?.error ?? `Request failed with ${response.status}`);
   }
 
-  return body.data;
+  return body;
 }
 
 async function verifyDatabase(bookId) {
@@ -161,24 +160,32 @@ async function main() {
 
   await waitForHealth(baseUrl);
 
-  const bookId = await invoke(baseUrl, 'book:create', {
-    idea: 'Browser persistence smoke test',
-    targetChapters: 1,
-    wordsPerChapter: 300,
-    viralStrategy: {
-      readerPayoff: 'Verify browser server persistence',
-      protagonistDesire: 'Persist through Fastify into SQLite',
-      cadenceMode: 'fast',
-    },
+  const createResult = await requestJson(baseUrl, '/api/books', {
+    method: 'POST',
+    body: JSON.stringify({
+      idea: 'Browser persistence smoke test',
+      targetChapters: 1,
+      wordsPerChapter: 300,
+      viralStrategy: {
+        readerPayoff: 'Verify browser server persistence',
+        protagonistDesire: 'Persist through Fastify into SQLite',
+        cadenceMode: 'fast',
+      },
+    }),
   });
-  const books = await invoke(baseUrl, 'book:list');
+  const books = await requestJson(baseUrl, '/api/books');
 
-  if (!Array.isArray(books) || !books.some((book) => book.id === bookId)) {
-    throw new Error(`Created book ${bookId} was not returned by book:list`);
+  if (
+    !Array.isArray(books) ||
+    !books.some((book) => book.id === createResult.bookId)
+  ) {
+    throw new Error(
+      `Created book ${createResult.bookId} was not returned by GET /api/books`
+    );
   }
 
-  await verifyDatabase(bookId);
-  console.log(`Browser persistence smoke passed for ${bookId}`);
+  await verifyDatabase(createResult.bookId);
+  console.log(`Browser persistence smoke passed for ${createResult.bookId}`);
 }
 
 try {

@@ -69,6 +69,32 @@ describe('server book routes', () => {
     }
   });
 
+  it('rejects invalid create payloads through concrete routes', async () => {
+    const server = await buildServer({ rootDir: makeRootDir() });
+
+    try {
+      const response = await server.inject({
+        method: 'POST',
+        url: '/api/books',
+        payload: {
+          idea: '旧案复仇',
+          targetChapters: 500,
+          wordsPerChapter: 2500,
+          viralStrategy: {
+            readerPayoff: 'revenge',
+            tropeContracts: ['revenge_payback'],
+            cadenceMode: 'not-a-mode',
+          },
+        },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({ error: 'Invalid book create payload' });
+    } finally {
+      await server.close();
+    }
+  });
+
   it('exposes lifecycle and chapter writing actions as concrete routes', async () => {
     const startBook = vi.fn(async () => undefined);
     const pauseBook = vi.fn();

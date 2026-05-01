@@ -7,7 +7,6 @@ import { registerBookRoutes } from './routes/books.js';
 import { registerEventRoutes } from './routes/events.js';
 import { registerExportRoutes } from './routes/exports.js';
 import { registerHealthRoutes } from './routes/health.js';
-import { registerInvokeRoutes } from './routes/invoke.js';
 import { registerModelRoutes } from './routes/models.js';
 import { registerSchedulerRoutes } from './routes/scheduler.js';
 import { registerSettingsRoutes } from './routes/settings.js';
@@ -37,7 +36,6 @@ export async function buildServer(options?: {
   await registerSchedulerRoutes(app, services);
   await registerModelRoutes(app, services);
   await registerSettingsRoutes(app, services);
-  await registerInvokeRoutes(app, services, { exportsRegistry });
   await registerEventRoutes(app, services);
   await registerExportRoutes(app, exportsRegistry);
   await registerStaticRoutes(app, {
