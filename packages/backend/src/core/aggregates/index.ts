@@ -6,3 +6,5 @@ export { createChapterAggregate } from './chapter/index.js';
 export type { ChapterAggregateDeps } from './chapter/index.js';
 export { createNarrativeWorldAggregate } from './narrative-world/index.js';
 export type { NarrativeWorldDeps } from './narrative-world/index.js';
+export { createStoryPlanAggregate } from './story-plan/index.js';
+export type { StoryPlanDeps } from './story-plan/index.js';
