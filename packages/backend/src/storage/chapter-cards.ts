@@ -159,7 +159,9 @@ export function createChapterCardRepository(db: SqliteDatabase) {
           )
         `
       );
-      for (const action of actions) statement.run(action);
+      for (const action of actions) {
+        statement.run({ ...action, bookId, volumeIndex, chapterIndex });
+      }
     },
 
     listThreadActions(
@@ -206,7 +208,9 @@ export function createChapterCardRepository(db: SqliteDatabase) {
           )
         `
       );
-      for (const pressure of pressures) statement.run(pressure);
+      for (const pressure of pressures) {
+        statement.run({ ...pressure, bookId, volumeIndex, chapterIndex });
+      }
     },
 
     listCharacterPressures(
@@ -253,7 +257,9 @@ export function createChapterCardRepository(db: SqliteDatabase) {
           )
         `
       );
-      for (const action of actions) statement.run(action);
+      for (const action of actions) {
+        statement.run({ ...action, bookId, volumeIndex, chapterIndex });
+      }
     },
 
     listRelationshipActions(

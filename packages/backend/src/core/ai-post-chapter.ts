@@ -53,19 +53,152 @@ type ChapterUpdateJson = {
   } | null;
 };
 
-function normalizeChapterUpdate(update: ChapterUpdateJson) {
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function nullableString(value: unknown) {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.toLowerCase() === 'null') {
+    return null;
+  }
+
+  return trimmed;
+}
+
+function requiredString(value: unknown) {
+  return nullableString(value);
+}
+
+function nullableNumber(value: unknown) {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  if (typeof value === 'string' && value.trim().toLowerCase() === 'null') {
+    return null;
+  }
+
+  const parsed = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normalizeImportance(value: unknown) {
+  const normalized = nullableString(value);
+  return normalized === 'critical' ||
+    normalized === 'normal' ||
+    normalized === 'minor'
+    ? normalized
+    : 'normal';
+}
+
+function normalizeOpenedThread(value: unknown) {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const id = requiredString(value.id);
+  const description = requiredString(value.description);
+  const plantedAt = nullableNumber(value.plantedAt);
+  if (!id || !description || plantedAt === null) {
+    return null;
+  }
+
   return {
-    summary: update.summary ?? '',
+    id,
+    description,
+    plantedAt,
+    expectedPayoff: nullableNumber(value.expectedPayoff),
+    importance: normalizeImportance(value.importance),
+  };
+}
+
+function normalizeCharacterState(value: unknown) {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const characterId = requiredString(value.characterId);
+  const characterName = requiredString(value.characterName);
+  if (!characterId || !characterName) {
+    return null;
+  }
+
+  return {
+    characterId,
+    characterName,
+    location: nullableString(value.location),
+    status: nullableString(value.status),
+    knowledge: nullableString(value.knowledge),
+    emotion: nullableString(value.emotion),
+    powerLevel: nullableString(value.powerLevel),
+  };
+}
+
+function normalizeScene(value: unknown) {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const location = requiredString(value.location);
+  const timeInStory = requiredString(value.timeInStory);
+  const charactersPresent = Array.isArray(value.charactersPresent)
+    ? value.charactersPresent
+        .map((character) => requiredString(character))
+        .filter((character): character is string => Boolean(character))
+    : [];
+
+  if (!location || !timeInStory || charactersPresent.length === 0) {
+    return null;
+  }
+
+  return {
+    location,
+    timeInStory,
+    charactersPresent,
+    events: nullableString(value.events),
+  };
+}
+
+function isPresent<T>(value: T | null): value is T {
+  return value !== null;
+}
+
+function normalizePlotThreadUpdate(update: {
+  openedThreads?: unknown;
+  resolvedThreadIds?: unknown;
+}) {
+  return {
     openedThreads: Array.isArray(update.openedThreads)
-      ? update.openedThreads
+      ? update.openedThreads.map(normalizeOpenedThread).filter(isPresent)
       : [],
     resolvedThreadIds: Array.isArray(update.resolvedThreadIds)
       ? update.resolvedThreadIds
+          .map((threadId) => requiredString(threadId))
+          .filter((threadId): threadId is string => Boolean(threadId))
       : [],
-    characterStates: Array.isArray(update.characterStates)
-      ? update.characterStates
-      : [],
-    scene: update.scene ?? null,
+  };
+}
+
+function normalizeCharacterStates(characterStates: unknown) {
+  return Array.isArray(characterStates)
+    ? characterStates.map(normalizeCharacterState).filter(isPresent)
+    : [];
+}
+
+function normalizeChapterUpdate(update: ChapterUpdateJson) {
+  const threadUpdate = normalizePlotThreadUpdate(update);
+
+  return {
+    summary: nullableString(update.summary) ?? '',
+    openedThreads: threadUpdate.openedThreads,
+    resolvedThreadIds: threadUpdate.resolvedThreadIds,
+    characterStates: normalizeCharacterStates(update.characterStates),
+    scene: normalizeScene(update.scene),
   };
 }
 
@@ -117,7 +250,8 @@ export function createAiChapterUpdateExtractor(deps: {
           'Extract post-chapter continuity updates from this chapter as JSON.',
           `Chapter index: ${input.chapterIndex}`,
           `Chapter content:\n${input.content}`,
-          'Return JSON with shape {"summary":"string","openedThreads":[{"id":"string","description":"string","plantedAt":number,"expectedPayoff":number|null,"importance":"critical|normal|minor"}],"resolvedThreadIds":["string"],"characterStates":[{"characterId":"string","characterName":"string","location":"string|null","status":"string|null","knowledge":"string|null","emotion":"string|null","powerLevel":"string|null"}],"scene":null|{"location":"string","timeInStory":"string","charactersPresent":["string"],"events":"string|null"}}.',
+          'Return JSON with shape {"summary":"string","openedThreads":[{"id":"string","description":"string","plantedAt":number,"expectedPayoff":number or null,"importance":"critical|normal|minor"}],"resolvedThreadIds":["string"],"characterStates":[{"characterId":"string","characterName":"string","location":"string or null","status":"string or null","knowledge":"string or null","emotion":"string or null","powerLevel":"string or null"}],"scene":null or {"location":"string","timeInStory":"string","charactersPresent":["string"],"events":"string or null"}}.',
+          'Use JSON null for absent optional values, never the string "null". Omit unusable records instead of returning blank ids or blank required fields.',
         ].join('\n'),
       });
 
@@ -148,20 +282,15 @@ export function createAiPlotThreadExtractor(deps: {
           'Extract plot thread updates from this chapter as JSON.',
           `Chapter index: ${input.chapterIndex}`,
           `Chapter content:\n${input.content}`,
-          'Return JSON with shape {"openedThreads":[{"id":"string","description":"string","plantedAt":number,"expectedPayoff":number|null,"importance":"critical|normal|minor"}],"resolvedThreadIds":["string"]}.',
+          'Return JSON with shape {"openedThreads":[{"id":"string","description":"string","plantedAt":number,"expectedPayoff":number or null,"importance":"critical|normal|minor"}],"resolvedThreadIds":["string"]}.',
+          'Use JSON null for absent optional values, never the string "null". Omit unusable records instead of returning blank ids or blank required fields.',
         ].join('\n'),
       });
 
-      return parseJson<{
-        openedThreads: Array<{
-          id: string;
-          description: string;
-          plantedAt: number;
-          expectedPayoff: number | null;
-          importance: string;
-        }>;
-        resolvedThreadIds: string[];
-      }>(result.text);
+      return normalizePlotThreadUpdate(parseJson<{
+        openedThreads?: unknown;
+        resolvedThreadIds?: unknown;
+      }>(result.text));
     },
   };
 }
@@ -188,21 +317,12 @@ export function createAiCharacterStateExtractor(deps: {
           'Extract the latest character states from this chapter as JSON.',
           `Chapter index: ${input.chapterIndex}`,
           `Chapter content:\n${input.content}`,
-          'Return a JSON array of {"characterId":"string","characterName":"string","location":"string|null","status":"string|null","knowledge":"string|null","emotion":"string|null","powerLevel":"string|null"}.',
+          'Return a JSON array of {"characterId":"string","characterName":"string","location":"string or null","status":"string or null","knowledge":"string or null","emotion":"string or null","powerLevel":"string or null"}.',
+          'Use JSON null for absent optional values, never the string "null". Omit unusable records instead of returning blank ids or blank required fields.',
         ].join('\n'),
       });
 
-      return parseJson<
-        Array<{
-          characterId: string;
-          characterName: string;
-          location: string | null;
-          status: string | null;
-          knowledge: string | null;
-          emotion: string | null;
-          powerLevel: string | null;
-        }>
-      >(result.text);
+      return normalizeCharacterStates(parseJson<unknown>(result.text));
     },
   };
 }
@@ -229,16 +349,12 @@ export function createAiSceneRecordExtractor(deps: {
           'Extract the latest scene record from this chapter as JSON.',
           `Chapter index: ${input.chapterIndex}`,
           `Chapter content:\n${input.content}`,
-          'Return either null or {"location":"string","timeInStory":"string","charactersPresent":["string"],"events":"string|null"}.',
+          'Return either null or {"location":"string","timeInStory":"string","charactersPresent":["string"],"events":"string or null"}.',
+          'Use JSON null for absent optional values, never the string "null". Return null if the latest scene has no usable location, time, or present characters.',
         ].join('\n'),
       });
 
-      return parseJson<{
-        location: string;
-        timeInStory: string;
-        charactersPresent: string[];
-        events: string | null;
-      } | null>(result.text);
+      return normalizeScene(parseJson<unknown>(result.text));
     },
   };
 }

@@ -32,9 +32,8 @@ export function createCharacterRepository(db: SqliteDatabase) {
             '',
             1
           )
-          ON CONFLICT(id) DO UPDATE SET
-            name = excluded.name,
-            book_id = excluded.book_id
+          ON CONFLICT(book_id, id) DO UPDATE SET
+            name = excluded.name
         `
       ).run({
         characterId: input.characterId,
@@ -111,7 +110,8 @@ export function createCharacterRepository(db: SqliteDatabase) {
               ON grouped.character_id = latest.character_id
              AND grouped.latestMarker = (latest.volume_index * 100000 + latest.chapter_index)
             LEFT JOIN characters
-              ON characters.id = latest.character_id
+              ON characters.book_id = latest.book_id
+             AND characters.id = latest.character_id
             WHERE latest.book_id = ?
             ORDER BY latest.character_id ASC
           `

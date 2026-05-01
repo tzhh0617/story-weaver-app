@@ -6,6 +6,7 @@ import {
   buildNarrativeDraftPrompt,
   buildRevisionPrompt,
   buildTensionBudgetPrompt,
+  buildVolumePlanPrompt,
   parseJsonObject,
 } from '@story-weaver/backend/core/narrative/prompts';
 
@@ -40,6 +41,24 @@ describe('narrative prompts', () => {
     expect(prompt).toContain('flaw');
     expect(prompt).toContain('cost');
     expect(prompt).toContain('themeAnswerDirection');
+    expect(prompt).toContain('characterArcs array');
+    expect(prompt).toContain('relationshipEdges array');
+    expect(prompt).toContain('worldRules array');
+    expect(prompt).toContain('narrativeThreads array');
+    expect(prompt).toContain('visibleLabel');
+    expect(prompt).toContain('trustLevel');
+    expect(prompt).toContain('plannedTurns');
+  });
+
+  it('requires volume plans to include volumeIndex for persistence', () => {
+    const prompt = buildVolumePlanPrompt({
+      targetChapters: 80,
+      bibleSummary: '主题：自由的代价。',
+    });
+
+    expect(prompt).toContain('volumeIndex');
+    expect(prompt).toContain('chapterStart');
+    expect(prompt).toContain('chapterEnd');
   });
 
   it('requires chapter cards to include mustChange and readerReward', () => {
@@ -53,6 +72,9 @@ describe('narrative prompts', () => {
     expect(prompt).toContain('mustChange');
     expect(prompt).toContain('readerReward');
     expect(prompt).toContain('forbiddenMoves');
+    expect(prompt).toContain('threadActions items must include');
+    expect(prompt).toContain('characterPressures items must include');
+    expect(prompt).toContain('relationshipActions items must include');
   });
 
   it('injects the opening retention protocol into chapter card prompts', () => {

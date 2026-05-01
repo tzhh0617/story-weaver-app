@@ -1229,7 +1229,7 @@ describe('App shell', () => {
     });
 
     expect(await screen.findByText('完成')).toBeInTheDocument();
-    expect(await screen.findByText('0/50')).toBeInTheDocument();
+    expect(await screen.findByText('0/0')).toBeInTheDocument();
     expect(await screen.findByText('写作中')).toBeInTheDocument();
     expect(await screen.findByText('排队')).toBeInTheDocument();
     expect(await screen.findByText('已暂停')).toBeInTheDocument();

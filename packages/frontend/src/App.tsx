@@ -367,6 +367,12 @@ export default function App() {
               characterStates={selectedBookDetail.characterStates}
               plotThreads={selectedBookDetail.plotThreads}
               progress={selectedBookDetail.progress}
+              isActive={
+                selectedBookId
+                  ? progress.runningBookIds.includes(selectedBookId) ||
+                    progress.queuedBookIds.includes(selectedBookId)
+                  : false
+              }
               liveOutput={
                 liveOutput && liveOutput.bookId === selectedBookDetail.book.id
                   ? liveOutput

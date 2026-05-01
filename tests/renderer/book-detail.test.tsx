@@ -82,6 +82,68 @@ describe('BookDetail', () => {
     expect(screen.queryByLabelText('进度面板')).toBeNull();
   });
 
+  it('allows a writing book to resume when no scheduler task is active', () => {
+    const onResume = vi.fn();
+
+    render(
+      <BookDetail
+        book={{ title: 'Book 1', status: 'writing', wordCount: 1200 }}
+        progress={{ phase: 'writing' }}
+        isActive={false}
+        chapters={[
+          {
+            id: '1-1',
+            volumeIndex: 1,
+            chapterIndex: 1,
+            title: 'Chapter 1',
+            wordCount: 1200,
+            status: 'done',
+            content: '第一章正文',
+          },
+          {
+            id: '1-2',
+            volumeIndex: 1,
+            chapterIndex: 2,
+            title: 'Chapter 2',
+            wordCount: 0,
+            status: 'writing',
+            content: null,
+          },
+        ]}
+        onResume={onResume}
+      />
+    );
+
+    const resumeButton = screen.getByRole('button', { name: '恢复写作' });
+
+    expect(resumeButton).toBeEnabled();
+    fireEvent.click(resumeButton);
+    expect(onResume).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps resume disabled while the scheduler is already working on the book', () => {
+    render(
+      <BookDetail
+        book={{ title: 'Book 1', status: 'writing', wordCount: 1200 }}
+        progress={{ phase: 'writing' }}
+        isActive
+        chapters={[
+          {
+            id: '1-1',
+            volumeIndex: 1,
+            chapterIndex: 1,
+            title: 'Chapter 1',
+            wordCount: 0,
+            status: 'writing',
+            content: null,
+          },
+        ]}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: '恢复写作' })).toBeDisabled();
+  });
+
   it('renders chapters, reading, and context as fixed workbench panels', async () => {
     render(
       <BookDetail

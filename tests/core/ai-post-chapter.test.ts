@@ -75,6 +75,57 @@ describe('AI post-chapter extractors', () => {
     });
   });
 
+  it('normalizes malformed plot thread extractor output', async () => {
+    const registry = {
+      languageModel: vi.fn().mockReturnValue({ id: 'model' }),
+    };
+    const generateText = vi.fn().mockResolvedValue({
+      text: JSON.stringify({
+        openedThreads: [
+          {
+            id: '',
+            description: 'Missing ids cannot be persisted safely',
+            plantedAt: 1,
+            expectedPayoff: 4,
+            importance: 'critical',
+          },
+          {
+            id: 'thread-1',
+            description: 'Valid thread',
+            plantedAt: '2',
+            expectedPayoff: 'null',
+            importance: 'unknown',
+          },
+        ],
+        resolvedThreadIds: ['thread-0', 0],
+      }),
+    });
+
+    const extractor = createAiPlotThreadExtractor({
+      registry: registry as never,
+      generateText: generateText as never,
+    });
+
+    await expect(
+      extractor.extractThreads({
+        modelId: 'openai:gpt-4o-mini',
+        chapterIndex: 1,
+        content: 'Chapter content',
+      })
+    ).resolves.toEqual({
+      openedThreads: [
+        {
+          id: 'thread-1',
+          description: 'Valid thread',
+          plantedAt: 2,
+          expectedPayoff: null,
+          importance: 'normal',
+        },
+      ],
+      resolvedThreadIds: ['thread-0'],
+    });
+  });
+
   it('extracts character states from fenced JSON', async () => {
     const registry = {
       languageModel: vi.fn().mockReturnValue({ id: 'model' }),
@@ -121,6 +172,52 @@ describe('AI post-chapter extractors', () => {
     ]);
   });
 
+  it('normalizes malformed character state extractor output', async () => {
+    const registry = {
+      languageModel: vi.fn().mockReturnValue({ id: 'model' }),
+    };
+    const generateText = vi.fn().mockResolvedValue({
+      text: JSON.stringify([
+        {
+          characterId: 'protagonist',
+          characterName: 'Lin Mo',
+          location: 'null',
+          status: 'Investigating',
+          knowledge: '',
+          emotion: 'Focused',
+          powerLevel: 'Awakened',
+        },
+        {
+          characterId: '',
+          characterName: 'Nameless',
+        },
+      ]),
+    });
+
+    const extractor = createAiCharacterStateExtractor({
+      registry: registry as never,
+      generateText: generateText as never,
+    });
+
+    await expect(
+      extractor.extractStates({
+        modelId: 'openai:gpt-4o-mini',
+        chapterIndex: 1,
+        content: 'Chapter content',
+      })
+    ).resolves.toEqual([
+      {
+        characterId: 'protagonist',
+        characterName: 'Lin Mo',
+        location: null,
+        status: 'Investigating',
+        knowledge: null,
+        emotion: 'Focused',
+        powerLevel: 'Awakened',
+      },
+    ]);
+  });
+
   it('extracts the latest scene from JSON text', async () => {
     const registry = {
       languageModel: vi.fn().mockReturnValue({ id: 'model' }),
@@ -150,6 +247,38 @@ describe('AI post-chapter extractors', () => {
       timeInStory: 'Noon',
       charactersPresent: ['Lin Mo'],
       events: 'Lin Mo confronts the magistrate',
+    });
+  });
+
+  it('normalizes malformed scene extractor output', async () => {
+    const registry = {
+      languageModel: vi.fn().mockReturnValue({ id: 'model' }),
+    };
+    const generateText = vi.fn().mockResolvedValue({
+      text: JSON.stringify({
+        location: 'Debt Court',
+        timeInStory: 'Noon',
+        charactersPresent: ['Lin Mo', ''],
+        events: 'null',
+      }),
+    });
+
+    const extractor = createAiSceneRecordExtractor({
+      registry: registry as never,
+      generateText: generateText as never,
+    });
+
+    await expect(
+      extractor.extractScene({
+        modelId: 'openai:gpt-4o-mini',
+        chapterIndex: 2,
+        content: 'Chapter content',
+      })
+    ).resolves.toEqual({
+      location: 'Debt Court',
+      timeInStory: 'Noon',
+      charactersPresent: ['Lin Mo'],
+      events: null,
     });
   });
 
@@ -263,6 +392,97 @@ describe('AI post-chapter extractors', () => {
       resolvedThreadIds: [],
       characterStates: [],
       scene: null,
+    });
+  });
+
+  it('filters unusable chapter update records and normalizes string nulls', async () => {
+    const registry = {
+      languageModel: vi.fn().mockReturnValue({ id: 'model' }),
+    };
+    const generateText = vi.fn().mockResolvedValue({
+      text: JSON.stringify({
+        summary: 'Continuity survives malformed optional records.',
+        openedThreads: [
+          {
+            id: '',
+            description: 'Missing ids cannot be persisted safely.',
+            plantedAt: 1,
+            expectedPayoff: 3,
+            importance: 'critical',
+          },
+          {
+            id: 'thread-1',
+            description: 'A usable thread remains.',
+            plantedAt: 1,
+            expectedPayoff: 'null',
+            importance: 'critical',
+          },
+        ],
+        resolvedThreadIds: ['thread-0', 42],
+        characterStates: [
+          {
+            characterId: 'protagonist',
+            characterName: 'Lin Mo',
+            location: 'null',
+            status: 'Investigating',
+            knowledge: null,
+            emotion: 'Focused',
+            powerLevel: 'Awakened',
+          },
+          {
+            characterId: '',
+            characterName: 'Nameless',
+          },
+        ],
+        scene: {
+          location: 'Archive Gate',
+          timeInStory: 'Dawn',
+          charactersPresent: ['Lin Mo'],
+          events: 'null',
+        },
+      }),
+    });
+
+    const extractor = createAiChapterUpdateExtractor({
+      registry: registry as never,
+      generateText: generateText as never,
+    });
+
+    await expect(
+      extractor.extractChapterUpdate({
+        modelId: 'openai:gpt-4o-mini',
+        chapterIndex: 1,
+        content: 'Chapter content',
+      })
+    ).resolves.toEqual({
+      summary: 'Continuity survives malformed optional records.',
+      openedThreads: [
+        {
+          id: 'thread-1',
+          description: 'A usable thread remains.',
+          plantedAt: 1,
+          expectedPayoff: null,
+          importance: 'critical',
+        },
+      ],
+      resolvedThreadIds: ['thread-0'],
+      characterStates: [
+        {
+          characterId: 'protagonist',
+          characterName: 'Lin Mo',
+          location: null,
+          status: 'Investigating',
+          knowledge: null,
+          emotion: 'Focused',
+          powerLevel: 'Awakened',
+        },
+      ],
+      scene: {
+        location: 'Archive Gate',
+        timeInStory: 'Dawn',
+        charactersPresent: ['Lin Mo'],
+        events: null,
+      },
     });
   });
 

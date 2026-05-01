@@ -91,14 +91,36 @@ describe('validateNarrativeBible', () => {
 
   it('rejects missing character desire and world-rule cost', () => {
     const bible = validBible();
-    bible.characterArcs[0] = { ...bible.characterArcs[0], desire: '' };
-    bible.worldRules[0] = { ...bible.worldRules[0], cost: '' };
+    bible.characterArcs[0] = {
+      ...bible.characterArcs[0],
+      name: '',
+      desire: '',
+      externalGoal: '',
+      internalNeed: '',
+      currentArcPhase: '',
+    };
+    bible.worldRules[0] = {
+      ...bible.worldRules[0],
+      ruleText: '',
+      cost: '',
+      currentStatus: '',
+    };
 
     const result = validateNarrativeBible(bible, { targetChapters: 30 });
 
     expect(result.valid).toBe(false);
+    expect(result.issues).toContain('Character lin-mu must include name.');
     expect(result.issues).toContain('Character lin-mu must include desire.');
+    expect(result.issues).toContain('Character lin-mu must include externalGoal.');
+    expect(result.issues).toContain('Character lin-mu must include internalNeed.');
+    expect(result.issues).toContain(
+      'Character lin-mu must include currentArcPhase.'
+    );
+    expect(result.issues).toContain('World rule record-cost must include ruleText.');
     expect(result.issues).toContain('World rule record-cost must include cost.');
+    expect(result.issues).toContain(
+      'World rule record-cost must include currentStatus.'
+    );
   });
 
   it('validates optional viral story protocol fields', () => {
@@ -125,6 +147,191 @@ describe('validateNarrativeBible', () => {
     expect(result.valid).toBe(false);
     expect(result.issues).toContain(
       'Viral story protocol must include readerPromise.'
+    );
+  });
+
+  it('rejects narrative threads that would fail persistence', () => {
+    const bible = validBible();
+    bible.narrativeThreads[0] = {
+      ...bible.narrativeThreads[0],
+      promise: '',
+      currentState: '',
+      importance: '',
+      payoffMustChange: '',
+    } as unknown as NarrativeBible['narrativeThreads'][number];
+
+    const result = validateNarrativeBible(bible, { targetChapters: 30 });
+
+    expect(result.valid).toBe(false);
+    expect(result.issues).toContain('Thread main-ledger-truth must include promise.');
+    expect(result.issues).toContain(
+      'Thread main-ledger-truth must include currentState.'
+    );
+    expect(result.issues).toContain(
+      'Thread main-ledger-truth must include importance.'
+    );
+    expect(result.issues).toContain(
+      'Thread main-ledger-truth must include payoffMustChange.'
+    );
+  });
+
+  it('rejects relationship edges that would fail persistence', () => {
+    const bible = validBible();
+    bible.characterArcs.push({
+      ...bible.characterArcs[0],
+      id: 'ally-witness',
+      name: '沈照',
+      roleType: 'supporting',
+    });
+    bible.relationshipEdges = [
+      {
+        id: 'lin-mu-ally',
+        fromCharacterId: 'lin-mu',
+        toCharacterId: 'ally-witness',
+        visibleLabel: '',
+        hiddenTruth: null,
+        dependency: null,
+        debt: null,
+        misunderstanding: null,
+        affection: null,
+        harmPattern: null,
+        sharedGoal: null,
+        valueConflict: null,
+        trustLevel: Number.NaN,
+        tensionLevel: Number.NaN,
+        currentState: '',
+        plannedTurns: [],
+      },
+    ];
+
+    const result = validateNarrativeBible(bible, { targetChapters: 30 });
+
+    expect(result.valid).toBe(false);
+    expect(result.issues).toContain(
+      'Relationship lin-mu-ally must include visibleLabel.'
+    );
+    expect(result.issues).toContain(
+      'Relationship lin-mu-ally must include numeric trustLevel.'
+    );
+    expect(result.issues).toContain(
+      'Relationship lin-mu-ally must include numeric tensionLevel.'
+    );
+    expect(result.issues).toContain(
+      'Relationship lin-mu-ally must include currentState.'
+    );
+    expect(result.issues).toContain(
+      'Relationship lin-mu-ally must include at least one plannedTurn.'
+    );
+  });
+
+  it('rejects duplicate narrative bible graph ids before storage can overwrite them', () => {
+    const bible = validBible();
+    bible.characterArcs.push({
+      ...bible.characterArcs[0],
+      name: '重复角色',
+    });
+    bible.worldRules.push({
+      ...bible.worldRules[0],
+      ruleText: '重复规则。',
+    });
+    bible.narrativeThreads.push({
+      ...bible.narrativeThreads[0],
+      promise: '重复主线。',
+    });
+    bible.relationshipEdges = [
+      {
+        id: 'lin-mu-ally',
+        fromCharacterId: 'lin-mu',
+        toCharacterId: 'lin-mu',
+        visibleLabel: '自我冲突',
+        hiddenTruth: null,
+        dependency: null,
+        debt: null,
+        misunderstanding: null,
+        affection: null,
+        harmPattern: null,
+        sharedGoal: null,
+        valueConflict: null,
+        trustLevel: 1,
+        tensionLevel: 5,
+        currentState: '紧张。',
+        plannedTurns: [{ chapterRange: '1-2', change: '加压。' }],
+      },
+      {
+        id: 'lin-mu-ally',
+        fromCharacterId: 'lin-mu',
+        toCharacterId: 'lin-mu',
+        visibleLabel: '重复关系',
+        hiddenTruth: null,
+        dependency: null,
+        debt: null,
+        misunderstanding: null,
+        affection: null,
+        harmPattern: null,
+        sharedGoal: null,
+        valueConflict: null,
+        trustLevel: 1,
+        tensionLevel: 5,
+        currentState: '紧张。',
+        plannedTurns: [{ chapterRange: '3-4', change: '反转。' }],
+      },
+    ];
+
+    const result = validateNarrativeBible(bible, { targetChapters: 30 });
+
+    expect(result.valid).toBe(false);
+    expect(result.issues).toContain('Character id lin-mu must not be duplicated.');
+    expect(result.issues).toContain(
+      'Relationship id lin-mu-ally must not be duplicated.'
+    );
+    expect(result.issues).toContain(
+      'World rule id record-cost must not be duplicated.'
+    );
+    expect(result.issues).toContain(
+      'Thread id main-ledger-truth must not be duplicated.'
+    );
+  });
+
+  it('rejects invalid enum values in narrative bible output', () => {
+    const bible = validBible();
+    bible.characterArcs[0] = {
+      ...bible.characterArcs[0],
+      roleType: 'hero' as NarrativeBible['characterArcs'][number]['roleType'],
+      arcDirection: 'sideways' as NarrativeBible['characterArcs'][number]['arcDirection'],
+    };
+    bible.worldRules[0] = {
+      ...bible.worldRules[0],
+      category: 'magic' as NarrativeBible['worldRules'][number]['category'],
+    };
+    bible.narrativeThreads[0] = {
+      ...bible.narrativeThreads[0],
+      type: 'primary' as NarrativeBible['narrativeThreads'][number]['type'],
+      currentState: 'done' as NarrativeBible['narrativeThreads'][number]['currentState'],
+      importance: 'urgent' as NarrativeBible['narrativeThreads'][number]['importance'],
+      payoffMustChange: 'everything' as NarrativeBible['narrativeThreads'][number]['payoffMustChange'],
+    };
+
+    const result = validateNarrativeBible(bible, { targetChapters: 30 });
+
+    expect(result.valid).toBe(false);
+    expect(result.issues).toContain('Character lin-mu has invalid roleType hero.');
+    expect(result.issues).toContain(
+      'Character lin-mu has invalid arcDirection sideways.'
+    );
+    expect(result.issues).toContain(
+      'World rule record-cost has invalid category magic.'
+    );
+    expect(result.issues).toContain(
+      'Thread main-ledger-truth has invalid type primary.'
+    );
+    expect(result.issues).toContain(
+      'Thread main-ledger-truth has invalid currentState done.'
+    );
+    expect(result.issues).toContain(
+      'Thread main-ledger-truth has invalid importance urgent.'
+    );
+    expect(result.issues).toContain(
+      'Thread main-ledger-truth has invalid payoffMustChange everything.'
     );
   });
 });
@@ -164,6 +371,76 @@ describe('validateVolumePlans', () => {
       'Volume 2 must start at chapter 6.'
     );
   });
+
+  it('rejects volume plans with blank persistence fields', () => {
+    const volumes: VolumePlan[] = [
+      {
+        volumeIndex: 1,
+        title: '',
+        chapterStart: 1,
+        chapterEnd: 1,
+        roleInStory: '',
+        mainPressure: '',
+        promisedPayoff: '',
+        characterArcMovement: '',
+        relationshipMovement: '',
+        worldExpansion: '',
+        endingTurn: '',
+      },
+    ];
+
+    const result = validateVolumePlans(volumes, { targetChapters: 1 });
+
+    expect(result.valid).toBe(false);
+    expect(result.issues).toContain('Volume 1 must include title.');
+    expect(result.issues).toContain('Volume 1 must include roleInStory.');
+    expect(result.issues).toContain('Volume 1 must include mainPressure.');
+    expect(result.issues).toContain('Volume 1 must include promisedPayoff.');
+    expect(result.issues).toContain(
+      'Volume 1 must include characterArcMovement.'
+    );
+    expect(result.issues).toContain(
+      'Volume 1 must include relationshipMovement.'
+    );
+    expect(result.issues).toContain('Volume 1 must include worldExpansion.');
+    expect(result.issues).toContain('Volume 1 must include endingTurn.');
+  });
+
+  it('rejects duplicate volume indexes before storage can overwrite them', () => {
+    const volumes: VolumePlan[] = [
+      {
+        volumeIndex: 1,
+        title: '命簿初鸣',
+        chapterStart: 1,
+        chapterEnd: 5,
+        roleInStory: '建立追查目标。',
+        mainPressure: '宗门追捕。',
+        promisedPayoff: '发现账簿碎页。',
+        characterArcMovement: '林牧开始信任同伴。',
+        relationshipMovement: '师徒裂痕出现。',
+        worldExpansion: '展示命簿代价。',
+        endingTurn: '碎页指向师父。',
+      },
+      {
+        volumeIndex: 1,
+        title: '旧案反噬',
+        chapterStart: 6,
+        chapterEnd: 10,
+        roleInStory: '扩大真相。',
+        mainPressure: '各方夺页。',
+        promisedPayoff: '确认林家并非叛徒。',
+        characterArcMovement: '林牧承认自己也想掌控别人。',
+        relationshipMovement: '同伴发现他隐瞒代价。',
+        worldExpansion: '命簿影响凡人日常。',
+        endingTurn: '旧盟友背叛。',
+      },
+    ];
+
+    const result = validateVolumePlans(volumes, { targetChapters: 10 });
+
+    expect(result.valid).toBe(false);
+    expect(result.issues).toContain('Volume 1 must not be duplicated.');
+  });
 });
 
 describe('validateChapterCards', () => {
@@ -173,17 +450,89 @@ describe('validateChapterCards', () => {
         bookId: 'book-1',
         volumeIndex: 1,
         chapterIndex: 1,
-        title: '旧页',
-        plotFunction: '开局。',
+        title: '',
+        plotFunction: '',
         povCharacterId: 'lin-mu',
         externalConflict: '',
         internalConflict: '林牧想保密却需要求助。',
         relationshipChange: '林牧欠下同伴人情。',
-        worldRuleUsedOrTested: 'record-cost',
-        informationReveal: '命簿会吞记忆。',
-        readerReward: 'truth',
+        worldRuleUsedOrTested: '',
+        informationReveal: '',
+        readerReward: '' as ChapterCard['readerReward'],
         endingHook: '碎页浮现林家姓名。',
         mustChange: '',
+        forbiddenMoves: 'not-an-array' as unknown as string[],
+      },
+    ];
+
+    const result = validateChapterCards(cards, { targetChapters: 1 });
+
+    expect(result.valid).toBe(false);
+    expect(result.issues).toContain('Chapter 1 must include title.');
+    expect(result.issues).toContain('Chapter 1 must include plotFunction.');
+    expect(result.issues).toContain('Chapter 1 must include externalConflict.');
+    expect(result.issues).toContain(
+      'Chapter 1 must include worldRuleUsedOrTested.'
+    );
+    expect(result.issues).toContain('Chapter 1 must include informationReveal.');
+    expect(result.issues).toContain('Chapter 1 must include readerReward.');
+    expect(result.issues).toContain('Chapter 1 must include mustChange.');
+    expect(result.issues).toContain('Chapter 1 must include forbiddenMoves array.');
+  });
+
+  it('rejects duplicate and out-of-range chapter cards', () => {
+    const card: ChapterCard = {
+      bookId: 'book-1',
+      volumeIndex: 1,
+      chapterIndex: 1,
+      title: '旧页',
+      plotFunction: '开局。',
+      povCharacterId: 'lin-mu',
+      externalConflict: '宗门追捕。',
+      internalConflict: '林牧想保密却需要求助。',
+      relationshipChange: '林牧欠下同伴人情。',
+      worldRuleUsedOrTested: 'record-cost',
+      informationReveal: '命簿会吞记忆。',
+      readerReward: 'truth',
+      endingHook: '碎页浮现林家姓名。',
+      mustChange: '林牧从逃避变为主动追查。',
+      forbiddenMoves: [],
+    };
+
+    const result = validateChapterCards(
+      [
+        card,
+        { ...card, title: '重复旧页' },
+        { ...card, chapterIndex: 3, title: '越界章节' },
+      ],
+      { targetChapters: 2 }
+    );
+
+    expect(result.valid).toBe(false);
+    expect(result.issues).toContain('Chapter card 1 must not be duplicated.');
+    expect(result.issues).toContain(
+      'Chapter card 3 exceeds target chapters 2.'
+    );
+    expect(result.issues).toContain('Chapter card 2 must exist.');
+  });
+
+  it('rejects invalid chapter card enum values', () => {
+    const cards: ChapterCard[] = [
+      {
+        bookId: 'book-1',
+        volumeIndex: 1,
+        chapterIndex: 1,
+        title: '旧页',
+        plotFunction: '开局。',
+        povCharacterId: 'lin-mu',
+        externalConflict: '宗门追捕。',
+        internalConflict: '林牧想保密却需要求助。',
+        relationshipChange: '林牧欠下同伴人情。',
+        worldRuleUsedOrTested: 'record-cost',
+        informationReveal: '命簿会吞记忆。',
+        readerReward: 'surprise' as ChapterCard['readerReward'],
+        endingHook: '碎页浮现林家姓名。',
+        mustChange: '林牧从逃避变为主动追查。',
         forbiddenMoves: [],
       },
     ];
@@ -191,8 +540,9 @@ describe('validateChapterCards', () => {
     const result = validateChapterCards(cards, { targetChapters: 1 });
 
     expect(result.valid).toBe(false);
-    expect(result.issues).toContain('Chapter 1 must include externalConflict.');
-    expect(result.issues).toContain('Chapter 1 must include mustChange.');
+    expect(result.issues).toContain(
+      'Chapter 1 has invalid readerReward surprise.'
+    );
   });
 });
 
@@ -231,8 +581,10 @@ describe('validateTensionBudgets', () => {
     const budget = {
       ...validTensionBudget(1),
       requiredTurn: '',
+      forcedChoice: '',
       costToPay: '',
       irreversibleChange: '',
+      readerQuestion: '',
       hookPressure: '',
       flatnessRisks: [],
     };
@@ -242,10 +594,12 @@ describe('validateTensionBudgets', () => {
     expect(result.valid).toBe(false);
     expect(result.issues).toContain('Tension budget 2 must exist.');
     expect(result.issues).toContain('Tension budget 1 must include requiredTurn.');
+    expect(result.issues).toContain('Tension budget 1 must include forcedChoice.');
     expect(result.issues).toContain('Tension budget 1 must include costToPay.');
     expect(result.issues).toContain(
       'Tension budget 1 must include irreversibleChange.'
     );
+    expect(result.issues).toContain('Tension budget 1 must include readerQuestion.');
     expect(result.issues).toContain('Tension budget 1 must include hookPressure.');
     expect(result.issues).toContain(
       'Tension budget 1 must include at least one flatnessRisk.'
@@ -277,6 +631,45 @@ describe('validateTensionBudgets', () => {
     expect(result.valid).toBe(false);
     expect(result.issues).toContain(
       'Tension budgets must include medium or higher pressure within every 3 chapters.'
+    );
+  });
+
+  it('rejects duplicate and out-of-range tension budgets', () => {
+    const result = validateTensionBudgets(
+      [
+        validTensionBudget(1),
+        validTensionBudget(1),
+        validTensionBudget(3),
+      ],
+      { targetChapters: 2 }
+    );
+
+    expect(result.valid).toBe(false);
+    expect(result.issues).toContain('Tension budget 1 must not be duplicated.');
+    expect(result.issues).toContain(
+      'Tension budget 3 exceeds target chapters 2.'
+    );
+    expect(result.issues).toContain('Tension budget 2 must exist.');
+  });
+
+  it('rejects invalid tension budget enum values', () => {
+    const result = validateTensionBudgets(
+      [
+        {
+          ...validTensionBudget(1),
+          pressureLevel: 'extreme' as ChapterTensionBudget['pressureLevel'],
+          dominantTension: 'confusion' as ChapterTensionBudget['dominantTension'],
+        },
+      ],
+      { targetChapters: 1 }
+    );
+
+    expect(result.valid).toBe(false);
+    expect(result.issues).toContain(
+      'Tension budget 1 has invalid pressureLevel extreme.'
+    );
+    expect(result.issues).toContain(
+      'Tension budget 1 has invalid dominantTension confusion.'
     );
   });
 });

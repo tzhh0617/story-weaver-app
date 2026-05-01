@@ -25,7 +25,9 @@ export function buildNarrativeBiblePrompt(input: {
     `Target chapters: ${input.targetChapters}`,
     `Words per chapter: ${input.wordsPerChapter}`,
     'The JSON must include premise, genreContract, targetReaderExperience, themeQuestion, themeAnswerDirection, centralDramaticQuestion, endingState, voiceGuide.',
+    'The JSON must include characterArcs array, relationshipEdges array, worldRules array, and narrativeThreads array. Use [] only when genuinely empty.',
     'Each characterArcs item must include id, name, roleType, desire, fear, flaw, misbelief, wound, externalGoal, internalNeed, arcDirection, decisionLogic, lineWillNotCross, lineMayEventuallyCross, currentArcPhase.',
+    'Each relationshipEdges item must include id, fromCharacterId, toCharacterId, visibleLabel, hiddenTruth, dependency, debt, misunderstanding, affection, harmPattern, sharedGoal, valueConflict, trustLevel, tensionLevel, currentState, plannedTurns.',
     'Each worldRules item must include id, category, ruleText, cost, whoBenefits, whoSuffers, taboo, violationConsequence, allowedException, currentStatus.',
     'Each narrativeThreads item must include id, type, promise, plantedAt, expectedPayoff, resolvedAt, currentState, importance, payoffMustChange, ownerCharacterId, relatedRelationshipId, notes.',
     'The JSON may include viralStoryProtocol with readerPromise, targetEmotion, coreDesire, protagonistDrive, hookEngine, payoffCadence, tropeContract, antiClicheRules, longTermQuestion.',
@@ -46,7 +48,7 @@ export function buildVolumePlanPrompt(input: {
     `Narrative bible summary:\n${input.bibleSummary}`,
     ...viralPromptBlock(input.viralStoryProtocol),
     'Chapter ranges must continuously cover chapter 1 through targetChapters.',
-    'Each volume must include title, chapterStart, chapterEnd, roleInStory, mainPressure, promisedPayoff, characterArcMovement, relationshipMovement, worldExpansion, endingTurn.',
+    'Each volume must include volumeIndex, title, chapterStart, chapterEnd, roleInStory, mainPressure, promisedPayoff, characterArcMovement, relationshipMovement, worldExpansion, endingTurn.',
     'Each volume must include a stage payoff that serves the reader promise when viral protocol is available.',
     'Each volume ending must upgrade the long-term reader question.',
   ].join('\n');
@@ -69,6 +71,9 @@ export function buildChapterCardPrompt(input: {
     'Each card must include volumeIndex, chapterIndex, title, plotFunction, povCharacterId, externalConflict, internalConflict, relationshipChange, worldRuleUsedOrTested, informationReveal, readerReward, endingHook, mustChange, forbiddenMoves.',
     'Every chapter must produce an irreversible mustChange.',
     'threadActions must use action plant, advance, misdirect, or payoff.',
+    'threadActions items must include volumeIndex, chapterIndex, threadId, action, requiredEffect.',
+    'characterPressures items must include volumeIndex, chapterIndex, characterId, desirePressure, fearPressure, flawTrigger, expectedChoice.',
+    'relationshipActions items must include volumeIndex, chapterIndex, relationshipId, action, requiredChange.',
     'Do not create extra major characters unless required by the bible.',
     ...viralPromptBlock(input.viralStoryProtocol),
     'When viral protocol is available, each chapter must serve readerPromise and advance or complicate longTermQuestion.',
@@ -129,7 +134,7 @@ export function buildNarrativeDraftPrompt(input: {
     ...viralPromptBlock(input.viralStoryProtocol, input.chapterIndex),
     input.commandContext,
     'Hard requirements: complete mustChange, fulfill the Tension Budget when provided, make forcedChoice visible through action, make costToPay visible before the chapter ends, preserve forbiddenMoves, show world-rule cost when a rule is used, and make relationship changes visible through action.',
-    'Return only the final chapter prose. Do not include any chapter title, heading, Markdown title, or title line in the正文. Do not summarize or explain.',
+    'Return only the final chapter prose. Do not include any chapter title, heading, Markdown title, or title line in the body text. Do not summarize or explain.',
   ].join('\n');
 }
 

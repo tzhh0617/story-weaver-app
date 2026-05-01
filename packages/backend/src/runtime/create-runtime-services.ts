@@ -349,6 +349,36 @@ export function createRuntimeServices(input: {
     }
   }
 
+  async function continueBook(bookId: string) {
+    runningBookIds.add(bookId);
+    try {
+      const result = await bookService.resumeBook(bookId);
+      if (result?.status === 'completed') {
+        logExecution({
+          bookId,
+          level: 'success',
+          eventType: 'book_completed',
+          phase: 'completed',
+          message: '后台执行完成',
+        });
+      }
+    } catch (error) {
+      markBookErrored(bookId, error);
+    } finally {
+      runningBookIds.delete(bookId);
+    }
+  }
+
+  function registerBackgroundRunner(book: { id: string; status: string }) {
+    scheduler.register({
+      bookId: book.id,
+      start: async () =>
+        book.status === 'writing' || book.status === 'building_outline'
+          ? continueBook(book.id)
+          : runBook(book.id),
+    });
+  }
+
   bookService = createBookService({
     books,
     chapters,
@@ -489,17 +519,11 @@ export function createRuntimeServices(input: {
         phase: 'writing',
         message: '作品已恢复后台执行',
       });
-      const result = await bookService.resumeBook(bookId);
-      if (result?.status === 'completed') {
-        logExecution({
-          bookId,
-          level: 'success',
-          eventType: 'book_completed',
-          phase: 'completed',
-          message: '后台执行完成',
-        });
-      }
-      emitSchedulerStatus();
+      scheduler.register({
+        bookId,
+        start: async () => continueBook(bookId),
+      });
+      await scheduler.start(bookId);
     },
     restartBook: async (bookId: string) => {
       logExecution({
@@ -569,10 +593,7 @@ export function createRuntimeServices(input: {
           eventType: 'book_queued',
           message: '作品已加入后台执行队列',
         });
-        scheduler.register({
-          bookId: book.id,
-          start: async () => runBook(book.id),
-        });
+        registerBackgroundRunner(book);
       }
 
       await scheduler.startAll();

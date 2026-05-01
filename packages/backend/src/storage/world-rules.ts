@@ -14,7 +14,7 @@ export function createWorldRuleRepository(db: SqliteDatabase) {
             @id, @bookId, @category, @ruleText, @cost, @whoBenefits, @whoSuffers,
             @taboo, @violationConsequence, @allowedException, @currentStatus
           )
-          ON CONFLICT(id) DO UPDATE SET
+          ON CONFLICT(book_id, id) DO UPDATE SET
             category = excluded.category,
             rule_text = excluded.rule_text,
             cost = excluded.cost,

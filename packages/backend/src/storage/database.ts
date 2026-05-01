@@ -62,6 +62,311 @@ function ensureChapterNarrativeColumns(db: SqliteDatabase) {
   }
 }
 
+function ensurePlotThreadsScopedPrimaryKey(db: SqliteDatabase) {
+  const columns = db
+    .prepare('PRAGMA table_info(plot_threads)')
+    .all() as Array<{ name: string; pk: number }>;
+  const primaryKeyColumns = columns
+    .filter((column) => column.pk > 0)
+    .sort((left, right) => left.pk - right.pk)
+    .map((column) => column.name);
+
+  if (
+    primaryKeyColumns.length === 2 &&
+    primaryKeyColumns[0] === 'book_id' &&
+    primaryKeyColumns[1] === 'id'
+  ) {
+    return;
+  }
+
+  db.transaction(() => {
+    db.exec(`
+      DROP TABLE IF EXISTS plot_threads_scoped;
+
+      CREATE TABLE plot_threads_scoped (
+        id TEXT NOT NULL,
+        book_id TEXT NOT NULL,
+        description TEXT NOT NULL,
+        planted_at INTEGER NOT NULL,
+        expected_payoff INTEGER,
+        resolved_at INTEGER,
+        importance TEXT NOT NULL DEFAULT 'normal',
+        PRIMARY KEY (book_id, id),
+        FOREIGN KEY (book_id) REFERENCES books(id)
+      );
+
+      INSERT OR REPLACE INTO plot_threads_scoped (
+        id,
+        book_id,
+        description,
+        planted_at,
+        expected_payoff,
+        resolved_at,
+        importance
+      )
+      SELECT
+        id,
+        book_id,
+        description,
+        planted_at,
+        expected_payoff,
+        resolved_at,
+        importance
+      FROM plot_threads;
+
+      DROP TABLE plot_threads;
+      ALTER TABLE plot_threads_scoped RENAME TO plot_threads;
+    `);
+  })();
+}
+
+function hasBookScopedIdPrimaryKey(db: SqliteDatabase, tableName: string) {
+  const columns = db
+    .prepare(`PRAGMA table_info(${tableName})`)
+    .all() as Array<{ name: string; pk: number }>;
+  const primaryKeyColumns = columns
+    .filter((column) => column.pk > 0)
+    .sort((left, right) => left.pk - right.pk)
+    .map((column) => column.name);
+
+  return (
+    primaryKeyColumns.length === 2 &&
+    primaryKeyColumns[0] === 'book_id' &&
+    primaryKeyColumns[1] === 'id'
+  );
+}
+
+function recreateScopedIdTable(
+  db: SqliteDatabase,
+  input: {
+    tableName: string;
+    createTableSql: (tableName: string) => string;
+    columns: string[];
+  }
+) {
+  const tempTableName = `${input.tableName}_scoped`;
+  const columnList = input.columns.join(', ');
+
+  db.exec(`
+    DROP TABLE IF EXISTS ${tempTableName};
+
+    ${input.createTableSql(tempTableName)}
+
+    INSERT OR REPLACE INTO ${tempTableName} (${columnList})
+    SELECT ${columnList}
+    FROM ${input.tableName};
+
+    DROP TABLE ${input.tableName};
+    ALTER TABLE ${tempTableName} RENAME TO ${input.tableName};
+  `);
+}
+
+function ensureNarrativeGraphScopedPrimaryKeys(db: SqliteDatabase) {
+  const tables = [
+    {
+      tableName: 'character_arcs',
+      columns: [
+        'id',
+        'book_id',
+        'name',
+        'role_type',
+        'desire',
+        'fear',
+        'flaw',
+        'misbelief',
+        'wound',
+        'external_goal',
+        'internal_need',
+        'arc_direction',
+        'decision_logic',
+        'line_will_not_cross',
+        'line_may_eventually_cross',
+        'current_arc_phase',
+      ],
+      createTableSql: (tableName: string) => `
+        CREATE TABLE ${tableName} (
+          id TEXT NOT NULL,
+          book_id TEXT NOT NULL,
+          name TEXT NOT NULL,
+          role_type TEXT NOT NULL,
+          desire TEXT NOT NULL,
+          fear TEXT NOT NULL,
+          flaw TEXT NOT NULL,
+          misbelief TEXT NOT NULL,
+          wound TEXT,
+          external_goal TEXT NOT NULL,
+          internal_need TEXT NOT NULL,
+          arc_direction TEXT NOT NULL,
+          decision_logic TEXT NOT NULL,
+          line_will_not_cross TEXT,
+          line_may_eventually_cross TEXT,
+          current_arc_phase TEXT NOT NULL,
+          PRIMARY KEY (book_id, id),
+          FOREIGN KEY (book_id) REFERENCES books(id)
+        );
+      `,
+    },
+    {
+      tableName: 'relationship_edges',
+      columns: [
+        'id',
+        'book_id',
+        'from_character_id',
+        'to_character_id',
+        'visible_label',
+        'hidden_truth',
+        'dependency',
+        'debt',
+        'misunderstanding',
+        'affection',
+        'harm_pattern',
+        'shared_goal',
+        'value_conflict',
+        'trust_level',
+        'tension_level',
+        'current_state',
+        'planned_turns_json',
+      ],
+      createTableSql: (tableName: string) => `
+        CREATE TABLE ${tableName} (
+          id TEXT NOT NULL,
+          book_id TEXT NOT NULL,
+          from_character_id TEXT NOT NULL,
+          to_character_id TEXT NOT NULL,
+          visible_label TEXT NOT NULL,
+          hidden_truth TEXT,
+          dependency TEXT,
+          debt TEXT,
+          misunderstanding TEXT,
+          affection TEXT,
+          harm_pattern TEXT,
+          shared_goal TEXT,
+          value_conflict TEXT,
+          trust_level INTEGER NOT NULL,
+          tension_level INTEGER NOT NULL,
+          current_state TEXT NOT NULL,
+          planned_turns_json TEXT NOT NULL DEFAULT '[]',
+          PRIMARY KEY (book_id, id),
+          FOREIGN KEY (book_id) REFERENCES books(id)
+        );
+      `,
+    },
+    {
+      tableName: 'world_rules',
+      columns: [
+        'id',
+        'book_id',
+        'category',
+        'rule_text',
+        'cost',
+        'who_benefits',
+        'who_suffers',
+        'taboo',
+        'violation_consequence',
+        'allowed_exception',
+        'current_status',
+      ],
+      createTableSql: (tableName: string) => `
+        CREATE TABLE ${tableName} (
+          id TEXT NOT NULL,
+          book_id TEXT NOT NULL,
+          category TEXT NOT NULL,
+          rule_text TEXT NOT NULL,
+          cost TEXT NOT NULL,
+          who_benefits TEXT,
+          who_suffers TEXT,
+          taboo TEXT,
+          violation_consequence TEXT,
+          allowed_exception TEXT,
+          current_status TEXT NOT NULL,
+          PRIMARY KEY (book_id, id),
+          FOREIGN KEY (book_id) REFERENCES books(id)
+        );
+      `,
+    },
+    {
+      tableName: 'narrative_threads',
+      columns: [
+        'id',
+        'book_id',
+        'type',
+        'promise',
+        'planted_at',
+        'expected_payoff',
+        'resolved_at',
+        'current_state',
+        'importance',
+        'payoff_must_change',
+        'owner_character_id',
+        'related_relationship_id',
+        'notes',
+      ],
+      createTableSql: (tableName: string) => `
+        CREATE TABLE ${tableName} (
+          id TEXT NOT NULL,
+          book_id TEXT NOT NULL,
+          type TEXT NOT NULL,
+          promise TEXT NOT NULL,
+          planted_at INTEGER NOT NULL,
+          expected_payoff INTEGER,
+          resolved_at INTEGER,
+          current_state TEXT NOT NULL,
+          importance TEXT NOT NULL,
+          payoff_must_change TEXT NOT NULL,
+          owner_character_id TEXT,
+          related_relationship_id TEXT,
+          notes TEXT,
+          PRIMARY KEY (book_id, id),
+          FOREIGN KEY (book_id) REFERENCES books(id)
+        );
+      `,
+    },
+    {
+      tableName: 'characters',
+      columns: [
+        'id',
+        'book_id',
+        'name',
+        'role_type',
+        'personality',
+        'speech_style',
+        'appearance',
+        'abilities',
+        'background',
+        'relationships',
+        'first_appear',
+        'is_active',
+      ],
+      createTableSql: (tableName: string) => `
+        CREATE TABLE ${tableName} (
+          id TEXT NOT NULL,
+          book_id TEXT NOT NULL,
+          name TEXT NOT NULL,
+          role_type TEXT NOT NULL,
+          personality TEXT NOT NULL,
+          speech_style TEXT,
+          appearance TEXT,
+          abilities TEXT,
+          background TEXT,
+          relationships TEXT,
+          first_appear INTEGER,
+          is_active INTEGER NOT NULL DEFAULT 1,
+          PRIMARY KEY (book_id, id),
+          FOREIGN KEY (book_id) REFERENCES books(id)
+        );
+      `,
+    },
+  ];
+
+  db.transaction(() => {
+    for (const table of tables) {
+      if (!hasBookScopedIdPrimaryKey(db, table.tableName)) {
+        recreateScopedIdTable(db, table);
+      }
+    }
+  })();
+}
+
 export function runMigrations(
   db: SqliteDatabase,
   options?: { databaseFile?: string }
@@ -73,6 +378,8 @@ export function runMigrations(
   ensureBookViralStrategyColumn(db);
   ensureStoryBibleViralProtocolColumn(db);
   ensureChapterNarrativeColumns(db);
+  ensurePlotThreadsScopedPrimaryKey(db);
+  ensureNarrativeGraphScopedPrimaryKeys(db);
   if (options?.databaseFile && options.databaseFile !== ':memory:') {
     backupDatabaseBeforeMigration(db, {
       databaseFile: options.databaseFile,

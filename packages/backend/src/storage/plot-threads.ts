@@ -31,7 +31,7 @@ export function createPlotThreadRepository(db: SqliteDatabase) {
             @resolvedAt,
             @importance
           )
-          ON CONFLICT(id) DO UPDATE SET
+          ON CONFLICT(book_id, id) DO UPDATE SET
             description = excluded.description,
             planted_at = excluded.planted_at,
             expected_payoff = excluded.expected_payoff,
@@ -46,14 +46,14 @@ export function createPlotThreadRepository(db: SqliteDatabase) {
       });
     },
 
-    resolveThread(id: string, resolvedAt: number) {
+    resolveThread(bookId: string, id: string, resolvedAt: number) {
       db.prepare(
         `
           UPDATE plot_threads
           SET resolved_at = ?
-          WHERE id = ?
+          WHERE book_id = ? AND id = ?
         `
-      ).run(resolvedAt, id);
+      ).run(resolvedAt, bookId, id);
     },
 
     listByBook(bookId: string) {

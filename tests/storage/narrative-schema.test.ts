@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { createChapterCardRepository } from '@story-weaver/backend/storage/chapter-cards';
 import { createChapterTensionBudgetRepository } from '@story-weaver/backend/storage/chapter-tension-budgets';
 import { createDatabase } from '@story-weaver/backend/storage/database';
 
@@ -84,5 +85,84 @@ describe('narrative schema', () => {
 
     repository.clearByBook('book-1');
     expect(repository.listByBook('book-1')).toEqual([]);
+  });
+
+  it('persists chapter action rows using call-scoped chapter identity', () => {
+    const db = createDatabase(':memory:');
+    db.prepare(
+      `
+        INSERT INTO books (
+          id, title, idea, status, model_id, target_chapters,
+          words_per_chapter, created_at, updated_at
+        )
+        VALUES (
+          'book-1', '旧页', '命簿修复师追查家族旧案。', 'creating',
+          'mock', 1, 2000, '2026-04-30T00:00:00.000Z',
+          '2026-04-30T00:00:00.000Z'
+        )
+      `
+    ).run();
+    const repository = createChapterCardRepository(db);
+
+    repository.upsertThreadActions('book-1', 1, 1, [
+      {
+        threadId: 'main-thread',
+        action: 'advance',
+        requiredEffect: '旧案线索推进。',
+      } as unknown as Parameters<typeof repository.upsertThreadActions>[3][number],
+    ]);
+    repository.upsertCharacterPressures('book-1', 1, 1, [
+      {
+        characterId: 'lin-mu',
+        desirePressure: '想查清旧案。',
+        fearPressure: '害怕再次被抹除。',
+        flawTrigger: '倾向独自承担。',
+        expectedChoice: '向同伴透露部分真相。',
+      } as unknown as Parameters<
+        typeof repository.upsertCharacterPressures
+      >[3][number],
+    ]);
+    repository.upsertRelationshipActions('book-1', 1, 1, [
+      {
+        relationshipId: 'lin-mu-ally',
+        action: 'deepen',
+        requiredChange: '共同承担一次代价。',
+      } as unknown as Parameters<
+        typeof repository.upsertRelationshipActions
+      >[3][number],
+    ]);
+
+    expect(repository.listThreadActions('book-1', 1, 1)).toEqual([
+      {
+        bookId: 'book-1',
+        volumeIndex: 1,
+        chapterIndex: 1,
+        threadId: 'main-thread',
+        action: 'advance',
+        requiredEffect: '旧案线索推进。',
+      },
+    ]);
+    expect(repository.listCharacterPressures('book-1', 1, 1)).toEqual([
+      {
+        bookId: 'book-1',
+        volumeIndex: 1,
+        chapterIndex: 1,
+        characterId: 'lin-mu',
+        desirePressure: '想查清旧案。',
+        fearPressure: '害怕再次被抹除。',
+        flawTrigger: '倾向独自承担。',
+        expectedChoice: '向同伴透露部分真相。',
+      },
+    ]);
+    expect(repository.listRelationshipActions('book-1', 1, 1)).toEqual([
+      {
+        bookId: 'book-1',
+        volumeIndex: 1,
+        chapterIndex: 1,
+        relationshipId: 'lin-mu-ally',
+        action: 'deepen',
+        requiredChange: '共同承担一次代价。',
+      },
+    ]);
   });
 });

@@ -86,11 +86,16 @@ export function buildVolumeOutlinePrompt(
   input: StoryLengthConstraints,
   volumeCount = 10
 ) {
+  const effectiveVolumeCount = Math.max(
+    1,
+    Math.min(volumeCount, input.targetChapters)
+  );
+
   return [
     `Master outline:\n${masterOutline}`,
     ...buildLengthConstraintLines(input),
     `Allocate exactly ${input.targetChapters} chapters across the volumes.`,
-    `Expand this into ${volumeCount} volume outlines.`,
+    `Expand this into ${effectiveVolumeCount} volume outlines.`,
     `For each volume, include chapter ranges and pacing guidance for chapters of about ${input.wordsPerChapter} words.`,
     'Separate volumes with a line containing only ---',
   ].join('\n');
@@ -139,6 +144,6 @@ export function buildChapterDraftPrompt(input: {
     input.routePlanText ? `Story route requirements:\n${input.routePlanText}` : '',
     `Chapter title: ${input.chapterTitle}`,
     `Chapter outline: ${input.chapterOutline}`,
-    'Return only the final chapter prose. Do not include any chapter title, heading, Markdown title, or title line in the正文.',
+    'Return only the final chapter prose. Do not include any chapter title, heading, Markdown title, or title line in the body text.',
   ].join('\n');
 }

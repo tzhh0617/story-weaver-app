@@ -95,4 +95,32 @@ describe('buildWorldPrompt', () => {
     expect(prompt).toContain('story-structure');
     expect(prompt).toContain('Chapter outline: Opening');
   });
+
+  it('caps requested volume count to the target chapter count', () => {
+    const prompt = buildVolumeOutlinePrompt('Master outline', {
+      targetChapters: 3,
+      wordsPerChapter: 1200,
+    });
+
+    expect(prompt).toContain('Expand this into 3 volume outlines.');
+    expect(prompt).not.toContain('Expand this into 10 volume outlines.');
+  });
+
+  it('states the no-title chapter prose rule cleanly', () => {
+    const prompt = buildChapterDraftPrompt({
+      idea: 'A mountain archive decides who may remember history.',
+      worldSetting: 'World setting',
+      masterOutline: 'Master outline',
+      continuityContext: null,
+      chapterTitle: 'Chapter 1',
+      chapterOutline: 'Opening',
+      targetChapters: 3,
+      wordsPerChapter: 1200,
+    });
+
+    expect(prompt).toContain(
+      'Do not include any chapter title, heading, Markdown title, or title line in the body text.'
+    );
+    expect(prompt).not.toContain('in the正文');
+  });
 });

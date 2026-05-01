@@ -707,6 +707,7 @@ export default function BookDetail({
   progress,
   liveOutput,
   executionLogs = [],
+  isActive = false,
   onBackToLibrary,
   onPause,
   onResume,
@@ -778,6 +779,7 @@ export default function BookDetail({
     currentVolume?: number | null;
     currentChapter?: number | null;
   } | null;
+  isActive?: boolean;
   liveOutput?: {
     volumeIndex: number;
     chapterIndex: number;
@@ -833,11 +835,15 @@ export default function BookDetail({
     (chapter) => chapter.status === 'done'
   ).length;
   const totalChapters = renderedChapters.length;
+  const hasRemainingChapters = renderedChapters.some(
+    (chapter) => chapter.status !== 'done'
+  );
   const hasGeneratedContent = Boolean(
     chapters?.some((chapter) => chapter.content && chapter.content.trim().length > 0)
   );
   const canPause = currentPhase !== 'paused' && currentPhase !== 'completed';
-  const canResume = currentPhase === 'paused';
+  const canResume =
+    !isActive && currentPhase !== 'completed' && hasRemainingChapters;
   const selectedChapter =
     renderedChapters.find((chapter) => chapter.id === selectedChapterId) ??
     renderedChapters[0] ??
