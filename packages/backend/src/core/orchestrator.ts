@@ -6,7 +6,7 @@ import type {
 import { createBookAggregate } from './aggregates/book/index.js';
 import { createOutlineAggregate } from './aggregates/outline/index.js';
 import { createChapterAggregate } from './aggregates/chapter/index.js';
-import type { ChapterUpdate } from './aggregates/chapter/chapter-aggregate.js';
+import type { ChapterUpdate } from './aggregates/chapter/index.js';
 import type {
   ChapterCard,
   ChapterCharacterPressure,
