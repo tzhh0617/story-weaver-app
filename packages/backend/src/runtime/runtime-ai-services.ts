@@ -14,7 +14,13 @@ import { createChapterWriter } from '../core/chapter-writer.js';
 import { createModelTestService } from '../core/model-test.js';
 import type { NarrativeAudit } from '../core/narrative/types.js';
 import type { OutlineGenerationInput } from '../core/types.js';
-import { type ModelConfigInput } from '../models/config.js';
+import {
+  normalizeModelId,
+  type ModelConfigInput,
+} from '../models/config.js';
+import {
+  resolveEnvironmentModelConfigs,
+} from '../models/environment-config.js';
 import { createRuntimeRegistry } from '../models/registry.js';
 import {
   createRuntimeMode,
@@ -124,39 +130,14 @@ async function withMockRuntimeDelay<T>(operation: () => Promise<T>) {
   return result;
 }
 
-function getEnvironmentModelConfigs(): ModelConfigInput[] {
-  const configs: ModelConfigInput[] = [];
-
-  if (process.env.OPENAI_API_KEY) {
-    configs.push({
-      id: 'openai:gpt-4o-mini',
-      provider: 'openai',
-      modelName: 'gpt-4o-mini',
-      apiKey: process.env.OPENAI_API_KEY,
-      baseUrl: '',
-      config: {},
-    });
-  }
-
-  if (process.env.ANTHROPIC_API_KEY) {
-    configs.push({
-      id: 'anthropic:claude-3-5-sonnet',
-      provider: 'anthropic',
-      modelName: 'claude-3-5-sonnet',
-      apiKey: process.env.ANTHROPIC_API_KEY,
-      baseUrl: '',
-      config: {},
-    });
-  }
-
-  return configs;
-}
-
 function getRuntimeModelMode(persistedConfigs: ModelConfigInput[]) {
+  const environmentConfigs = resolveEnvironmentModelConfigs();
+
   return createRuntimeMode({
     persistedConfigs,
-    environmentConfigs: getEnvironmentModelConfigs(),
+    environmentConfigs: environmentConfigs.configs,
     fallbackModelId: DEFAULT_MOCK_MODEL_ID,
+    preferEnvironmentConfigs: environmentConfigs.preferEnvironmentConfigs,
   });
 }
 
@@ -165,18 +146,19 @@ function getRuntimeLanguageModel(input: {
   modelId: string;
 }) {
   const runtimeMode = getRuntimeModelMode(input.persistedConfigs);
+  const modelId = normalizeModelId(input.modelId);
 
   if (runtimeMode.kind === 'mock') {
-    throw new Error(`Model not found: ${input.modelId}`);
+    throw new Error(`Model not found: ${modelId}`);
   }
 
-  if (!runtimeMode.availableConfigs.some((config) => config.id === input.modelId)) {
-    throw new Error(`Model not found: ${input.modelId}`);
+  if (!runtimeMode.availableConfigs.some((config) => config.id === modelId)) {
+    throw new Error(`Model not found: ${modelId}`);
   }
 
   const registry = createRuntimeRegistry(runtimeMode.availableConfigs);
   return (registry as { languageModel: (id: string) => unknown }).languageModel(
-    input.modelId
+    modelId
   );
 }
 
@@ -459,16 +441,17 @@ export function createRuntimeAiServices(input: {
       return runtimeMode.resolveModelId();
     },
     testModel: async (modelId: string) => {
+      const normalizedModelId = normalizeModelId(modelId);
       const runtimeMode = getRuntimeModelMode(modelConfigs.list());
 
       if (
         runtimeMode.kind === 'mock' ||
-        !runtimeMode.availableConfigs.some((config) => config.id === modelId)
+        !runtimeMode.availableConfigs.some((config) => config.id === normalizedModelId)
       ) {
         return {
           ok: false,
           latency: 0,
-          error: `Model not found: ${modelId}`,
+          error: `Model not found: ${normalizedModelId}`,
         };
       }
 
@@ -481,7 +464,7 @@ export function createRuntimeAiServices(input: {
           model: unknown;
           prompt: string;
         }) => Promise<{ text: string }>,
-      }).testModel(modelId);
+      }).testModel(normalizedModelId);
     },
   };
 }

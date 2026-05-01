@@ -13,14 +13,21 @@ type RuntimeModeInput = {
   persistedConfigs: ModelConfigInput[];
   environmentConfigs: ModelConfigInput[];
   fallbackModelId: string;
+  preferEnvironmentConfigs?: boolean;
 };
 
 export function createRuntimeMode(input: RuntimeModeInput) {
+  const primaryConfigs = input.preferEnvironmentConfigs
+    ? input.environmentConfigs
+    : input.persistedConfigs;
+  const fallbackConfigs = input.preferEnvironmentConfigs
+    ? input.persistedConfigs
+    : input.environmentConfigs;
   const mergedConfigs = [
-    ...input.persistedConfigs,
-    ...input.environmentConfigs.filter(
-      (envConfig) =>
-        !input.persistedConfigs.some((config) => config.id === envConfig.id)
+    ...primaryConfigs,
+    ...fallbackConfigs.filter(
+      (fallbackConfig) =>
+        !primaryConfigs.some((config) => config.id === fallbackConfig.id)
     ),
   ];
 
