@@ -81,6 +81,11 @@ describe('desktop runtime config', () => {
     expect(electronMainSource).toContain('mainWindow.loadURL');
   });
 
+  it('serves packaged renderer assets from the Electron app path', () => {
+    expect(electronMainSource).toContain('staticDir');
+    expect(electronMainSource).toContain("path.join(app.getAppPath(), 'dist')");
+  });
+
   it('packages compiled server files with the Electron app', () => {
     expect(electronBuilderConfigSource).toContain('dist-server/**');
   });

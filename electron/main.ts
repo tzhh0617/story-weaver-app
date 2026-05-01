@@ -12,7 +12,9 @@ function appendApiBase(url: string, apiBase: string) {
 
 async function ensureServer() {
   if (!server) {
-    server = await startServer();
+    server = await startServer({
+      staticDir: path.join(app.getAppPath(), 'dist'),
+    });
   }
 
   return server;
