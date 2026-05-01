@@ -32,6 +32,14 @@ const iconGenerationSource = fs.readFileSync(
   path.resolve(__dirname, '../../scripts/generate-icons.py'),
   'utf8'
 );
+const browserPersistenceSmokeSource = fs.existsSync(
+  path.resolve(__dirname, '../../scripts/smoke-browser-persistence.mjs')
+)
+  ? fs.readFileSync(
+      path.resolve(__dirname, '../../scripts/smoke-browser-persistence.mjs'),
+      'utf8'
+    )
+  : '';
 
 describe('desktop runtime config', () => {
   it('builds renderer assets with a relative base for file:// loading', () => {
@@ -106,5 +114,26 @@ describe('desktop runtime config', () => {
 
   it('packages database migration files with the Electron app', () => {
     expect(electronBuilderConfigSource).toContain('drizzle/**');
+  });
+
+  it('provides an automated browser persistence smoke check', () => {
+    expect(packageJson.scripts?.['smoke:browser-persistence']).toBe(
+      'node scripts/smoke-browser-persistence.mjs'
+    );
+    expect(browserPersistenceSmokeSource).toContain('STORY_WEAVER_ROOT_DIR');
+    expect(browserPersistenceSmokeSource).toContain('/api/invoke');
+    expect(browserPersistenceSmokeSource).toContain('better-sqlite3');
+    expect(browserPersistenceSmokeSource).toContain(
+      "['rebuild', 'better-sqlite3']"
+    );
+  });
+
+  it('rebuilds native SQLite bindings for Node before browser server startup', () => {
+    expect(packageJson.scripts?.['dev:server']).toBe(
+      'pnpm rebuild better-sqlite3 && tsx server/main.ts'
+    );
+    expect(packageJson.scripts?.['start:server']).toBe(
+      'pnpm rebuild better-sqlite3 && node dist-server/server/main.js'
+    );
   });
 });

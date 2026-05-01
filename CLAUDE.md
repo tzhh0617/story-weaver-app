@@ -17,6 +17,9 @@ pnpm run start:web
 # Start an already-built browser server
 pnpm run start:server
 
+# Smoke test browser server persistence with a temp SQLite DB
+pnpm run smoke:browser-persistence
+
 # Type checking (both renderer and electron tsconfigs)
 pnpm run typecheck
 
@@ -42,14 +45,19 @@ Browser server environment variables:
 - `STORY_WEAVER_STATIC_DIR` — built renderer directory, defaults to `dist`
 
 Browser persistence smoke test:
-1. Use a temp data directory so local user data is untouched:
+1. Prefer the automated smoke script: `pnpm run smoke:browser-persistence`.
+   It rebuilds Node native SQLite bindings, builds the app, starts a browser
+   server on a free local port, creates a book through `/api/invoke`, verifies
+   the row in a temp SQLite database, then stops the server and removes temp
+   data.
+2. For manual checks, use a temp data directory so local user data is untouched:
    `STORY_WEAVER_ROOT_DIR=$(mktemp -d /tmp/story-weaver-browser-smoke-XXXXXX)`
-2. If Vite port `5173` is free, run `pnpm run dev:web`.
-3. If `5173` is occupied, run production-style browser mode on another port:
+3. If Vite port `5173` is free, run `pnpm run dev:web`.
+4. If `5173` is occupied, run production-style browser mode on another port:
    `pnpm run build && STORY_WEAVER_ROOT_DIR=$STORY_WEAVER_ROOT_DIR STORY_WEAVER_SERVER_PORT=5184 pnpm run start:server`
-4. Open `http://127.0.0.1:5173/` for dev mode or `http://127.0.0.1:5184/` for production-style mode.
-5. Verify `/api/health`, create/list a book through `/api/invoke`, and inspect the temp `data.db` with `better-sqlite3`.
-6. Stop the server and remove the temp directory plus `dist-server`.
+5. Open `http://127.0.0.1:5173/` for dev mode or `http://127.0.0.1:5184/` for production-style mode.
+6. Verify `/api/health`, create/list a book through `/api/invoke`, and inspect the temp `data.db` with `better-sqlite3`.
+7. Stop the server and remove the temp directory plus `dist-server`.
 
 Electron packaging smoke test without overwriting `release/`:
 ```bash
