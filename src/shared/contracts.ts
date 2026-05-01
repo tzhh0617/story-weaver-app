@@ -331,6 +331,35 @@ export type SettingsSetPayload = {
   value: string;
 };
 
+export type BookCreateRequest = BookCreatePayload;
+
+export type BookCreateResponse = {
+  bookId: string;
+};
+
+export type BookExportRequest = Pick<BookExportPayload, 'format'>;
+
+export type BookExportResponse = {
+  filePath: string;
+  downloadUrl: string;
+};
+
+export type ModelSaveRequest = ModelSavePayload;
+
+export type ModelTestResponse = {
+  ok: boolean;
+  message: string;
+};
+
+export type SettingValueResponse = {
+  key: string;
+  value: string | null;
+};
+
+export type OkResponse = {
+  ok: true;
+};
+
 export type IpcPayloadMap = {
   [ipcChannels.bookCreate]: BookCreatePayload;
   [ipcChannels.bookDelete]: BookIdPayload;

@@ -3,6 +3,13 @@ import {
   assertIpcPayload,
   ipcChannels,
   type BookDetail,
+  type BookCreateRequest,
+  type BookCreateResponse,
+  type BookExportRequest,
+  type BookExportResponse,
+  type ModelTestResponse,
+  type OkResponse,
+  type SettingValueResponse,
 } from '../../src/shared/contracts';
 
 function makeBookDetailContractFixture(): BookDetail {
@@ -198,5 +205,38 @@ describe('ipcChannels', () => {
       type: 'weak_choice_pressure',
       severity: 'major',
     });
+  });
+});
+
+describe('concrete server API contracts', () => {
+  it('exports named request and response contracts for concrete routes', () => {
+    const createRequest: BookCreateRequest = {
+      idea: 'A library that writes itself.',
+      targetChapters: 2,
+      wordsPerChapter: 1200,
+    };
+    const createResponse: BookCreateResponse = { bookId: 'book-1' };
+    const exportRequest: BookExportRequest = { format: 'txt' };
+    const exportResponse: BookExportResponse = {
+      filePath: '/tmp/story-weaver/book.txt',
+      downloadUrl: '/api/exports/export-1',
+    };
+    const modelTest: ModelTestResponse = {
+      ok: true,
+      message: 'Model connection succeeded',
+    };
+    const settingValue: SettingValueResponse = {
+      key: 'scheduler.concurrencyLimit',
+      value: '2',
+    };
+    const ok: OkResponse = { ok: true };
+
+    expect(createRequest.targetChapters).toBe(2);
+    expect(createResponse.bookId).toBe('book-1');
+    expect(exportRequest.format).toBe('txt');
+    expect(exportResponse.downloadUrl).toBe('/api/exports/export-1');
+    expect(modelTest.ok).toBe(true);
+    expect(settingValue.value).toBe('2');
+    expect(ok.ok).toBe(true);
   });
 });
