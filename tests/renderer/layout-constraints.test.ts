@@ -164,6 +164,10 @@ describe('renderer layout constraints', () => {
       path.join(rendererRoot, 'pages/BookDetail.tsx'),
       'utf8'
     );
+    const outlineSectionSource = fs.readFileSync(
+      path.join(rendererRoot, 'pages/book-detail/OutlineSection.tsx'),
+      'utf8'
+    );
     const modelFormSource = fs.readFileSync(
       path.join(rendererRoot, 'components/ModelForm.tsx'),
       'utf8'
@@ -177,7 +181,7 @@ describe('renderer layout constraints', () => {
     expect(newBookSource).toContain('layoutCardClassName');
     expect(newBookSource).toContain('layoutCardHeaderClassName');
     expect(bookDetailSource).toContain('layoutCardClassName');
-    expect(bookDetailSource).toContain('layoutCardSectionClassName');
+    expect(outlineSectionSource).toContain('layoutCardSectionClassName');
     expect(modelFormSource).toContain('layoutCardClassName');
   });
 
@@ -202,6 +206,10 @@ describe('renderer layout constraints', () => {
       path.join(rendererRoot, 'pages/BookDetail.tsx'),
       'utf8'
     );
+    const bookHeaderSource = fs.readFileSync(
+      path.join(rendererRoot, 'pages/book-detail/BookHeader.tsx'),
+      'utf8'
+    );
 
     expect(cardSource).toContain('export const pageIntroPanelClassName');
     expect(cardSource).toContain('export const pageIntroEyebrowClassName');
@@ -210,7 +218,7 @@ describe('renderer layout constraints', () => {
     expect(librarySource).toContain('pageIntroPanelClassName');
     expect(settingsSource).toContain('pageIntroPanelClassName');
     expect(newBookSource).toContain('pageIntroPanelClassName');
-    expect(bookDetailSource).toContain('book-detail-topbar');
+    expect(bookHeaderSource).toContain('book-detail-topbar');
     expect(bookDetailSource).not.toContain('pageIntroPanelClassName');
   });
 
