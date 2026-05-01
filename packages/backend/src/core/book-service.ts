@@ -33,10 +33,10 @@ import type {
 } from './narrative/types.js';
 import {
   countStoryCharacters,
-  normalizeChapterOutlinesToTarget,
 } from './story-constraints.js';
 import type { OutlineBundle, OutlineGenerationInput } from './types.js';
-import { createBookAggregate, deriveTitleFromIdea, isBookPaused } from './aggregates/book/index.js';
+import { createBookAggregate, isBookPaused } from './aggregates/book/index.js';
+import { createOutlineAggregate } from './aggregates/outline/index.js';
 
 const CHAPTER_CONTEXT_MAX_CHARACTERS = 6000;
 
@@ -100,37 +100,6 @@ function buildOutlineFromChapterCard(card: ChapterCard) {
     .map((line) => line.trim())
     .filter(Boolean)
     .join('\n');
-}
-
-function saveChapterOutlines(
-  deps: {
-    chapters: {
-      upsertOutline: (input: {
-        bookId: string;
-        volumeIndex: number;
-        chapterIndex: number;
-        title: string;
-        outline: string;
-      }) => void;
-    };
-    onBookUpdated?: (bookId: string) => void;
-  },
-  bookId: string,
-  chapterOutlines: OutlineBundle['chapterOutlines']
-) {
-  for (const chapter of chapterOutlines) {
-    deps.chapters.upsertOutline({
-      bookId,
-      volumeIndex: chapter.volumeIndex,
-      chapterIndex: chapter.chapterIndex,
-      title: chapter.title,
-      outline: chapter.outline,
-    });
-  }
-
-  if (chapterOutlines.length) {
-    deps.onBookUpdated?.(bookId);
-  }
 }
 
 async function extractChapterUpdate(input: {
@@ -676,6 +645,25 @@ export function createBookService(deps: {
   }
 
   const aggregate = createBookAggregate(deps);
+  const outlineAggregate = createOutlineAggregate({
+    books: {
+      getById: deps.books.getById,
+      updateStatus: deps.books.updateStatus,
+      updateTitle: deps.books.updateTitle,
+      saveContext: deps.books.saveContext,
+      getContext: deps.books.getContext,
+    },
+    chapters: deps.chapters,
+    progress: deps.progress,
+    outlineService: deps.outlineService,
+    storyBibles: deps.storyBibles,
+    volumePlans: deps.volumePlans,
+    chapterCards: deps.chapterCards,
+    chapterTensionBudgets: deps.chapterTensionBudgets,
+    resolveModelId,
+    onBookUpdated: deps.onBookUpdated,
+    onGenerationEvent: deps.onGenerationEvent,
+  });
 
   return {
     createBook(input: {
@@ -703,172 +691,7 @@ export function createBookService(deps: {
       }
 
       deps.books.updateStatus(bookId, 'building_world');
-      const modelId = resolveModelId();
-
-      if (deps.outlineService.generateTitleFromIdea) {
-        updateTrackedPhase({
-          bookId,
-          phase: 'naming_title',
-          stepLabel: '正在生成书名',
-          notifyBookUpdated: true,
-        });
-
-        const generatedTitle = (
-          await deps.outlineService.generateTitleFromIdea({
-            bookId,
-            idea: book.idea,
-            targetChapters: book.targetChapters,
-            wordsPerChapter: book.wordsPerChapter,
-            modelId,
-          })
-        ).trim();
-
-        if (!deps.books.getById(bookId)) {
-          return;
-        }
-
-        deps.books.updateTitle(
-          bookId,
-          generatedTitle || deriveTitleFromIdea(book.idea)
-        );
-        deps.onBookUpdated?.(bookId);
-      }
-
-      updateTrackedPhase({
-        bookId,
-        phase: 'building_world',
-        stepLabel: '正在构建世界观与叙事圣经',
-        notifyBookUpdated: true,
-      });
-
-      const outlineBundle = await deps.outlineService.generateFromIdea({
-        bookId,
-        idea: book.idea,
-        targetChapters: book.targetChapters,
-        wordsPerChapter: book.wordsPerChapter,
-        modelId,
-        viralStrategy: book.viralStrategy ?? null,
-        onWorldSetting: (worldSetting) => {
-          if (!deps.books.getById(bookId)) {
-            return;
-          }
-
-          updateTrackedPhase({
-            bookId,
-            phase: 'building_outline',
-            stepLabel: '正在生成故事大纲',
-            notifyBookUpdated: true,
-          });
-
-          deps.books.saveContext({
-            bookId,
-            worldSetting,
-            outline: '',
-          });
-          deps.onBookUpdated?.(bookId);
-        },
-        onMasterOutline: (masterOutline) => {
-          const currentContext = deps.books.getContext(bookId);
-          if (!deps.books.getById(bookId) || !currentContext) {
-            return;
-          }
-
-          updateTrackedPhase({
-            bookId,
-            phase: 'planning_chapters',
-            stepLabel: '正在规划章节卡',
-            notifyBookUpdated: true,
-          });
-
-          deps.books.saveContext({
-            bookId,
-            worldSetting: currentContext.worldSetting,
-            outline: masterOutline,
-          });
-          deps.onBookUpdated?.(bookId);
-        },
-        onChapterOutlines: (chapterOutlines) => {
-          if (!deps.books.getById(bookId)) {
-            return;
-          }
-
-          saveChapterOutlines(deps, bookId, chapterOutlines);
-        },
-      });
-
-      if (!deps.books.getById(bookId)) {
-        return;
-      }
-
-      deps.books.saveContext({
-        bookId,
-        worldSetting: outlineBundle.worldSetting,
-        outline: outlineBundle.masterOutline,
-      });
-
-      if (outlineBundle.narrativeBible) {
-        deps.storyBibles?.saveGraph(bookId, outlineBundle.narrativeBible);
-      }
-      if (outlineBundle.volumePlans) {
-        deps.volumePlans?.upsertMany(bookId, outlineBundle.volumePlans);
-      }
-      if (outlineBundle.chapterCards) {
-        deps.chapterCards?.upsertMany(outlineBundle.chapterCards);
-      }
-      if (outlineBundle.chapterTensionBudgets?.length) {
-        deps.chapterTensionBudgets?.upsertMany(outlineBundle.chapterTensionBudgets);
-      }
-      for (const card of outlineBundle.chapterCards ?? []) {
-        const threadActions = (outlineBundle.chapterThreadActions ?? []).filter(
-          (action) =>
-            action.volumeIndex === card.volumeIndex &&
-            action.chapterIndex === card.chapterIndex
-        );
-        const characterPressures = (
-          outlineBundle.chapterCharacterPressures ?? []
-        ).filter(
-          (pressure) =>
-            pressure.volumeIndex === card.volumeIndex &&
-            pressure.chapterIndex === card.chapterIndex
-        );
-        const relationshipActions = (
-          outlineBundle.chapterRelationshipActions ?? []
-        ).filter(
-          (action) =>
-            action.volumeIndex === card.volumeIndex &&
-            action.chapterIndex === card.chapterIndex
-        );
-        deps.chapterCards?.upsertThreadActions?.(
-          bookId,
-          card.volumeIndex,
-          card.chapterIndex,
-          threadActions
-        );
-        deps.chapterCards?.upsertCharacterPressures?.(
-          bookId,
-          card.volumeIndex,
-          card.chapterIndex,
-          characterPressures
-        );
-        deps.chapterCards?.upsertRelationshipActions?.(
-          bookId,
-          card.volumeIndex,
-          card.chapterIndex,
-          relationshipActions
-        );
-      }
-
-      saveChapterOutlines(
-        deps,
-        bookId,
-        normalizeChapterOutlinesToTarget(
-          outlineBundle.chapterOutlines,
-          book.targetChapters
-        )
-      );
-
-      deps.books.updateStatus(bookId, 'building_outline');
-      deps.progress.updatePhase(bookId, 'building_outline');
+      await outlineAggregate.generateFromIdea(bookId);
     },
 
     pauseBook(bookId: string) {
