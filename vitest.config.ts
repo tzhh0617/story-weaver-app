@@ -29,6 +29,22 @@ export default defineConfig({
         replacement: path.resolve(__dirname, 'packages/shared/src/errors.ts'),
       },
       {
+        find: '@story-weaver/shared/schemas/book-schemas',
+        replacement: path.resolve(__dirname, 'packages/shared/src/schemas/book-schemas.ts'),
+      },
+      {
+        find: '@story-weaver/shared/schemas/model-schemas',
+        replacement: path.resolve(__dirname, 'packages/shared/src/schemas/model-schemas.ts'),
+      },
+      {
+        find: '@story-weaver/shared/schemas/settings-schemas',
+        replacement: path.resolve(__dirname, 'packages/shared/src/schemas/settings-schemas.ts'),
+      },
+      {
+        find: '@story-weaver/shared/schemas/event-schemas',
+        replacement: path.resolve(__dirname, 'packages/shared/src/schemas/event-schemas.ts'),
+      },
+      {
         find: '@story-weaver/shared',
         replacement: path.resolve(__dirname, 'packages/shared/src/index.ts'),
       },
