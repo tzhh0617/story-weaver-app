@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from 'vitest';
 import { createDatabase } from '@story-weaver/backend/storage/database';
 import { createBookRepository } from '@story-weaver/backend/storage/books';
 import { createChapterAuditRepository } from '@story-weaver/backend/storage/chapter-audits';
-import { createChapterCardRepository } from '@story-weaver/backend/storage/chapter-cards';
 import { createChapterRepository } from '@story-weaver/backend/storage/chapters';
 import { createCharacterRepository } from '@story-weaver/backend/storage/characters';
 import { createPlotThreadRepository } from '@story-weaver/backend/storage/plot-threads';
@@ -286,7 +285,7 @@ describe('createChapterAggregate', () => {
   });
 
   it('resolves plot threads when extracted', async () => {
-    const { aggregate, bookId, deps } = createTestDeps();
+    const { bookId, deps } = createTestDeps();
 
     // Pre-plant a thread for chapter 1
     deps.plotThreads.upsertThread({
@@ -295,23 +294,6 @@ describe('createChapterAggregate', () => {
       description: 'A planted thread',
       plantedAt: 1,
       expectedPayoff: null,
-    });
-
-    const { aggregate: agg2 } = createTestDeps({
-      books: deps.books,
-      chapters: deps.chapters,
-      progress: deps.progress,
-      sceneRecords: deps.sceneRecords,
-      characters: deps.characters,
-      plotThreads: deps.plotThreads,
-      plotThreadExtractor: {
-        extractThreads: vi.fn().mockResolvedValue({
-          openedThreads: [],
-          resolvedThreadIds: ['thread-1'],
-        }),
-      },
-      characterStateExtractor: { extractStates: vi.fn().mockResolvedValue([]) },
-      sceneRecordExtractor: { extractScene: vi.fn().mockResolvedValue(null) },
     });
 
     // Use a separate aggregate with the same repos but override extractors
@@ -649,7 +631,7 @@ describe('createChapterAggregate', () => {
   });
 
   it('returns paused result when book is paused during writing', async () => {
-    const { aggregate, bookId, deps } = createTestDeps();
+    const { bookId, deps } = createTestDeps();
 
     // Make writeChapter hang until we resolve
     let resolveWrite!: (result: any) => void;
