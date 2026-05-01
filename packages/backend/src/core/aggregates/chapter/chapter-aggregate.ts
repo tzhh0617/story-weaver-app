@@ -542,15 +542,25 @@ export function createChapterAggregate(deps: ChapterAggregateDeps) {
     }
   }
 
-  async function writeNext(bookId: string) {
-    const book = deps.books.getById(bookId);
+  function findNextChapter(input: {
+    bookId: string;
+  }): {
+    book: NonNullable<ReturnType<ChapterAggregateDeps['books']['getById']>>;
+    context: ReturnType<ChapterAggregateDeps['books']['getContext']>;
+    chapters: ReturnType<ChapterAggregateDeps['chapters']['listByBook']>;
+    nextChapter: NonNullable<ReturnType<ChapterAggregateDeps['chapters']['listByBook']>[number]>;
+    chapterCard: ChapterCard | null;
+    outline: string;
+    title: string;
+  } {
+    const book = deps.books.getById(input.bookId);
     if (!book) {
-      throw new Error(`Book not found: ${bookId}`);
+      throw new Error(`Book not found: ${input.bookId}`);
     }
 
-    const context = deps.books.getContext(bookId);
-    const chapters = deps.chapters.listByBook(bookId);
-    const chapterCards = deps.chapterCards?.listByBook?.(bookId) ?? [];
+    const context = deps.books.getContext(input.bookId);
+    const chapters = deps.chapters.listByBook(input.bookId);
+    const chapterCards = deps.chapterCards?.listByBook?.(input.bookId) ?? [];
     const nextChapter = chapters.find(
       (chapter) =>
         !chapter.content &&
@@ -581,34 +591,67 @@ export function createChapterAggregate(deps: ChapterAggregateDeps) {
       throw new Error('No outlined chapter available to write');
     }
 
+    return {
+      book,
+      context,
+      chapters,
+      nextChapter,
+      chapterCard,
+      outline: nextChapterOutline,
+      title: nextChapterTitle,
+    };
+  }
+
+  function buildWriteContext(input: {
+    bookId: string;
+    book: { idea: string; wordsPerChapter: number; targetChapters: number };
+    context: { worldSetting?: string | null; outline?: string | null } | undefined;
+    chapters: Array<{
+      bookId: string;
+      volumeIndex: number;
+      chapterIndex: number;
+      title: string | null;
+      outline: string | null;
+      content: string | null;
+      summary: string | null;
+      wordCount: number;
+    }>;
+    nextChapter: {
+      volumeIndex: number;
+      chapterIndex: number;
+    };
+    nextChapterOutline: string;
+    nextChapterTitle: string;
+    chapterCard: ChapterCard | null;
+  }) {
     const modelId = deps.resolveModelId();
-    const storyBible = deps.storyBibles?.getByBook?.(bookId) ?? null;
-    const effectiveChapterCard = chapterCard
+    const storyBible = deps.storyBibles?.getByBook?.(input.bookId) ?? null;
+    const effectiveChapterCard = input.chapterCard
       ? {
-          ...chapterCard,
-          title: nextChapterTitle,
+          ...input.chapterCard,
+          title: input.nextChapterTitle,
           plotFunction:
-            chapterCard.plotFunction.trim() || nextChapterOutline,
+            input.chapterCard.plotFunction.trim() || input.nextChapterOutline,
         }
       : null;
     const tensionBudget =
       effectiveChapterCard && deps.chapterTensionBudgets?.getByChapter
         ? deps.chapterTensionBudgets.getByChapter(
-            bookId,
-            nextChapter.volumeIndex,
-            nextChapter.chapterIndex
+            input.bookId,
+            input.nextChapter.volumeIndex,
+            input.nextChapter.chapterIndex
           )
         : null;
     const legacyContinuityContext = buildStoredChapterContext({
-      worldSetting: context?.worldSetting ?? null,
-      characterStates: deps.characters.listLatestStatesByBook(bookId),
-      plotThreads: deps.plotThreads.listByBook(bookId),
-      latestScene: deps.sceneRecords.getLatestByBook(bookId),
-      chapters,
+      worldSetting: input.context?.worldSetting ?? null,
+      characterStates: deps.characters.listLatestStatesByBook(input.bookId),
+      plotThreads: deps.plotThreads.listByBook(input.bookId),
+      latestScene: deps.sceneRecords.getLatestByBook(input.bookId),
+      chapters: input.chapters,
       currentChapter: {
-        volumeIndex: nextChapter.volumeIndex,
-        chapterIndex: nextChapter.chapterIndex,
-        outline: nextChapterOutline,
+        volumeIndex: input.nextChapter.volumeIndex,
+        chapterIndex: input.nextChapter.chapterIndex,
+        outline: input.nextChapterOutline,
       },
       maxCharacters: CHAPTER_CONTEXT_MAX_CHARACTERS,
     });
@@ -626,9 +669,9 @@ export function createChapterAggregate(deps: ChapterAggregateDeps) {
           characterPressures:
             deps.chapterCards
               ?.listCharacterPressures?.(
-                bookId,
-                nextChapter.volumeIndex,
-                nextChapter.chapterIndex
+                input.bookId,
+                input.nextChapter.volumeIndex,
+                input.nextChapter.chapterIndex
               )
               .map(
                 (pressure) =>
@@ -637,9 +680,9 @@ export function createChapterAggregate(deps: ChapterAggregateDeps) {
           relationshipActions:
             deps.chapterCards
               ?.listRelationshipActions?.(
-                bookId,
-                nextChapter.volumeIndex,
-                nextChapter.chapterIndex
+                input.bookId,
+                input.nextChapter.volumeIndex,
+                input.nextChapter.chapterIndex
               )
               .map(
                 (action) =>
@@ -648,9 +691,9 @@ export function createChapterAggregate(deps: ChapterAggregateDeps) {
           threadActions:
             deps.chapterCards
               ?.listThreadActions?.(
-                bookId,
-                nextChapter.volumeIndex,
-                nextChapter.chapterIndex
+                input.bookId,
+                input.nextChapter.volumeIndex,
+                input.nextChapter.chapterIndex
               )
               .map(
                 (action) =>
@@ -658,10 +701,10 @@ export function createChapterAggregate(deps: ChapterAggregateDeps) {
               ) ?? [],
           worldRules:
             deps.worldRules
-              ?.listByBook(bookId)
+              ?.listByBook(input.bookId)
               .map((rule) => `${rule.id}: ${rule.ruleText}; cost=${rule.cost}`) ??
             [],
-          recentSummaries: chapters
+          recentSummaries: input.chapters
             .filter((chapter) => chapter.summary)
             .slice(-2)
             .map((chapter) => `Chapter ${chapter.chapterIndex}: ${chapter.summary}`),
@@ -678,7 +721,7 @@ export function createChapterAggregate(deps: ChapterAggregateDeps) {
       },
     });
     const openingRetentionLines = buildOpeningRetentionContextLines(
-      nextChapter.chapterIndex
+      input.nextChapter.chapterIndex
     );
     const routePlanText = formatStoryRoutePlanForPrompt({
       ...storyRoutePlan,
@@ -686,118 +729,134 @@ export function createChapterAggregate(deps: ChapterAggregateDeps) {
       viralProtocolLines: storyBible?.viralStoryProtocol
         ? [
             formatViralProtocolForPrompt(storyBible.viralStoryProtocol, {
-              chapterIndex: nextChapter.chapterIndex,
+              chapterIndex: input.nextChapter.chapterIndex,
             }),
           ]
         : [],
     });
     const prompt = effectiveChapterCard
       ? buildNarrativeDraftPrompt({
-          idea: book.idea,
-          wordsPerChapter: book.wordsPerChapter,
+          idea: input.book.idea,
+          wordsPerChapter: input.book.wordsPerChapter,
           commandContext: commandContext ?? legacyContinuityContext,
           routePlanText,
           viralStoryProtocol: storyBible?.viralStoryProtocol ?? null,
-          chapterIndex: nextChapter.chapterIndex,
+          chapterIndex: input.nextChapter.chapterIndex,
         })
       : buildChapterDraftPrompt({
-          idea: book.idea,
-          worldSetting: context?.worldSetting ?? null,
-          masterOutline: context?.outline ?? null,
+          idea: input.book.idea,
+          worldSetting: input.context?.worldSetting ?? null,
+          masterOutline: input.context?.outline ?? null,
           continuityContext: legacyContinuityContext,
-          chapterTitle: nextChapterTitle,
-          chapterOutline: nextChapterOutline,
-          targetChapters: book.targetChapters,
-          wordsPerChapter: book.wordsPerChapter,
+          chapterTitle: input.nextChapterTitle,
+          chapterOutline: input.nextChapterOutline,
+          targetChapters: input.book.targetChapters,
+          wordsPerChapter: input.book.wordsPerChapter,
           routePlanText,
         });
-    const writingStepLabel = `正在写第 ${nextChapter.chapterIndex} 章`;
+    return { modelId, storyBible, effectiveChapterCard, tensionBudget, legacyContinuityContext, commandContext, routePlanText, prompt };
+  }
 
-    deps.progress.updatePhase(bookId, 'writing', {
-      currentVolume: nextChapter.volumeIndex,
-      currentChapter: nextChapter.chapterIndex,
+  async function writeDraft(input: {
+    bookId: string;
+    modelId: string;
+    prompt: string;
+    volumeIndex: number;
+    chapterIndex: number;
+    title: string;
+    wordsPerChapter: number;
+  }): Promise<{ result: { content: string; usage?: { inputTokens?: number; outputTokens?: number } }; deleted: boolean; paused: boolean }> {
+    const writingStepLabel = `正在写第 ${input.chapterIndex} 章`;
+
+    deps.progress.updatePhase(input.bookId, 'writing', {
+      currentVolume: input.volumeIndex,
+      currentChapter: input.chapterIndex,
       stepLabel: writingStepLabel,
     });
     deps.onGenerationEvent?.({
-      bookId,
+      bookId: input.bookId,
       type: 'progress',
       phase: 'writing',
       stepLabel: writingStepLabel,
-      currentVolume: nextChapter.volumeIndex,
-      currentChapter: nextChapter.chapterIndex,
+      currentVolume: input.volumeIndex,
+      currentChapter: input.chapterIndex,
     });
 
     let result = await deps.chapterWriter.writeChapter({
-      modelId,
-      prompt,
+      modelId: input.modelId,
+      prompt: input.prompt,
       onChunk: (delta) => {
-        if (!isBookPaused(deps, bookId)) {
+        if (!isBookPaused(deps, input.bookId)) {
           deps.onGenerationEvent?.({
-            bookId,
+            bookId: input.bookId,
             type: 'chapter-stream',
-            volumeIndex: nextChapter.volumeIndex,
-            chapterIndex: nextChapter.chapterIndex,
-            title: nextChapterTitle,
+            volumeIndex: input.volumeIndex,
+            chapterIndex: input.chapterIndex,
+            title: input.title,
             delta,
           });
         }
       },
     });
 
-    const bookAfterDraft = deps.books.getById(bookId);
+    const bookAfterDraft = deps.books.getById(input.bookId);
     if (!bookAfterDraft) {
       return {
-        deleted: true as const,
+        result,
+        deleted: true,
+        paused: false,
       };
     }
     if (bookAfterDraft.status === 'paused') {
-      deps.progress.updatePhase(bookId, 'paused');
-      deps.onBookUpdated?.(bookId);
+      deps.progress.updatePhase(input.bookId, 'paused');
+      deps.onBookUpdated?.(input.bookId);
       return {
-        paused: true as const,
+        result,
+        deleted: false,
+        paused: true,
       };
     }
 
     if (
       deps.shouldRewriteShortChapter?.({
         content: result.content,
-        wordsPerChapter: book.wordsPerChapter,
+        wordsPerChapter: input.wordsPerChapter,
       })
     ) {
-      const rewriteStepLabel = `正在重写第 ${nextChapter.chapterIndex} 章`;
-      deps.progress.updatePhase(bookId, 'writing', {
-        currentVolume: nextChapter.volumeIndex,
-        currentChapter: nextChapter.chapterIndex,
+      const rewriteStepLabel = `正在重写第 ${input.chapterIndex} 章`;
+      deps.progress.updatePhase(input.bookId, 'writing', {
+        currentVolume: input.volumeIndex,
+        currentChapter: input.chapterIndex,
         stepLabel: rewriteStepLabel,
       });
       deps.onGenerationEvent?.({
-        bookId,
+        bookId: input.bookId,
         type: 'progress',
         phase: 'writing',
         stepLabel: rewriteStepLabel,
-        currentVolume: nextChapter.volumeIndex,
-        currentChapter: nextChapter.chapterIndex,
+        currentVolume: input.volumeIndex,
+        currentChapter: input.chapterIndex,
       });
 
       let isFirstRewriteChunk = true;
       result = await deps.chapterWriter.writeChapter({
-        modelId,
+        modelId: input.modelId,
         prompt: buildShortChapterRewritePrompt({
-          originalPrompt: prompt,
-          wordsPerChapter: book.wordsPerChapter,
+          originalPrompt: input.prompt,
+          wordsPerChapter: input.wordsPerChapter,
           actualWordCount: countStoryCharacters(result.content),
         }),
         onChunk: (delta) => {
           const streamEvent: BookGenerationEvent = {
-            bookId,
+            bookId: input.bookId,
             type: 'chapter-stream',
-            volumeIndex: nextChapter.volumeIndex,
-            chapterIndex: nextChapter.chapterIndex,
-            title: nextChapterTitle,
+            volumeIndex: input.volumeIndex,
+            chapterIndex: input.chapterIndex,
+            title: input.title,
             delta,
             ...(isFirstRewriteChunk ? { replace: true } : {}),
           };
-          if (!isBookPaused(deps, bookId)) {
+          if (!isBookPaused(deps, input.bookId)) {
             deps.onGenerationEvent?.(streamEvent);
           }
           isFirstRewriteChunk = false;
@@ -805,90 +864,113 @@ export function createChapterAggregate(deps: ChapterAggregateDeps) {
       });
     }
 
-    const bookAfterFinalDraft = deps.books.getById(bookId);
+    const bookAfterFinalDraft = deps.books.getById(input.bookId);
     if (!bookAfterFinalDraft) {
       return {
-        deleted: true as const,
+        result,
+        deleted: true,
+        paused: false,
       };
     }
     if (bookAfterFinalDraft.status === 'paused') {
-      deps.progress.updatePhase(bookId, 'paused');
-      deps.onBookUpdated?.(bookId);
+      deps.progress.updatePhase(input.bookId, 'paused');
+      deps.onBookUpdated?.(input.bookId);
       return {
-        paused: true as const,
+        result,
+        deleted: false,
+        paused: true,
       };
     }
 
+    return { result, deleted: false, paused: false };
+  }
+
+  async function auditAndRevise(input: {
+    bookId: string;
+    modelId: string;
+    content: string;
+    prompt: string;
+    commandContext: string | null;
+    legacyContinuityContext: string;
+    routePlanText: string;
+    storyBible: {
+      viralStoryProtocol?: ViralStoryProtocol | null;
+    } | null;
+    volumeIndex: number;
+    chapterIndex: number;
+    effectiveChapterCard: ChapterCard | null;
+  }): Promise<{ result: { content: string; usage?: { inputTokens?: number; outputTokens?: number } }; auditScore: number | null; draftAttempts: number }> {
+    let result: { content: string; usage?: { inputTokens?: number; outputTokens?: number } } = { content: input.content, usage: undefined };
     let auditScore: number | null = null;
     let draftAttempts = 1;
-    if (deps.chapterAuditor && effectiveChapterCard) {
-      const auditContext = commandContext ?? legacyContinuityContext;
-      const auditStepLabel = `正在审校第 ${nextChapter.chapterIndex} 章叙事质量`;
+    if (deps.chapterAuditor && input.effectiveChapterCard) {
+      const auditContext = input.commandContext ?? input.legacyContinuityContext;
+      const auditStepLabel = `正在审校第 ${input.chapterIndex} 章叙事质量`;
       updateTrackedPhase({
-        bookId,
+        bookId: input.bookId,
         phase: 'auditing_chapter',
         stepLabel: auditStepLabel,
-        currentVolume: nextChapter.volumeIndex,
-        currentChapter: nextChapter.chapterIndex,
+        currentVolume: input.volumeIndex,
+        currentChapter: input.chapterIndex,
       });
       let audit = await deps.chapterAuditor.auditChapter({
-        modelId,
+        modelId: input.modelId,
         draft: result.content,
         auditContext,
-        routePlanText,
-        viralStoryProtocol: storyBible?.viralStoryProtocol ?? null,
-        chapterIndex: nextChapter.chapterIndex,
+        routePlanText: input.routePlanText,
+        viralStoryProtocol: input.storyBible?.viralStoryProtocol ?? null,
+        chapterIndex: input.chapterIndex,
       });
       deps.chapterAudits?.save({
-        bookId,
-        volumeIndex: nextChapter.volumeIndex,
-        chapterIndex: nextChapter.chapterIndex,
+        bookId: input.bookId,
+        volumeIndex: input.volumeIndex,
+        chapterIndex: input.chapterIndex,
         attempt: draftAttempts,
         audit,
       });
 
       const auditAction = decideAuditAction(audit, {
-        chapterIndex: nextChapter.chapterIndex,
+        chapterIndex: input.chapterIndex,
       });
       if (auditAction !== 'accept' && deps.chapterRevision) {
         draftAttempts += 1;
-        const revisionStepLabel = `正在修订第 ${nextChapter.chapterIndex} 章`;
+        const revisionStepLabel = `正在修订第 ${input.chapterIndex} 章`;
         updateTrackedPhase({
-          bookId,
+          bookId: input.bookId,
           phase: 'revising_chapter',
           stepLabel: revisionStepLabel,
-          currentVolume: nextChapter.volumeIndex,
-          currentChapter: nextChapter.chapterIndex,
+          currentVolume: input.volumeIndex,
+          currentChapter: input.chapterIndex,
         });
         result = {
           ...result,
           content: await deps.chapterRevision.reviseChapter({
-            modelId,
-            originalPrompt: prompt,
+            modelId: input.modelId,
+            originalPrompt: input.prompt,
             draft: result.content,
             issues: audit.issues,
           }),
         };
-        const reauditStepLabel = `正在复审第 ${nextChapter.chapterIndex} 章叙事质量`;
+        const reauditStepLabel = `正在复审第 ${input.chapterIndex} 章叙事质量`;
         updateTrackedPhase({
-          bookId,
+          bookId: input.bookId,
           phase: 'auditing_chapter',
           stepLabel: reauditStepLabel,
-          currentVolume: nextChapter.volumeIndex,
-          currentChapter: nextChapter.chapterIndex,
+          currentVolume: input.volumeIndex,
+          currentChapter: input.chapterIndex,
         });
         audit = await deps.chapterAuditor.auditChapter({
-          modelId,
+          modelId: input.modelId,
           draft: result.content,
           auditContext,
-          routePlanText,
-          viralStoryProtocol: storyBible?.viralStoryProtocol ?? null,
-          chapterIndex: nextChapter.chapterIndex,
+          routePlanText: input.routePlanText,
+          viralStoryProtocol: input.storyBible?.viralStoryProtocol ?? null,
+          chapterIndex: input.chapterIndex,
         });
         deps.chapterAudits?.save({
-          bookId,
-          volumeIndex: nextChapter.volumeIndex,
-          chapterIndex: nextChapter.chapterIndex,
+          bookId: input.bookId,
+          volumeIndex: input.volumeIndex,
+          chapterIndex: input.chapterIndex,
           attempt: draftAttempts,
           audit,
         });
@@ -896,44 +978,55 @@ export function createChapterAggregate(deps: ChapterAggregateDeps) {
 
       auditScore = audit.score;
     }
+    return { result, auditScore, draftAttempts };
+  }
 
-    const postChapterStepLabel = `正在生成第 ${nextChapter.chapterIndex} 章摘要与连续性`;
+  async function extractAndSaveContinuity(input: {
+    bookId: string;
+    modelId: string;
+    content: string;
+    volumeIndex: number;
+    chapterIndex: number;
+    auditScore: number | null;
+    draftAttempts: number;
+  }): Promise<{ deleted: boolean }> {
+    const postChapterStepLabel = `正在生成第 ${input.chapterIndex} 章摘要与连续性`;
     updateTrackedPhase({
-      bookId,
+      bookId: input.bookId,
       phase: 'extracting_continuity',
       stepLabel: postChapterStepLabel,
-      currentVolume: nextChapter.volumeIndex,
-      currentChapter: nextChapter.chapterIndex,
+      currentVolume: input.volumeIndex,
+      currentChapter: input.chapterIndex,
     });
 
     const chapterUpdate = await extractChapterUpdate({
-      modelId,
-      chapterIndex: nextChapter.chapterIndex,
-      content: result.content,
+      modelId: input.modelId,
+      chapterIndex: input.chapterIndex,
+      content: input.content,
       deps,
     });
 
-    if (!deps.books.getById(bookId)) {
+    if (!deps.books.getById(input.bookId)) {
       return {
         deleted: true as const,
       };
     }
 
     deps.chapters.saveContent({
-      bookId,
-      volumeIndex: nextChapter.volumeIndex,
-      chapterIndex: nextChapter.chapterIndex,
-      content: result.content,
+      bookId: input.bookId,
+      volumeIndex: input.volumeIndex,
+      chapterIndex: input.chapterIndex,
+      content: input.content,
       summary: chapterUpdate.summary,
-      wordCount: countStoryCharacters(result.content),
-      auditScore,
-      draftAttempts,
+      wordCount: countStoryCharacters(input.content),
+      auditScore: input.auditScore,
+      draftAttempts: input.draftAttempts,
     });
 
     for (const thread of chapterUpdate.openedThreads) {
       deps.plotThreads.upsertThread({
         id: thread.id,
-        bookId,
+        bookId: input.bookId,
         description: thread.description,
         plantedAt: thread.plantedAt,
         expectedPayoff: thread.expectedPayoff ?? null,
@@ -942,16 +1035,16 @@ export function createChapterAggregate(deps: ChapterAggregateDeps) {
     }
 
     for (const threadId of chapterUpdate.resolvedThreadIds) {
-      deps.plotThreads.resolveThread(bookId, threadId, nextChapter.chapterIndex);
+      deps.plotThreads.resolveThread(input.bookId, threadId, input.chapterIndex);
     }
 
     for (const state of chapterUpdate.characterStates) {
       deps.characters.saveState({
-        bookId,
+        bookId: input.bookId,
         characterId: state.characterId,
         characterName: state.characterName,
-        volumeIndex: nextChapter.volumeIndex,
-        chapterIndex: nextChapter.chapterIndex,
+        volumeIndex: input.volumeIndex,
+        chapterIndex: input.chapterIndex,
         location: state.location ?? null,
         status: state.status ?? null,
         knowledge: state.knowledge ?? null,
@@ -962,9 +1055,9 @@ export function createChapterAggregate(deps: ChapterAggregateDeps) {
 
     if (chapterUpdate.scene) {
       deps.sceneRecords.save({
-        bookId,
-        volumeIndex: nextChapter.volumeIndex,
-        chapterIndex: nextChapter.chapterIndex,
+        bookId: input.bookId,
+        volumeIndex: input.volumeIndex,
+        chapterIndex: input.chapterIndex,
         location: chapterUpdate.scene.location,
         timeInStory: chapterUpdate.scene.timeInStory,
         charactersPresent: chapterUpdate.scene.charactersPresent,
@@ -972,41 +1065,51 @@ export function createChapterAggregate(deps: ChapterAggregateDeps) {
       });
     }
 
+    return { deleted: false };
+  }
+
+  async function extractNarrativeState(input: {
+    bookId: string;
+    modelId: string;
+    content: string;
+    volumeIndex: number;
+    chapterIndex: number;
+  }): Promise<void> {
     if (deps.narrativeStateExtractor) {
-      const stateStepLabel = `正在提取第 ${nextChapter.chapterIndex} 章叙事状态`;
+      const stateStepLabel = `正在提取第 ${input.chapterIndex} 章叙事状态`;
       updateTrackedPhase({
-        bookId,
+        bookId: input.bookId,
         phase: 'extracting_state',
         stepLabel: stateStepLabel,
-        currentVolume: nextChapter.volumeIndex,
-        currentChapter: nextChapter.chapterIndex,
+        currentVolume: input.volumeIndex,
+        currentChapter: input.chapterIndex,
       });
       const delta = await deps.narrativeStateExtractor.extractState({
-        modelId,
-        content: result.content,
+        modelId: input.modelId,
+        content: input.content,
       });
       for (const state of delta.characterStates) {
         deps.characterArcs?.saveState?.({
           ...state,
-          bookId,
-          volumeIndex: nextChapter.volumeIndex,
-          chapterIndex: nextChapter.chapterIndex,
+          bookId: input.bookId,
+          volumeIndex: input.volumeIndex,
+          chapterIndex: input.chapterIndex,
         });
       }
       for (const state of delta.relationshipStates) {
         deps.relationshipStates?.save({
           ...state,
-          bookId,
-          volumeIndex: nextChapter.volumeIndex,
-          chapterIndex: nextChapter.chapterIndex,
+          bookId: input.bookId,
+          volumeIndex: input.volumeIndex,
+          chapterIndex: input.chapterIndex,
         });
       }
       for (const threadUpdate of delta.threadUpdates) {
         const existingThread = deps.narrativeThreads
-          ?.listByBook(bookId)
+          ?.listByBook(input.bookId)
           .find((thread) => thread.id === threadUpdate.threadId);
         if (existingThread && deps.narrativeThreads?.upsertThread) {
-          deps.narrativeThreads.upsertThread(bookId, {
+          deps.narrativeThreads.upsertThread(input.bookId, {
             ...existingThread,
             currentState: threadUpdate.currentState,
             resolvedAt: threadUpdate.resolvedAt ?? existingThread.resolvedAt,
@@ -1015,48 +1118,54 @@ export function createChapterAggregate(deps: ChapterAggregateDeps) {
         }
         if (threadUpdate.resolvedAt && deps.narrativeThreads?.resolveThread) {
           deps.narrativeThreads.resolveThread(
-            bookId,
+            input.bookId,
             threadUpdate.threadId,
             threadUpdate.resolvedAt
           );
         }
       }
     }
+  }
 
+  async function runCheckpoint(input: {
+    bookId: string;
+    volumeIndex: number;
+    chapterIndex: number;
+  }): Promise<void> {
     if (
       deps.narrativeCheckpoint &&
       deps.narrativeCheckpoints &&
-      shouldRunNarrativeCheckpoint(nextChapter.chapterIndex)
+      shouldRunNarrativeCheckpoint(input.chapterIndex)
     ) {
-      const checkpointStepLabel = `正在复盘第 ${nextChapter.chapterIndex} 章叙事状态`;
-      deps.progress.updatePhase(bookId, 'checkpoint_review', {
-        currentVolume: nextChapter.volumeIndex,
-        currentChapter: nextChapter.chapterIndex,
+      const checkpointStepLabel = `正在复盘第 ${input.chapterIndex} 章叙事状态`;
+      deps.progress.updatePhase(input.bookId, 'checkpoint_review', {
+        currentVolume: input.volumeIndex,
+        currentChapter: input.chapterIndex,
         stepLabel: checkpointStepLabel,
       });
       emitProgress({
-        bookId,
+        bookId: input.bookId,
         phase: 'checkpoint_review',
         stepLabel: checkpointStepLabel,
-        currentVolume: nextChapter.volumeIndex,
-        currentChapter: nextChapter.chapterIndex,
+        currentVolume: input.volumeIndex,
+        currentChapter: input.chapterIndex,
       });
       const checkpoint = await deps.narrativeCheckpoint.reviewCheckpoint({
-        bookId,
-        chapterIndex: nextChapter.chapterIndex,
+        bookId: input.bookId,
+        chapterIndex: input.chapterIndex,
       });
       const tensionCheckpoint =
         deps.chapterTensionBudgets?.listByBook &&
         deps.chapterAudits?.listLatestByBook
           ? buildTensionCheckpoint({
-              chapterIndex: nextChapter.chapterIndex,
-              budgets: deps.chapterTensionBudgets.listByBook(bookId),
-              audits: deps.chapterAudits.listLatestByBook(bookId),
+              chapterIndex: input.chapterIndex,
+              budgets: deps.chapterTensionBudgets.listByBook(input.bookId),
+              audits: deps.chapterAudits.listLatestByBook(input.bookId),
             })
           : null;
       deps.narrativeCheckpoints.save({
-        bookId,
-        chapterIndex: nextChapter.chapterIndex,
+        bookId: input.bookId,
+        chapterIndex: input.chapterIndex,
         ...(tensionCheckpoint
           ? {
               report: {
@@ -1073,6 +1182,102 @@ export function createChapterAggregate(deps: ChapterAggregateDeps) {
           : checkpoint),
       });
     }
+  }
+
+  async function writeNext(bookId: string) {
+    const {
+      book,
+      context,
+      chapters,
+      nextChapter,
+      chapterCard,
+      outline: nextChapterOutline,
+      title: nextChapterTitle,
+    } = findNextChapter({ bookId });
+
+    const {
+      modelId,
+      storyBible,
+      effectiveChapterCard,
+      legacyContinuityContext,
+      commandContext,
+      routePlanText,
+      prompt,
+    } = buildWriteContext({
+      bookId,
+      book,
+      context,
+      chapters,
+      nextChapter,
+      nextChapterOutline,
+      nextChapterTitle,
+      chapterCard,
+    });
+
+    const draftResult = await writeDraft({
+      bookId,
+      modelId,
+      prompt,
+      volumeIndex: nextChapter.volumeIndex,
+      chapterIndex: nextChapter.chapterIndex,
+      title: nextChapterTitle,
+      wordsPerChapter: book.wordsPerChapter,
+    });
+    if (draftResult.deleted) {
+      return {
+        deleted: true as const,
+      };
+    }
+    if (draftResult.paused) {
+      return {
+        paused: true as const,
+      };
+    }
+    let result = draftResult.result;
+
+    const { result: auditedResult, auditScore, draftAttempts } = await auditAndRevise({
+      bookId,
+      modelId,
+      content: result.content,
+      prompt,
+      commandContext,
+      legacyContinuityContext,
+      routePlanText,
+      storyBible,
+      volumeIndex: nextChapter.volumeIndex,
+      chapterIndex: nextChapter.chapterIndex,
+      effectiveChapterCard,
+    });
+    result = auditedResult;
+
+    const continuityResult = await extractAndSaveContinuity({
+      bookId,
+      modelId,
+      content: result.content,
+      volumeIndex: nextChapter.volumeIndex,
+      chapterIndex: nextChapter.chapterIndex,
+      auditScore,
+      draftAttempts,
+    });
+    if (continuityResult.deleted) {
+      return {
+        deleted: true as const,
+      };
+    }
+
+    await extractNarrativeState({
+      bookId,
+      modelId,
+      content: result.content,
+      volumeIndex: nextChapter.volumeIndex,
+      chapterIndex: nextChapter.chapterIndex,
+    });
+
+    await runCheckpoint({
+      bookId,
+      volumeIndex: nextChapter.volumeIndex,
+      chapterIndex: nextChapter.chapterIndex,
+    });
 
     const latestBook = deps.books.getById(bookId);
     if (!latestBook) {
@@ -1091,7 +1296,7 @@ export function createChapterAggregate(deps: ChapterAggregateDeps) {
     deps.progress.updatePhase(bookId, 'writing', {
       currentVolume: nextChapter.volumeIndex,
       currentChapter: nextChapter.chapterIndex,
-      stepLabel: postChapterStepLabel,
+      stepLabel: `正在生成第 ${nextChapter.chapterIndex} 章摘要与连续性`,
     });
     deps.onGenerationEvent?.({
       bookId,
