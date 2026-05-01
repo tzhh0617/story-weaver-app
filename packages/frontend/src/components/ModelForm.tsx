@@ -40,6 +40,17 @@ function getSupportedProvider(provider?: string | null): SupportedProvider {
   );
 }
 
+function normalizeModelName(provider: SupportedProvider, value: string) {
+  const trimmedValue = value.trim();
+  const providerPrefix = `${provider}:`;
+
+  if (trimmedValue.startsWith(providerPrefix)) {
+    return trimmedValue.slice(providerPrefix.length).trim();
+  }
+
+  return trimmedValue;
+}
+
 export default function ModelForm({
   onSave,
   onTest,
@@ -88,16 +99,17 @@ export default function ModelForm({
   }, [selectedModel]);
 
   const effectiveProvider = getSupportedProvider(provider);
+  const normalizedModelName = normalizeModelName(effectiveProvider, modelName);
   const currentConfig: ModelSavePayload = {
-    id: `${effectiveProvider}:${modelName}`,
+    id: `${effectiveProvider}:${normalizedModelName}`,
     provider: effectiveProvider,
-    modelName,
+    modelName: normalizedModelName,
     apiKey,
     baseUrl,
     config,
   };
   const canSubmitModel =
-    modelName.trim().length > 0 &&
+    normalizedModelName.length > 0 &&
     apiKey.trim().length > 0;
   const isEditingModel = Boolean(selectedModel);
   const isInline = variant === 'inline';

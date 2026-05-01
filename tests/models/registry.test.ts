@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { validateModelConfig } from '@story-weaver/backend/models/config';
+import {
+  normalizeModelId,
+  validateModelConfig,
+} from '@story-weaver/backend/models/config';
 import { createRuntimeRegistry } from '@story-weaver/backend/models/registry';
 
 describe('validateModelConfig', () => {
@@ -14,6 +17,38 @@ describe('validateModelConfig', () => {
         config: {},
       })
     ).toThrow(/unsupported provider/);
+  });
+
+  it('normalizes model names that include the selected provider prefix', () => {
+    expect(
+      validateModelConfig({
+        id: 'openai:openai:gpt-4o-mini',
+        provider: 'openai',
+        modelName: 'openai:gpt-4o-mini',
+        apiKey: 'sk-test',
+        baseUrl: '',
+        config: {},
+      })
+    ).toEqual({
+      id: 'openai:gpt-4o-mini',
+      provider: 'openai',
+      modelName: 'gpt-4o-mini',
+      apiKey: 'sk-test',
+      baseUrl: '',
+      config: {},
+    });
+  });
+
+  it('normalizes model ids that repeat the provider prefix', () => {
+    expect(normalizeModelId('openai:openai:gpt-4o-mini')).toBe(
+      'openai:gpt-4o-mini'
+    );
+    expect(normalizeModelId('anthropic:anthropic:claude-3-5-sonnet')).toBe(
+      'anthropic:claude-3-5-sonnet'
+    );
+    expect(normalizeModelId('openai:openrouter/deepseek/deepseek-chat')).toBe(
+      'openai:openrouter/deepseek/deepseek-chat'
+    );
   });
 });
 

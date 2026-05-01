@@ -61,10 +61,18 @@ async function requestJson<T>(
   pathname: string,
   body?: unknown
 ): Promise<T> {
-  const response = await fetch(new URL(pathname, baseUrl), {
+  const requestInit: RequestInit = {
     method,
-    headers: { 'Content-Type': 'application/json' },
-    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    ...(body === undefined
+      ? {}
+      : {
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        }),
+  };
+
+  const response = await fetch(new URL(pathname, baseUrl), {
+    ...requestInit,
   });
 
   let data: unknown = null;

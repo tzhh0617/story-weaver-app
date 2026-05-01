@@ -208,6 +208,38 @@ describe('Settings', () => {
     });
   });
 
+  it('normalizes provider-prefixed model names before saving', async () => {
+    const onSaveModel = vi.fn();
+
+    render(
+      <Settings
+        onSaveModel={onSaveModel}
+        onTestModel={vi.fn()}
+        models={[]}
+        concurrencyLimit={null}
+        onSaveSetting={vi.fn()}
+      />
+    );
+
+    await selectProvider('openai');
+    fireEvent.change(screen.getByLabelText('Model Name'), {
+      target: { value: 'openai:gpt-4o-mini' },
+    });
+    fireEvent.change(screen.getByLabelText('API Key'), {
+      target: { value: 'sk-test' },
+    });
+    fireEvent.click(screen.getByText('保存模型'));
+
+    expect(onSaveModel).toHaveBeenCalledWith({
+      id: 'openai:gpt-4o-mini',
+      provider: 'openai',
+      modelName: 'gpt-4o-mini',
+      apiKey: 'sk-test',
+      baseUrl: '',
+      config: {},
+    });
+  });
+
   it('saves the short-chapter automatic review toggle', () => {
     const onSaveSetting = vi.fn();
 

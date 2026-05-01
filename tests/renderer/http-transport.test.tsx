@@ -49,7 +49,6 @@ describe('browser HTTP transport', () => {
     });
     expect(fetchMock).toHaveBeenCalledWith(new URL('/api/books', window.location.href), {
       method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
     });
     expect(
       ((window as typeof window & { storyWeaver: { invoke: ReturnType<typeof vi.fn> } })
@@ -102,7 +101,29 @@ describe('browser HTTP transport', () => {
       new URL('/api/books', 'http://127.0.0.1:5174'),
       {
         method: 'GET',
+      }
+    );
+  });
+
+  it('omits the JSON content type for requests without a body', async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
         headers: { 'Content-Type': 'application/json' },
+      })
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const api = createHttpStoryWeaverClient({
+      baseUrl: 'http://127.0.0.1:5174',
+    });
+
+    await api.pauseScheduler();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      new URL('/api/scheduler/pause', 'http://127.0.0.1:5174'),
+      {
+        method: 'POST',
       }
     );
   });
