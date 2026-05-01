@@ -29,6 +29,7 @@ import {
 } from './create-event-broadcast-service.js';
 import { createBatchOperationsService } from './create-batch-operations-service.js';
 import { createBookExportService } from './create-book-export-service.js';
+import { createBookActionService } from './create-book-action-service.js';
 
 export type RuntimeServices = {
   bookService: ReturnType<typeof createBookOrchestrator>;
@@ -204,6 +205,15 @@ export function createRuntimeServices(input: {
     createEngineForBook,
   });
 
+  const bookActions = createBookActionService({
+    bookService,
+    bookRunner,
+    scheduler,
+    progress,
+    logging,
+    emitSchedulerStatus: eventBroadcast.emitSchedulerStatus,
+  });
+
   const batchOps = createBatchOperationsService({
     bookService,
     logging,
@@ -224,133 +234,13 @@ export function createRuntimeServices(input: {
     modelConfigs,
     listModelConfigs,
     settings,
-    startBook: async (bookId: string) => {
-      logging.logExecution({
-        bookId,
-        level: 'info',
-        eventType: 'book_queued',
-        message: '作品已加入后台执行队列',
-      });
-      scheduler.register({
-        bookId,
-        start: async () => bookRunner.runBook(bookId),
-      });
-      await scheduler.start(bookId);
-    },
-    pauseBook: (bookId: string) => {
-      bookService.pauseBook(bookId);
-      logging.logExecution({
-        bookId,
-        level: 'info',
-        eventType: 'book_paused',
-        phase: 'paused',
-        message: '作品已暂停',
-      });
-      eventBroadcast.emitSchedulerStatus();
-    },
-    writeNextChapter: async (bookId: string) => {
-      logging.logExecution({
-        bookId,
-        level: 'info',
-        eventType: 'book_write_next',
-        phase: 'writing',
-        message: '开始手动写下一章',
-      });
-
-      try {
-        return await bookService.writeNextChapter(bookId);
-      } catch (error) {
-        const currentProgress = progress.getByBookId(bookId);
-        logging.logExecution({
-          bookId,
-          level: 'error',
-          eventType: 'book_failed',
-          phase: currentProgress?.phase ?? null,
-          message: currentProgress?.stepLabel ?? '手动写下一章失败',
-          errorMessage: error instanceof Error ? error.message : String(error),
-        });
-        throw error;
-      }
-    },
-    writeRemainingChapters: async (bookId: string) => {
-      logging.logExecution({
-        bookId,
-        level: 'info',
-        eventType: 'book_write_all',
-        phase: 'writing',
-        message: '开始手动写完剩余章节',
-      });
-
-      try {
-        const result = await bookService.writeRemainingChapters(bookId);
-        if (result.status === 'completed') {
-          logging.logExecution({
-            bookId,
-            level: 'success',
-            eventType: 'book_completed',
-            phase: 'completed',
-            message: '后台执行完成',
-          });
-        }
-
-        return result;
-      } catch (error) {
-        const currentProgress = progress.getByBookId(bookId);
-        logging.logExecution({
-          bookId,
-          level: 'error',
-          eventType: 'book_failed',
-          phase: currentProgress?.phase ?? null,
-          message: currentProgress?.stepLabel ?? '手动写完剩余章节失败',
-          errorMessage: error instanceof Error ? error.message : String(error),
-        });
-        throw error;
-      }
-    },
-    resumeBook: async (bookId: string) => {
-      logging.logExecution({
-        bookId,
-        level: 'info',
-        eventType: 'book_resumed',
-        phase: 'writing',
-        message: '作品已恢复后台执行',
-      });
-      scheduler.register({
-        bookId,
-        start: async () => bookRunner.continueBook(bookId),
-      });
-      await scheduler.start(bookId);
-    },
-    restartBook: async (bookId: string) => {
-      logging.logExecution({
-        bookId,
-        level: 'info',
-        eventType: 'book_restarted',
-        phase: 'building_outline',
-        message: '作品已重新开始后台执行',
-      });
-      try {
-        const result = await bookService.restartBook(bookId);
-        if (result?.status === 'completed') {
-          logging.logExecution({
-            bookId,
-            level: 'success',
-            eventType: 'book_completed',
-            phase: 'completed',
-            message: '后台执行完成',
-          });
-        }
-      } catch (error) {
-        bookRunner.markBookErrored(bookId, error);
-        throw error;
-      }
-      eventBroadcast.emitSchedulerStatus();
-    },
-    deleteBook: async (bookId: string) => {
-      scheduler.unregister(bookId);
-      bookService.deleteBook(bookId);
-      eventBroadcast.emitSchedulerStatus();
-    },
+    startBook: bookActions.startBook,
+    pauseBook: bookActions.pauseBook,
+    writeNextChapter: bookActions.writeNextChapter,
+    writeRemainingChapters: bookActions.writeRemainingChapters,
+    resumeBook: bookActions.resumeBook,
+    restartBook: bookActions.restartBook,
+    deleteBook: bookActions.deleteBook,
     exportBook: exportService.exportBook,
     startAllBooks: batchOps.startAllBooks,
     pauseAllBooks: batchOps.pauseAllBooks,
