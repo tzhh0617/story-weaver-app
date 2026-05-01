@@ -1,26 +1,18 @@
 import type { FastifyInstance } from 'fastify';
+import { validate } from '@story-weaver/shared/validation';
+import { SettingUpdateSchema } from '@story-weaver/shared/schemas/settings-schemas';
+import { ValidationError } from '@story-weaver/shared/errors';
 import { SHORT_CHAPTER_REVIEW_ENABLED_KEY } from '../core/chapter-review.js';
 import type { RuntimeServices } from '.././runtime/create-runtime-services.js';
 
-function readValue(body: unknown) {
-  if (
-    body &&
-    typeof body === 'object' &&
-    'value' in body &&
-    typeof body.value === 'string'
-  ) {
-    return body.value;
-  }
-
-  return null;
-}
-
-function validateSetting(key: string, value: string) {
+function validateDomainSetting(key: string, value: string) {
   if (key === 'scheduler.concurrencyLimit') {
     const trimmed = value.trim();
 
     if (trimmed && (!/^\d+$/.test(trimmed) || Number(trimmed) < 1)) {
-      return 'Concurrency limit must be a positive integer';
+      throw new ValidationError([
+        { field: 'value', reason: 'Concurrency limit must be a positive integer' },
+      ]);
     }
   }
 
@@ -28,10 +20,10 @@ function validateSetting(key: string, value: string) {
     key === SHORT_CHAPTER_REVIEW_ENABLED_KEY &&
     !['true', 'false'].includes(value)
   ) {
-    return 'Short chapter review setting must be true or false';
+    throw new ValidationError([
+      { field: 'value', reason: 'Short chapter review setting must be true or false' },
+    ]);
   }
-
-  return null;
 }
 
 export async function registerSettingsRoutes(
@@ -55,17 +47,10 @@ export async function registerSettingsRoutes(
 
   app.put<{ Params: { key: string } }>(
     '/api/settings/:key',
-    async (request, reply) => {
-      const value = readValue(request.body);
+    async (request) => {
+      const { value } = validate(SettingUpdateSchema, request.body);
 
-      if (value === null) {
-        return reply.status(400).send({ error: 'Invalid setting payload' });
-      }
-
-      const validationError = validateSetting(request.params.key, value);
-      if (validationError) {
-        return reply.status(400).send({ error: validationError });
-      }
+      validateDomainSetting(request.params.key, value);
 
       services.settings.set(request.params.key, value);
 

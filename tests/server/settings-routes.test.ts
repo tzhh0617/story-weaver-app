@@ -68,7 +68,11 @@ describe('server settings routes', () => {
       });
       expect(invalidConcurrency.statusCode).toBe(400);
       expect(invalidConcurrency.json()).toEqual({
-        error: 'Concurrency limit must be a positive integer',
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: expect.any(String),
+          details: expect.any(Array),
+        },
       });
 
       const invalidReview = await server.inject({
@@ -78,7 +82,11 @@ describe('server settings routes', () => {
       });
       expect(invalidReview.statusCode).toBe(400);
       expect(invalidReview.json()).toEqual({
-        error: 'Short chapter review setting must be true or false',
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: expect.any(String),
+          details: expect.any(Array),
+        },
       });
     } finally {
       await server.close();

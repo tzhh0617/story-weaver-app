@@ -1,77 +1,11 @@
 import type { FastifyInstance } from 'fastify';
-import type {
-  BookCreatePayload,
-  BookExportFormat,
-  BookExportResponse,
-  ViralTropeContractPayload,
-} from '@story-weaver/shared/contracts';
-import { ValidationError } from '@story-weaver/shared/errors';
+import type { BookExportResponse } from '@story-weaver/shared/contracts';
+import { validate } from '@story-weaver/shared/validation';
+import { BookCreateSchema, BookExportRequestSchema } from '@story-weaver/shared/schemas/book-schemas';
 import type { RuntimeServices } from '.././runtime/create-runtime-services.js';
 import type { createExportRegistry } from '../export-registry.js';
 
 type ExportRegistry = ReturnType<typeof createExportRegistry>;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === 'object';
-}
-
-function isViralTropeContract(value: unknown): value is ViralTropeContractPayload {
-  return (
-    value === 'rebirth_change_fate' ||
-    value === 'system_growth' ||
-    value === 'hidden_identity' ||
-    value === 'revenge_payback' ||
-    value === 'weak_to_strong' ||
-    value === 'forbidden_bond' ||
-    value === 'case_breaking' ||
-    value === 'sect_or_family_pressure' ||
-    value === 'survival_game' ||
-    value === 'business_or_power_game'
-  );
-}
-
-function isViralStrategyPayload(value: unknown) {
-  if (value === undefined) {
-    return true;
-  }
-
-  if (!isRecord(value)) {
-    return false;
-  }
-
-  const cadence = value.cadenceMode;
-  return (
-    (value.readerPayoff === undefined || typeof value.readerPayoff === 'string') &&
-    (value.protagonistDesire === undefined ||
-      typeof value.protagonistDesire === 'string') &&
-    (value.tropeContracts === undefined ||
-      (Array.isArray(value.tropeContracts) &&
-        value.tropeContracts.every(isViralTropeContract))) &&
-    (cadence === undefined ||
-      cadence === 'fast' ||
-      cadence === 'steady' ||
-      cadence === 'slow_burn' ||
-      cadence === 'suppressed_then_burst') &&
-    (value.antiClicheDirection === undefined ||
-      typeof value.antiClicheDirection === 'string')
-  );
-}
-
-function isBookCreatePayload(value: unknown): value is BookCreatePayload {
-  return (
-    isRecord(value) &&
-    typeof value.idea === 'string' &&
-    Number.isInteger(value.targetChapters) &&
-    Number(value.targetChapters) > 0 &&
-    Number.isInteger(value.wordsPerChapter) &&
-    Number(value.wordsPerChapter) > 0 &&
-    isViralStrategyPayload(value.viralStrategy)
-  );
-}
-
-function isExportFormat(value: unknown): value is BookExportFormat {
-  return value === 'txt' || value === 'md';
-}
 
 export async function registerBookRoutes(
   app: FastifyInstance,
@@ -81,11 +15,8 @@ export async function registerBookRoutes(
   app.get('/api/books', async () => services.bookService.listBooks());
 
   app.post('/api/books', async (request) => {
-    if (!isBookCreatePayload(request.body)) {
-      throw new ValidationError([{ field: 'idea', reason: 'Invalid book create payload' }]);
-    }
-
-    const bookId = await services.bookService.createBook(request.body);
+    const payload = validate(BookCreateSchema, request.body);
+    const bookId = await services.bookService.createBook(payload);
     return { bookId };
   });
 
@@ -144,16 +75,13 @@ export async function registerBookRoutes(
     async (request) => services.writeRemainingChapters(request.params.bookId)
   );
 
-  app.post<{ Params: { bookId: string }; Body: { format?: unknown } }>(
+  app.post<{ Params: { bookId: string } }>(
     '/api/books/:bookId/exports',
     async (request, reply): Promise<BookExportResponse | unknown> => {
-      if (!isExportFormat(request.body?.format)) {
-        throw new ValidationError([{ field: 'format', reason: 'Invalid export format' }]);
-      }
-
+      const { format } = validate(BookExportRequestSchema, request.body);
       const filePath = await services.exportBook(
         request.params.bookId,
-        request.body.format
+        format
       );
       return options.exportsRegistry.register(filePath);
     }

@@ -1,22 +1,8 @@
 import type { FastifyInstance } from 'fastify';
-import type { ModelSavePayload } from '@story-weaver/shared/contracts';
+import { validate } from '@story-weaver/shared/validation';
+import { ModelSaveSchema } from '@story-weaver/shared/schemas/model-schemas';
+import { ValidationError } from '@story-weaver/shared/errors';
 import type { RuntimeServices } from '.././runtime/create-runtime-services.js';
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === 'object';
-}
-
-function isModelSavePayload(value: unknown): value is ModelSavePayload {
-  return (
-    isRecord(value) &&
-    typeof value.id === 'string' &&
-    (value.provider === 'openai' || value.provider === 'anthropic') &&
-    typeof value.modelName === 'string' &&
-    typeof value.apiKey === 'string' &&
-    typeof value.baseUrl === 'string' &&
-    isRecord(value.config)
-  );
-}
 
 export async function registerModelRoutes(
   app: FastifyInstance,
@@ -26,16 +12,16 @@ export async function registerModelRoutes(
 
   app.put<{ Params: { modelId: string } }>(
     '/api/models/:modelId',
-    async (request, reply) => {
-      if (!isModelSavePayload(request.body)) {
-        return reply.status(400).send({ error: 'Invalid model payload' });
+    async (request) => {
+      const payload = validate(ModelSaveSchema, request.body);
+
+      if (payload.id !== request.params.modelId) {
+        throw new ValidationError([
+          { field: 'id', reason: 'Model id does not match route' },
+        ]);
       }
 
-      if (request.body.id !== request.params.modelId) {
-        return reply.status(400).send({ error: 'Model id does not match route' });
-      }
-
-      services.modelConfigs.save(request.body);
+      services.modelConfigs.save(payload);
       return { ok: true };
     }
   );

@@ -79,7 +79,13 @@ describe('server model routes', () => {
         payload: input,
       });
       expect(mismatch.statusCode).toBe(400);
-      expect(mismatch.json()).toEqual({ error: 'Model id does not match route' });
+      expect(mismatch.json()).toEqual({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: expect.any(String),
+          details: expect.any(Array),
+        },
+      });
     } finally {
       await server.close();
     }

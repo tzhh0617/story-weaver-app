@@ -23,6 +23,18 @@
     "./validation": {
       "types": "./dist/validation.d.ts",
       "import": "./dist/validation.js"
+    },
+    "./schemas/book-schemas": {
+      "types": "./dist/schemas/book-schemas.d.ts",
+      "import": "./dist/schemas/book-schemas.js"
+    },
+    "./schemas/model-schemas": {
+      "types": "./dist/schemas/model-schemas.d.ts",
+      "import": "./dist/schemas/model-schemas.js"
+    },
+    "./schemas/settings-schemas": {
+      "types": "./dist/schemas/settings-schemas.d.ts",
+      "import": "./dist/schemas/settings-schemas.js"
     }
   },
   "scripts": {
