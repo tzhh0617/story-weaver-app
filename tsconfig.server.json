@@ -12,10 +12,5 @@
     "outDir": "dist-server",
     "types": ["node"]
   },
-  "include": [
-    "server/**/*.ts",
-    "src/runtime/**/*.ts",
-    "electron/runtime.ts",
-    "electron/runtime-ai-services.ts"
-  ]
+  "include": ["server/**/*.ts", "src/runtime/**/*.ts"]
 }

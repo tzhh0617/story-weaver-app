@@ -3,6 +3,9 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_MOCK_MODEL_ID } from '../../src/models/runtime-mode';
 import { countStoryCharacters } from '../../src/core/story-constraints';
+import type { RuntimeServices } from '../../src/runtime/create-runtime-services';
+
+const activeServices: RuntimeServices[] = [];
 
 function makeTempHome(testName: string) {
   return path.resolve(
@@ -31,11 +34,6 @@ async function loadRuntimeServices(input: {
       input.mockStreamTokensPerSecond ?? 300_000
     );
   }
-  vi.doMock('node:os', () => ({
-    default: {
-      homedir: () => input.tempHome,
-    },
-  }));
   vi.doMock('ai', async (importOriginal) => {
     const actual = await importOriginal<typeof import('ai')>();
     return {
@@ -44,8 +42,10 @@ async function loadRuntimeServices(input: {
     };
   });
 
-  const runtimeModule = await import('../../electron/runtime');
-  return runtimeModule.getRuntimeServices();
+  const runtimeModule = await import('../../src/runtime/create-runtime-services');
+  const services = runtimeModule.createRuntimeServices({ rootDir: input.tempHome });
+  activeServices.push(services);
+  return services;
 }
 
 async function waitForBookStatus(
@@ -76,7 +76,9 @@ describe('runtime mock fallback', () => {
   });
 
   afterEach(() => {
-    vi.doUnmock('node:os');
+    for (const services of activeServices.splice(0)) {
+      services.close();
+    }
     vi.doUnmock('ai');
     delete process.env.STORY_WEAVER_MOCK_DELAY_MS;
     delete process.env.STORY_WEAVER_MOCK_STREAM_TOKENS_PER_SECOND;

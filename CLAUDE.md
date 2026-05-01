@@ -76,7 +76,6 @@ for browser mode:
 
 ### Main process (`electron/`)
 - `electron/main.ts` — starts the local server and bootstraps the BrowserWindow
-- `electron/runtime.ts` — singleton that wires together all services (DB, scheduler, AI adapters) at startup; exports `getRuntimeServices()`
 
 ### Browser server (`server/`)
 - `server/main.ts` — Fastify local API server for browser and Electron modes

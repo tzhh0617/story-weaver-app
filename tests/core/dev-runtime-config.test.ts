@@ -19,6 +19,10 @@ const electronTsConfigSource = fs.readFileSync(
   path.resolve(__dirname, '../../tsconfig.node.json'),
   'utf8'
 );
+const serverTsConfigSource = fs.readFileSync(
+  path.resolve(__dirname, '../../tsconfig.server.json'),
+  'utf8'
+);
 const electronBuilderConfigSource = fs.readFileSync(
   path.resolve(__dirname, '../../electron-builder.yml'),
   'utf8'
@@ -91,6 +95,14 @@ describe('desktop runtime config', () => {
     expect(
       fs.existsSync(path.resolve(__dirname, '../../electron/preload.cts'))
     ).toBe(false);
+  });
+
+  it('keeps the server build free of Electron runtime wrappers', () => {
+    expect(serverTsConfigSource).not.toContain('electron/runtime.ts');
+    expect(serverTsConfigSource).not.toContain('electron/runtime-ai-services.ts');
+    expect(fs.existsSync(path.resolve(__dirname, '../../electron/runtime.ts'))).toBe(
+      false
+    );
   });
 
   it('uses the generated icon for the macOS development dock', () => {
