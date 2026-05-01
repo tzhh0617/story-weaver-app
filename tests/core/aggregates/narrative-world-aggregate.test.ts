@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createNarrativeWorldAggregate } from '@story-weaver/backend/core/aggregates/narrative-world';
-import type { NarrativeWorldDeps } from '@story-weaver/backend/core/aggregates/narrative-world';
 
 describe('createNarrativeWorldAggregate', () => {
   const bookId = 'book-1';
