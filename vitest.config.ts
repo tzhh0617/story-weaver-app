@@ -25,6 +25,10 @@ export default defineConfig({
         replacement: path.resolve(__dirname, 'packages/shared/src/settings.ts'),
       },
       {
+        find: '@story-weaver/shared/errors',
+        replacement: path.resolve(__dirname, 'packages/shared/src/errors.ts'),
+      },
+      {
         find: '@story-weaver/shared',
         replacement: path.resolve(__dirname, 'packages/shared/src/index.ts'),
       },

@@ -26,6 +26,7 @@
       "@story-weaver/shared": ["packages/shared/src/index.ts"],
       "@story-weaver/shared/contracts": ["packages/shared/src/contracts.ts"],
       "@story-weaver/shared/settings": ["packages/shared/src/settings.ts"],
+      "@story-weaver/shared/errors": ["packages/shared/src/errors.ts"],
       "@story-weaver/shared/*": ["packages/shared/src/*"]
     }
   },
