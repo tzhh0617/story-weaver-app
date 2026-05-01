@@ -20,7 +20,6 @@ import {
   formatStoryRoutePlanForPrompt,
   routeStoryTask,
 } from './story-router/index.js';
-import type { StoryRoutePlan } from './story-router/index.js';
 import type {
   ChapterCard,
   ChapterCharacterPressure,
@@ -37,8 +36,7 @@ import {
   normalizeChapterOutlinesToTarget,
 } from './story-constraints.js';
 import type { OutlineBundle, OutlineGenerationInput } from './types.js';
-import { createBookAggregate } from './aggregates/book/index.js';
-import { deriveTitleFromIdea, isBookPaused } from './aggregates/book/book-state.js';
+import { createBookAggregate, deriveTitleFromIdea, isBookPaused } from './aggregates/book/index.js';
 
 const CHAPTER_CONTEXT_MAX_CHARACTERS = 6000;
 

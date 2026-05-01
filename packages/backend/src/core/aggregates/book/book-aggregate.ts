@@ -125,7 +125,6 @@ export type BookAggregateDeps = {
           styleGuide: string | null;
         }
       | undefined;
-    clearGeneratedState?: (bookId: string) => void;
   };
   chapters: {
     listByBook: (bookId: string) => Array<{
@@ -270,7 +269,6 @@ export function createBookAggregate(deps: BookAggregateDeps) {
       idea: string;
       targetChapters: number;
       wordsPerChapter: number;
-      modelId?: string;
       viralStrategy?: BookRecord['viralStrategy'];
     }) {
       assertPositiveIntegerLimit(
