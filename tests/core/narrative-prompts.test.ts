@@ -106,6 +106,36 @@ describe('narrative prompts', () => {
     expect(prompt).toContain('approximately 2000 Chinese characters');
   });
 
+  it('centralizes AI-first style constraints in narrative draft and revision prompts', () => {
+    const draftPrompt = buildNarrativeDraftPrompt({
+      idea: '命簿',
+      wordsPerChapter: 2000,
+      commandContext: 'Chapter Mission: 林牧必须主动追查。',
+    });
+    const revisionPrompt = buildRevisionPrompt({
+      originalPrompt: '写第一章。',
+      draft: '林牧直接胜利。',
+      issues: [
+        {
+          type: 'pacing_problem',
+          severity: 'major',
+          evidence: '没有动作推进。',
+          fixInstruction: '改成通过动作和对话推进。',
+        },
+      ],
+    });
+
+    for (const prompt of [draftPrompt, revisionPrompt]) {
+      expect(prompt).toContain('AI-first text policy');
+      expect(prompt).toContain(
+        'The model is responsible for producing text that already satisfies the requested style and format.'
+      );
+      expect(prompt).toContain(
+        'Use Chinese web novel prose: short readable paragraphs, visible conflict, action and dialogue over exposition, and a forward-driving ending hook.'
+      );
+    }
+  });
+
   it('injects story route plans into draft prompts', () => {
     const prompt = buildNarrativeDraftPrompt({
       idea: '命簿',

@@ -1,4 +1,8 @@
 import type { OutlineGenerationInput } from './types.js';
+import {
+  buildAiFirstTextPolicyLines,
+  buildPlainChineseOutputPolicyLines,
+} from './narrative/text-policy.js';
 
 export {
   buildChapterAuditPrompt,
@@ -46,6 +50,7 @@ export function buildWorldPrompt(
     'You are designing a long-form Chinese web novel.',
     `User idea: ${input.idea}`,
     ...buildLengthConstraintLines(input),
+    ...buildPlainChineseOutputPolicyLines(),
     'Treat these as hard structure constraints for all later outline and chapter work.',
     'Return world rules, character anchors, power system, core conflict, and tone guide.',
     'Return plain Chinese text only. Do not use Markdown headings, bullets, bold markers, or code fences.',
@@ -62,6 +67,7 @@ export function buildTitlePrompt(
     'Name this long-form Chinese web novel.',
     `User idea: ${input.idea}`,
     ...buildLengthConstraintLines(input),
+    ...buildAiFirstTextPolicyLines(),
     'Return only one concise Chinese book title, without quotes or explanation.',
   ].join('\n');
 }
@@ -77,6 +83,7 @@ export function buildMasterOutlinePrompt(
     `User idea: ${input.idea}`,
     `World setting:\n${worldSetting}`,
     ...buildLengthConstraintLines(input),
+    ...buildAiFirstTextPolicyLines(),
     'Return the full-book outline and volume breakdown for exactly this chapter count.',
   ].join('\n');
 }
@@ -94,6 +101,7 @@ export function buildVolumeOutlinePrompt(
   return [
     `Master outline:\n${masterOutline}`,
     ...buildLengthConstraintLines(input),
+    ...buildAiFirstTextPolicyLines(),
     `Allocate exactly ${input.targetChapters} chapters across the volumes.`,
     `Expand this into ${effectiveVolumeCount} volume outlines.`,
     `For each volume, include chapter ranges and pacing guidance for chapters of about ${input.wordsPerChapter} words.`,
@@ -109,6 +117,7 @@ export function buildChapterOutlinePrompt(
   return [
     `Volume ${volumeIndex} outline:\n${volumeOutline}`,
     ...buildLengthConstraintLines(input),
+    ...buildAiFirstTextPolicyLines(),
     'Return chapter-level outlines in the format "chapterIndex|title|outline".',
     'chapterIndex must be the cumulative full-book chapter number, not a volume-local chapter number.',
     `Generate one line per chapter, and each chapter should be planned for about ${input.wordsPerChapter} words.`,
@@ -130,6 +139,7 @@ export function buildChapterDraftPrompt(input: {
     'Write the next chapter of a long-form Chinese web novel.',
     `Book idea: ${input.idea}`,
     ...buildLengthConstraintLines(input),
+    ...buildAiFirstTextPolicyLines(),
     `Write approximately ${input.wordsPerChapter} Chinese characters for this chapter.`,
     `World setting:\n${trimPromptText(
       input.worldSetting,

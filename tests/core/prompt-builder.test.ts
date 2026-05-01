@@ -123,4 +123,35 @@ describe('buildWorldPrompt', () => {
     );
     expect(prompt).not.toContain('in the正文');
   });
+
+  it('centralizes AI-first style constraints in legacy generation prompts', () => {
+    const worldPrompt = buildWorldPrompt({
+      idea: 'A mountain archive decides who may remember history.',
+      targetChapters: 80,
+      wordsPerChapter: 2500,
+    });
+    const draftPrompt = buildChapterDraftPrompt({
+      idea: 'A mountain archive decides who may remember history.',
+      worldSetting: 'World setting',
+      masterOutline: 'Master outline',
+      continuityContext: 'Previous chapter ended at the archive gate.',
+      chapterTitle: 'Gate Debt',
+      chapterOutline: 'The protagonist must pay a memory debt.',
+      targetChapters: 80,
+      wordsPerChapter: 2500,
+    });
+
+    for (const prompt of [worldPrompt, draftPrompt]) {
+      expect(prompt).toContain('AI-first text policy');
+      expect(prompt).toContain(
+        'The model is responsible for producing text that already satisfies the requested style and format.'
+      );
+      expect(prompt).toContain(
+        'Local code will only perform structural guards such as trimming, JSON parsing, and storage-safe fallback handling.'
+      );
+      expect(prompt).toContain(
+        'Use Chinese web novel prose: short readable paragraphs, visible conflict, action and dialogue over exposition, and a forward-driving ending hook.'
+      );
+    }
+  });
 });
