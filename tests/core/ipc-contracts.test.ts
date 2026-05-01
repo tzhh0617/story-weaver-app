@@ -223,7 +223,8 @@ describe('concrete server API contracts', () => {
     };
     const modelTest: ModelTestResponse = {
       ok: true,
-      message: 'Model connection succeeded',
+      latency: 42,
+      error: null,
     };
     const settingValue: SettingValueResponse = {
       key: 'scheduler.concurrencyLimit',

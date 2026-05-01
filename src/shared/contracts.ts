@@ -348,7 +348,8 @@ export type ModelSaveRequest = ModelSavePayload;
 
 export type ModelTestResponse = {
   ok: boolean;
-  message: string;
+  latency: number;
+  error: string | null;
 };
 
 export type SettingValueResponse = {
