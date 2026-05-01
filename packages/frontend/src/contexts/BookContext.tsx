@@ -1,4 +1,4 @@
-import { createContext, useContext, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, type ReactNode } from 'react';
 import { useBooksController } from '../hooks/useBooksController';
 import { useStoryWeaverApi } from '../hooks/useStoryWeaverApi';
 
@@ -9,6 +9,11 @@ const BookContext = createContext<BookContextValue | null>(null);
 export function BookProvider({ children }: { children: ReactNode }) {
   const api = useStoryWeaverApi();
   const controller = useBooksController(api);
+
+  useEffect(() => {
+    void controller.loadBooks();
+  }, [controller.loadBooks]);
+
   return (
     <BookContext.Provider value={controller}>
       {children}

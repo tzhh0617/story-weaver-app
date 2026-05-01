@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import type { SchedulerStatus, ExecutionLogRecord } from '@story-weaver/shared/contracts';
 import { useStoryWeaverApi } from '../hooks/useStoryWeaverApi';
 
@@ -14,6 +14,8 @@ const emptyStatus: SchedulerStatus = {
 type SchedulerContextValue = {
   progress: SchedulerStatus;
   executionLogs: ExecutionLogRecord[];
+  startScheduler: () => Promise<void>;
+  pauseScheduler: () => Promise<void>;
 };
 
 const SchedulerContext = createContext<SchedulerContextValue | null>(null);
@@ -22,6 +24,14 @@ export function SchedulerProvider({ children }: { children: ReactNode }) {
   const api = useStoryWeaverApi();
   const [progress, setProgress] = useState<SchedulerStatus>(emptyStatus);
   const [executionLogs, setExecutionLogs] = useState<ExecutionLogRecord[]>([]);
+
+  const startScheduler = useCallback(async () => {
+    await api.startScheduler();
+  }, [api]);
+
+  const pauseScheduler = useCallback(async () => {
+    await api.pauseScheduler();
+  }, [api]);
 
   useEffect(() => {
     let isMounted = true;
@@ -56,7 +66,7 @@ export function SchedulerProvider({ children }: { children: ReactNode }) {
   }, [api]);
 
   return (
-    <SchedulerContext.Provider value={{ progress, executionLogs }}>
+    <SchedulerContext.Provider value={{ progress, executionLogs, startScheduler, pauseScheduler }}>
       {children}
     </SchedulerContext.Provider>
   );

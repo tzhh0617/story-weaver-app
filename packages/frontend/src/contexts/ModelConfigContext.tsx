@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { useStoryWeaverApi } from '../hooks/useStoryWeaverApi';
 
 type ModelConfigView = {
@@ -37,6 +37,11 @@ export function ModelConfigProvider({ children, toast }: { children: ReactNode; 
     const value = await api.getSetting(SHORT_CHAPTER_REVIEW_ENABLED_KEY);
     setShortChapterReviewEnabled(parseBooleanSetting(typeof value === 'string' ? value : null));
   }, [api]);
+
+  useEffect(() => {
+    void loadModels();
+    void loadSettings();
+  }, [loadModels, loadSettings]);
 
   return (
     <ModelConfigContext.Provider value={{
