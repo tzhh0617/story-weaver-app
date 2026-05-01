@@ -12,12 +12,11 @@ import {
   SHORT_CHAPTER_REVIEW_ENABLED_KEY,
 } from '../src/core/chapter-review';
 import {
-  ipcChannels,
   type BookExportFormat,
   type ExecutionLogRecord,
   type SchedulerStatus,
 } from '../src/shared/contracts';
-import { useIpc } from './hooks/useIpc';
+import { useStoryWeaverApi } from './hooks/useStoryWeaverApi';
 import { useProgress } from './hooks/useProgress';
 import { useBookGenerationEvents } from './hooks/useBookGenerationEvents';
 import { useBooksController } from './hooks/useBooksController';
@@ -52,14 +51,9 @@ type ModelConfigView = {
   baseUrl: string;
   config: Record<string, unknown>;
 };
-type SelectedBookActionChannel =
-  | typeof ipcChannels.bookResume
-  | typeof ipcChannels.bookRestart
-  | typeof ipcChannels.bookPause
-  | typeof ipcChannels.bookDelete;
 
 export default function App() {
-  const ipc = useIpc();
+  const api = useStoryWeaverApi();
   const progress = useProgress();
   const [modelConfigs, setModelConfigs] = useState<ModelConfigView[]>([]);
   const [banner, setBanner] = useState<{
@@ -85,7 +79,7 @@ export default function App() {
     loadBooks,
     loadBookDetail: loadBookDetailRecord,
     clearSelectedBook,
-  } = useBooksController(ipc);
+  } = useBooksController(api);
 
   const loadBookDetail = useCallback(
     async (
@@ -102,7 +96,7 @@ export default function App() {
   );
 
   const liveOutput = useBookGenerationEvents({
-    ipc,
+    api,
     selectedBookId,
     selectedBookIdRef,
     setSelectedBookDetail,
@@ -110,17 +104,14 @@ export default function App() {
   });
 
   async function loadModels() {
-    const nextConfigs = await ipc.invoke(ipcChannels.modelList);
+    const nextConfigs = await api.listModels();
     const safeConfigs = Array.isArray(nextConfigs) ? nextConfigs : [];
 
     setModelConfigs(safeConfigs);
   }
 
   async function loadSettings() {
-    const nextValue = await ipc.invoke(
-      ipcChannels.settingsGet,
-      SHORT_CHAPTER_REVIEW_ENABLED_KEY
-    );
+    const nextValue = await api.getSetting(SHORT_CHAPTER_REVIEW_ENABLED_KEY);
 
     setShortChapterReviewEnabled(
       parseBooleanSetting(typeof nextValue === 'string' ? nextValue : null)
@@ -154,7 +145,7 @@ export default function App() {
   }, [progress, selectedBookId]);
 
   useEffect(() => {
-    const unsubscribe = ipc.onExecutionLog((payload) => {
+    const unsubscribe = api.onExecutionLog((payload) => {
       setExecutionLogs((currentLogs) => [
         ...currentLogs,
         payload as ExecutionLogRecord,
@@ -162,7 +153,7 @@ export default function App() {
     });
 
     return unsubscribe;
-  }, [ipc]);
+  }, [api]);
 
   useEffect(() => {
     if (!books.length) {
@@ -256,15 +247,13 @@ export default function App() {
   async function runSelectedBookAction({
     startMessage,
     errorMessage,
-    channel,
-    payload,
+    run,
     successMessage,
     clearSelection,
   }: {
     startMessage: string | null;
     errorMessage: string;
-    channel: SelectedBookActionChannel;
-    payload?: { bookId: string };
+    run: (bookId: string) => Promise<void>;
     successMessage?: string | null;
     clearSelection?: boolean;
   }) {
@@ -279,7 +268,7 @@ export default function App() {
         clearBanner();
       }
 
-      await ipc.invoke(channel, payload ?? { bookId: selectedBookId });
+      await run(selectedBookId);
 
       if (clearSelection) {
         clearSelectedBook();
@@ -358,7 +347,7 @@ export default function App() {
                       message: '正在批量推进书籍写作...',
                     });
                   });
-                  await ipc.invoke(ipcChannels.schedulerStartAll);
+                  await api.startScheduler();
                   await loadBooks();
                   flushSync(() => {
                     setBanner({
@@ -386,7 +375,7 @@ export default function App() {
                       message: '正在暂停所有书籍...',
                     });
                   });
-                  await ipc.invoke(ipcChannels.schedulerPauseAll);
+                  await api.pauseScheduler();
                   await loadBooks();
                   if (selectedBookId) {
                     await loadBookDetail(selectedBookId, { openView: false });
@@ -440,7 +429,7 @@ export default function App() {
                 await runSelectedBookAction({
                   startMessage: '正在恢复写作...',
                   errorMessage: 'Failed to resume book',
-                  channel: ipcChannels.bookResume,
+                  run: (bookId) => api.resumeBook(bookId),
                   successMessage: '作品已恢复写作',
                 });
               }}
@@ -448,7 +437,7 @@ export default function App() {
                 await runSelectedBookAction({
                   startMessage: '正在重新开始写作...',
                   errorMessage: 'Failed to restart book',
-                  channel: ipcChannels.bookRestart,
+                  run: (bookId) => api.restartBook(bookId),
                   successMessage: '作品已重新开始',
                 });
               }}
@@ -473,7 +462,7 @@ export default function App() {
                 await runSelectedBookAction({
                   startMessage: '正在暂停作品...',
                   errorMessage: 'Failed to pause book',
-                  channel: ipcChannels.bookPause,
+                  run: (bookId) => api.pauseBook(bookId),
                   successMessage: '作品已暂停',
                 });
               }}
@@ -484,10 +473,7 @@ export default function App() {
 
                 try {
                   showBanner('info', `正在导出 ${format.toUpperCase()}...`);
-                  const filePath = await ipc.invoke(ipcChannels.bookExport, {
-                    bookId: selectedBookId,
-                    format,
-                  });
+                  const filePath = await api.exportBook(selectedBookId, format);
                   showBanner('success', `导出完成：${filePath}`);
                 } catch (error) {
                   showBanner(
@@ -500,7 +486,7 @@ export default function App() {
                 await runSelectedBookAction({
                   startMessage: '正在删除作品...',
                   errorMessage: 'Failed to delete book',
-                  channel: ipcChannels.bookDelete,
+                  run: (bookId) => api.deleteBook(bookId),
                   successMessage: '作品已删除',
                   clearSelection: true,
                 });
@@ -517,11 +503,6 @@ export default function App() {
           {currentView === 'new-book' ? (
             <NewBook
               onCreate={async (input) => {
-                if (!ipc.isAvailable) {
-                  showBanner('error', '请在桌面应用中创建作品。');
-                  return;
-                }
-
                 try {
                   flushSync(() => {
                     setBanner({
@@ -529,10 +510,7 @@ export default function App() {
                       message: '正在创建作品...',
                     });
                   });
-                  const bookId = await ipc.invoke(
-                    ipcChannels.bookCreate,
-                    input
-                  );
+                  const bookId = await api.createBook(input);
                   await loadBooks();
                   await loadBookDetail(bookId, { openView: true });
                   flushSync(() => {
@@ -544,7 +522,7 @@ export default function App() {
 
                   void (async () => {
                     try {
-                      await ipc.invoke(ipcChannels.bookStart, { bookId });
+                      await api.startBook(bookId);
                       await loadBooks();
                       await loadBookDetail(bookId, {
                         openView: false,
@@ -585,7 +563,7 @@ export default function App() {
                 try {
                   clearBanner();
                   showToast('info', '正在保存模型...');
-                  await ipc.invoke(ipcChannels.modelSave, input);
+                  await api.saveModel(input);
                   await loadModels();
                   showToast('success', '模型已保存');
                 } catch (error) {
@@ -600,10 +578,8 @@ export default function App() {
                 try {
                   clearBanner();
                   showToast('info', '正在测试模型连接...');
-                  await ipc.invoke(ipcChannels.modelSave, input);
-                  const result = await ipc.invoke(ipcChannels.modelTest, {
-                    modelId: input.id,
-                  });
+                  await api.saveModel(input);
+                  const result = await api.testModel(input.id);
 
                   if (!result.ok) {
                     showToast('error', result.error ?? 'Model test failed');
@@ -636,19 +612,16 @@ export default function App() {
                       message: '正在保存设置...',
                     });
                   });
-                  await ipc.invoke(ipcChannels.settingsSet, {
-                    key: 'scheduler.concurrencyLimit',
-                    value:
-                      input.concurrencyLimit === null
-                        ? ''
-                        : String(input.concurrencyLimit),
-                  });
-                  await ipc.invoke(ipcChannels.settingsSet, {
-                    key: SHORT_CHAPTER_REVIEW_ENABLED_KEY,
-                    value: serializeBooleanSetting(
-                      input.shortChapterReviewEnabled
-                    ),
-                  });
+                  await api.setSetting(
+                    'scheduler.concurrencyLimit',
+                    input.concurrencyLimit === null
+                      ? ''
+                      : String(input.concurrencyLimit)
+                  );
+                  await api.setSetting(
+                    SHORT_CHAPTER_REVIEW_ENABLED_KEY,
+                    serializeBooleanSetting(input.shortChapterReviewEnabled)
+                  );
                   setShortChapterReviewEnabled(
                     input.shortChapterReviewEnabled
                   );

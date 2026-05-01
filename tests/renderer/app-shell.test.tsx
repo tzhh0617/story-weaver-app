@@ -1,5 +1,11 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from '../../renderer/App';
 
 function copy<T>(value: T): T {
@@ -10,51 +16,179 @@ function installIpcMock(
   handler: (channel: string, payload?: unknown) => Promise<unknown>
 ) {
   const invoke = vi.fn(handler);
-  const onProgress = vi.fn((listener: (payload: unknown) => void) => {
-    progressListener = listener;
-    return () => {
-      progressListener = null;
-    };
-  });
-  const onBookGeneration = vi.fn((listener: (payload: unknown) => void) => {
-    bookGenerationListener = listener;
-    return () => {
-      bookGenerationListener = null;
-    };
-  });
-  const onExecutionLog = vi.fn((listener: (payload: unknown) => void) => {
-    executionLogListener = listener;
-    return () => {
-      executionLogListener = null;
-    };
-  });
-  let progressListener: ((payload: unknown) => void) | null = null;
-  let bookGenerationListener: ((payload: unknown) => void) | null = null;
-  let executionLogListener: ((payload: unknown) => void) | null = null;
-  function invokeTyped<T>(channel: string, payload?: unknown) {
-    return invoke(channel, payload) as Promise<T>;
+  const eventSources = {
+    progress: null as { onmessage: ((event: { data: string }) => void) | null } | null,
+    bookGeneration: null as { onmessage: ((event: { data: string }) => void) | null } | null,
+    executionLog: null as { onmessage: ((event: { data: string }) => void) | null } | null,
+  };
+
+  function ok(data: unknown) {
+    return new Response(JSON.stringify(data), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 
-  window.storyWeaver = {
-    invoke: invokeTyped,
-    onProgress,
-    onBookGeneration,
-    onExecutionLog,
-  };
+  function toChannel(url: URL, init?: RequestInit) {
+    const method = init?.method ?? 'GET';
+    const path = url.pathname;
+    const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+    const bookMatch = path.match(/^\/api\/books\/([^/]+)(?:\/(.*))?$/);
+    const modelMatch = path.match(/^\/api\/models\/([^/]+)(?:\/test)?$/);
+    const settingMatch = path.match(/^\/api\/settings\/(.+)$/);
+
+    if (method === 'GET' && path === '/api/books') {
+      return { channel: 'book:list', payload: undefined };
+    }
+    if (method === 'POST' && path === '/api/books') {
+      return { channel: 'book:create', payload: body };
+    }
+    if (bookMatch && method === 'GET' && !bookMatch[2]) {
+      return { channel: 'book:detail', payload: { bookId: bookMatch[1] } };
+    }
+    if (bookMatch && method === 'DELETE' && !bookMatch[2]) {
+      return { channel: 'book:delete', payload: { bookId: bookMatch[1] } };
+    }
+    if (bookMatch && method === 'POST') {
+      const bookId = bookMatch[1];
+      switch (bookMatch[2]) {
+        case 'start':
+          return { channel: 'book:start', payload: { bookId } };
+        case 'pause':
+          return { channel: 'book:pause', payload: { bookId } };
+        case 'resume':
+          return { channel: 'book:resume', payload: { bookId } };
+        case 'restart':
+          return { channel: 'book:restart', payload: { bookId } };
+        case 'chapters/write-next':
+          return { channel: 'book:writeNext', payload: { bookId } };
+        case 'chapters/write-all':
+          return { channel: 'book:writeAll', payload: { bookId } };
+        case 'exports':
+          return {
+            channel: 'book:export',
+            payload: { bookId, format: body?.format },
+          };
+      }
+    }
+    if (method === 'GET' && path === '/api/scheduler/status') {
+      return { channel: 'scheduler:status', payload: undefined };
+    }
+    if (method === 'POST' && path === '/api/scheduler/start') {
+      return { channel: 'scheduler:startAll', payload: undefined };
+    }
+    if (method === 'POST' && path === '/api/scheduler/pause') {
+      return { channel: 'scheduler:pauseAll', payload: undefined };
+    }
+    if (method === 'GET' && path === '/api/models') {
+      return { channel: 'model:list', payload: undefined };
+    }
+    if (modelMatch && method === 'PUT') {
+      return { channel: 'model:save', payload: body };
+    }
+    if (modelMatch && method === 'POST' && path.endsWith('/test')) {
+      return { channel: 'model:test', payload: { modelId: modelMatch[1] } };
+    }
+    if (method === 'GET' && path === '/api/settings') {
+      return { channel: 'settings:get', payload: undefined };
+    }
+    if (settingMatch && method === 'GET') {
+      return {
+        channel: 'settings:get',
+        payload: decodeURIComponent(settingMatch[1]),
+      };
+    }
+    if (settingMatch && method === 'PUT') {
+      return {
+        channel: 'settings:set',
+        payload: {
+          key: decodeURIComponent(settingMatch[1]),
+          value: body?.value,
+        },
+      };
+    }
+
+    return { channel: '__unknown__', payload: undefined };
+  }
+
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: URL | string, init?: RequestInit) => {
+      const { channel, payload } = toChannel(new URL(String(url)), init);
+      const result = await invoke(channel, payload);
+
+      if (channel === 'book:create') {
+        return ok({ bookId: result });
+      }
+      if (channel === 'book:export' && typeof result === 'string') {
+        return ok({ filePath: result, downloadUrl: '/api/exports/export-1' });
+      }
+      if (
+        channel === 'book:delete' ||
+        channel === 'book:start' ||
+        channel === 'book:pause' ||
+        channel === 'book:resume' ||
+        channel === 'book:restart' ||
+        channel === 'scheduler:startAll' ||
+        channel === 'scheduler:pauseAll' ||
+        channel === 'model:save' ||
+        channel === 'settings:set'
+      ) {
+        return ok({ ok: true });
+      }
+      if (channel === 'settings:get' && typeof payload === 'string') {
+        return ok({ key: payload, value: result ?? null });
+      }
+
+      return ok(result);
+    })
+  );
+
+  vi.stubGlobal(
+    'EventSource',
+    class {
+      onmessage: ((event: { data: string }) => void) | null = null;
+
+      constructor(url: string | URL) {
+        const pathname = new URL(String(url)).pathname;
+        if (pathname === '/api/events/scheduler') {
+          eventSources.progress = this;
+        }
+        if (pathname === '/api/events/book-generation') {
+          eventSources.bookGeneration = this;
+        }
+        if (pathname === '/api/events/execution-logs') {
+          eventSources.executionLog = this;
+        }
+      }
+
+      close() {
+        if (eventSources.progress === this) {
+          eventSources.progress = null;
+        }
+        if (eventSources.bookGeneration === this) {
+          eventSources.bookGeneration = null;
+        }
+        if (eventSources.executionLog === this) {
+          eventSources.executionLog = null;
+        }
+      }
+    }
+  );
 
   return {
     invoke,
-    onProgress,
-    onBookGeneration,
-    onExecutionLog,
+    onProgress: vi.fn(),
+    onBookGeneration: vi.fn(),
+    onExecutionLog: vi.fn(),
     emitProgress(payload: unknown) {
-      progressListener?.(payload);
+      eventSources.progress?.onmessage?.({ data: JSON.stringify(payload) });
     },
     emitBookGeneration(payload: unknown) {
-      bookGenerationListener?.(payload);
+      eventSources.bookGeneration?.onmessage?.({ data: JSON.stringify(payload) });
     },
     emitExecutionLog(payload: unknown) {
-      executionLogListener?.(payload);
+      eventSources.executionLog?.onmessage?.({ data: JSON.stringify(payload) });
     },
   };
 }
@@ -72,12 +206,7 @@ function installHttpMock(
     (payload: unknown) => { status?: number; data?: unknown; error?: string }
   > = {}
 ) {
-  return vi.stubGlobal(
-    'fetch',
-    vi.fn(async (_url: URL | string, init?: RequestInit) => {
-      const body = init?.body ? JSON.parse(String(init.body)) : {};
-      const channel = body.channel as string;
-      const payload = body.payload as unknown;
+  return installIpcMock(async (channel, payload) => {
       const override = overrides[channel];
       const result: {
         status?: number;
@@ -99,21 +228,22 @@ function installHttpMock(
             }
           })();
 
-      return new Response(
-        JSON.stringify(
-          result.error ? { error: result.error } : { data: result.data }
-        ),
-        {
-          status: result.status ?? (result.error ? 400 : 200),
-          headers: { 'Content-Type': 'application/json' },
-        }
-      );
-    })
-  );
+      if (result.error) {
+        throw new Error(result.error);
+      }
+
+      return result.data;
+    });
 }
 
-afterEach(() => {
-  delete window.storyWeaver;
+beforeEach(() => {
+  vi.unstubAllGlobals();
+  installHttpMock();
+});
+
+afterEach(cleanup);
+
+afterAll(() => {
   vi.unstubAllGlobals();
 });
 
@@ -185,7 +315,6 @@ describe('App shell', () => {
   });
 
   it('renders a safe empty preview in browser HTTP mode', async () => {
-    delete window.storyWeaver;
     installHttpMock();
 
     render(<App />);
@@ -413,7 +542,6 @@ describe('App shell', () => {
   });
 
   it('keeps the new-book form open and reports browser API errors', async () => {
-    delete window.storyWeaver;
     installHttpMock({
       'book:create': () => ({
         status: 400,
@@ -462,7 +590,6 @@ describe('App shell', () => {
   });
 
   it('opens directly into the library workspace without the old hero card', async () => {
-    delete window.storyWeaver;
     installHttpMock();
 
     render(<App />);
@@ -1639,7 +1766,7 @@ describe('App shell', () => {
 
     expect(
       await screen.findByText(
-        '导出完成：/tmp/story-weaver/exports/Existing Book.txt'
+        '导出完成：/tmp/story-weaver/exports/Existing Book.txt（下载：/api/exports/export-1）'
       )
     ).toBeInTheDocument();
   });

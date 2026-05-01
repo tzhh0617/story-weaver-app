@@ -1,32 +1,45 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import App from '../../renderer/App';
-import type { StoryWeaverInvoke } from '../../renderer/hooks/useIpc';
 
 describe('renderer entry styling', () => {
   it('still renders the main workspace heading with the active style entry', async () => {
-    window.storyWeaver = {
-      invoke: (async function (channel: string) {
-        switch (channel) {
-          case 'book:list':
-            return [];
-          case 'model:list':
-            return [];
-          case 'scheduler:status':
-            return {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: URL | string) => {
+        const pathname = new URL(String(url)).pathname;
+        if (pathname === '/api/scheduler/status') {
+          return new Response(
+            JSON.stringify({
               runningBookIds: [],
               queuedBookIds: [],
               pausedBookIds: [],
               concurrencyLimit: null,
-            };
-          default:
-            return null;
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } }
+          );
         }
-      }) as StoryWeaverInvoke,
-      onProgress: () => () => undefined,
-      onBookGeneration: () => () => undefined,
-      onExecutionLog: () => () => undefined,
-    };
+
+        if (pathname === '/api/books' || pathname === '/api/models') {
+          return new Response(JSON.stringify([]), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        }
+
+        if (pathname.startsWith('/api/settings/')) {
+          return new Response(JSON.stringify({ key: pathname, value: null }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        }
+
+        return new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      })
+    );
 
     const { container } = render(<App />);
 
