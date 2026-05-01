@@ -25,10 +25,10 @@ async function expectToast(
   return toast;
 }
 
-function installIpcMock(
-  handler: (channel: string, payload?: unknown) => Promise<unknown>
+function installApiMock(
+  handler: (routeKey: string, payload?: unknown) => Promise<unknown>
 ) {
-  const invoke = vi.fn(handler);
+  const request = vi.fn(handler);
   const eventSources = {
     progress: null as { onmessage: ((event: { data: string }) => void) | null } | null,
     bookGeneration: null as { onmessage: ((event: { data: string }) => void) | null } | null,
@@ -42,7 +42,7 @@ function installIpcMock(
     });
   }
 
-  function toChannel(url: URL, init?: RequestInit) {
+  function toRouteKey(url: URL, init?: RequestInit) {
     const method = init?.method ?? 'GET';
     const path = url.pathname;
     const body = init?.body ? JSON.parse(String(init.body)) : undefined;
@@ -51,69 +51,78 @@ function installIpcMock(
     const settingMatch = path.match(/^\/api\/settings\/(.+)$/);
 
     if (method === 'GET' && path === '/api/books') {
-      return { channel: 'book:list', payload: undefined };
+      return { routeKey: 'GET /api/books', payload: undefined };
     }
     if (method === 'POST' && path === '/api/books') {
-      return { channel: 'book:create', payload: body };
+      return { routeKey: 'POST /api/books', payload: body };
     }
     if (bookMatch && method === 'GET' && !bookMatch[2]) {
-      return { channel: 'book:detail', payload: { bookId: bookMatch[1] } };
+      return { routeKey: 'GET /api/books/:bookId', payload: { bookId: bookMatch[1] } };
     }
     if (bookMatch && method === 'DELETE' && !bookMatch[2]) {
-      return { channel: 'book:delete', payload: { bookId: bookMatch[1] } };
+      return { routeKey: 'DELETE /api/books/:bookId', payload: { bookId: bookMatch[1] } };
     }
     if (bookMatch && method === 'POST') {
       const bookId = bookMatch[1];
       switch (bookMatch[2]) {
         case 'start':
-          return { channel: 'book:start', payload: { bookId } };
+          return { routeKey: 'POST /api/books/:bookId/start', payload: { bookId } };
         case 'pause':
-          return { channel: 'book:pause', payload: { bookId } };
+          return { routeKey: 'POST /api/books/:bookId/pause', payload: { bookId } };
         case 'resume':
-          return { channel: 'book:resume', payload: { bookId } };
+          return { routeKey: 'POST /api/books/:bookId/resume', payload: { bookId } };
         case 'restart':
-          return { channel: 'book:restart', payload: { bookId } };
+          return { routeKey: 'POST /api/books/:bookId/restart', payload: { bookId } };
         case 'chapters/write-next':
-          return { channel: 'book:writeNext', payload: { bookId } };
+          return {
+            routeKey: 'POST /api/books/:bookId/chapters/write-next',
+            payload: { bookId },
+          };
         case 'chapters/write-all':
-          return { channel: 'book:writeAll', payload: { bookId } };
+          return {
+            routeKey: 'POST /api/books/:bookId/chapters/write-all',
+            payload: { bookId },
+          };
         case 'exports':
           return {
-            channel: 'book:export',
+            routeKey: 'POST /api/books/:bookId/exports',
             payload: { bookId, format: body?.format },
           };
       }
     }
     if (method === 'GET' && path === '/api/scheduler/status') {
-      return { channel: 'scheduler:status', payload: undefined };
+      return { routeKey: 'GET /api/scheduler/status', payload: undefined };
     }
     if (method === 'POST' && path === '/api/scheduler/start') {
-      return { channel: 'scheduler:startAll', payload: undefined };
+      return { routeKey: 'POST /api/scheduler/start', payload: undefined };
     }
     if (method === 'POST' && path === '/api/scheduler/pause') {
-      return { channel: 'scheduler:pauseAll', payload: undefined };
+      return { routeKey: 'POST /api/scheduler/pause', payload: undefined };
     }
     if (method === 'GET' && path === '/api/models') {
-      return { channel: 'model:list', payload: undefined };
+      return { routeKey: 'GET /api/models', payload: undefined };
     }
     if (modelMatch && method === 'PUT') {
-      return { channel: 'model:save', payload: body };
+      return { routeKey: 'PUT /api/models/:modelId', payload: body };
     }
     if (modelMatch && method === 'POST' && path.endsWith('/test')) {
-      return { channel: 'model:test', payload: { modelId: modelMatch[1] } };
+      return {
+        routeKey: 'POST /api/models/:modelId/test',
+        payload: { modelId: modelMatch[1] },
+      };
     }
     if (method === 'GET' && path === '/api/settings') {
-      return { channel: 'settings:get', payload: undefined };
+      return { routeKey: 'GET /api/settings', payload: undefined };
     }
     if (settingMatch && method === 'GET') {
       return {
-        channel: 'settings:get',
+        routeKey: 'GET /api/settings',
         payload: decodeURIComponent(settingMatch[1]),
       };
     }
     if (settingMatch && method === 'PUT') {
       return {
-        channel: 'settings:set',
+        routeKey: 'PUT /api/settings/:key',
         payload: {
           key: decodeURIComponent(settingMatch[1]),
           value: body?.value,
@@ -121,35 +130,35 @@ function installIpcMock(
       };
     }
 
-    return { channel: '__unknown__', payload: undefined };
+    return { routeKey: '__unknown__', payload: undefined };
   }
 
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: URL | string, init?: RequestInit) => {
-      const { channel, payload } = toChannel(new URL(String(url)), init);
-      const result = await invoke(channel, payload);
+      const { routeKey, payload } = toRouteKey(new URL(String(url)), init);
+      const result = await request(routeKey, payload);
 
-      if (channel === 'book:create') {
+      if (routeKey === 'POST /api/books') {
         return ok({ bookId: result });
       }
-      if (channel === 'book:export' && typeof result === 'string') {
+      if (routeKey === 'POST /api/books/:bookId/exports' && typeof result === 'string') {
         return ok({ filePath: result, downloadUrl: '/api/exports/export-1' });
       }
       if (
-        channel === 'book:delete' ||
-        channel === 'book:start' ||
-        channel === 'book:pause' ||
-        channel === 'book:resume' ||
-        channel === 'book:restart' ||
-        channel === 'scheduler:startAll' ||
-        channel === 'scheduler:pauseAll' ||
-        channel === 'model:save' ||
-        channel === 'settings:set'
+        routeKey === 'DELETE /api/books/:bookId' ||
+        routeKey === 'POST /api/books/:bookId/start' ||
+        routeKey === 'POST /api/books/:bookId/pause' ||
+        routeKey === 'POST /api/books/:bookId/resume' ||
+        routeKey === 'POST /api/books/:bookId/restart' ||
+        routeKey === 'POST /api/scheduler/start' ||
+        routeKey === 'POST /api/scheduler/pause' ||
+        routeKey === 'PUT /api/models/:modelId' ||
+        routeKey === 'PUT /api/settings/:key'
       ) {
         return ok({ ok: true });
       }
-      if (channel === 'settings:get' && typeof payload === 'string') {
+      if (routeKey === 'GET /api/settings' && typeof payload === 'string') {
         return ok({ key: payload, value: result ?? null });
       }
 
@@ -190,7 +199,7 @@ function installIpcMock(
   );
 
   return {
-    invoke,
+    request,
     onProgress: vi.fn(),
     onBookGeneration: vi.fn(),
     onExecutionLog: vi.fn(),
@@ -219,34 +228,34 @@ function installHttpMock(
     (payload: unknown) => { status?: number; data?: unknown; error?: string }
   > = {}
 ) {
-  return installIpcMock(async (channel, payload) => {
-      const override = overrides[channel];
-      const result: {
-        status?: number;
-        data?: unknown;
-        error?: string;
-      } = override
-        ? override(payload)
-        : (() => {
-            switch (channel) {
-              case 'book:list':
-              case 'model:list':
-                return { data: [] };
-              case 'scheduler:status':
-                return { data: emptySchedulerStatus };
-              case 'settings:get':
-                return { data: null };
-              default:
-                return { data: undefined };
-            }
-          })();
+  return installApiMock(async (routeKey, payload) => {
+    const override = overrides[routeKey];
+    const result: {
+      status?: number;
+      data?: unknown;
+      error?: string;
+    } = override
+      ? override(payload)
+      : (() => {
+          switch (routeKey) {
+            case 'GET /api/books':
+            case 'GET /api/models':
+              return { data: [] };
+            case 'GET /api/scheduler/status':
+              return { data: emptySchedulerStatus };
+            case 'GET /api/settings':
+              return { data: null };
+            default:
+              return { data: undefined };
+          }
+        })();
 
-      if (result.error) {
-        throw new Error(result.error);
-      }
+    if (result.error) {
+      throw new Error(result.error);
+    }
 
-      return result.data;
-    });
+    return result.data;
+  });
 }
 
 beforeEach(() => {
@@ -292,11 +301,11 @@ async function selectProvider(value: string) {
 
 describe('App shell', () => {
   it('keeps primary navigation in the sidebar and opens new books from the library page', async () => {
-    installIpcMock(async (channel) => {
-      switch (channel) {
-        case 'book:list':
+    installApiMock(async (routeKey) => {
+      switch (routeKey) {
+        case 'GET /api/books':
           return [];
-        case 'model:list':
+        case 'GET /api/models':
           return [];
         default:
           return null;
@@ -351,11 +360,11 @@ describe('App shell', () => {
   it('opens a realtime-only logs workspace and appends incoming events', async () => {
     const scrollIntoView = vi.fn();
     HTMLElement.prototype.scrollIntoView = scrollIntoView;
-    const ipc = installIpcMock(async (channel) => {
-      switch (channel) {
-        case 'book:list':
+    const api = installApiMock(async (routeKey) => {
+      switch (routeKey) {
+        case 'GET /api/books':
           return [];
-        case 'model:list':
+        case 'GET /api/models':
           return [];
         default:
           return null;
@@ -370,9 +379,9 @@ describe('App shell', () => {
       await screen.findByRole('heading', { name: '写作动态' })
     ).toBeInTheDocument();
     expect(screen.getByText('暂无写作动态')).toBeInTheDocument();
-    expect(ipc.invoke).not.toHaveBeenCalledWith('logs:list', expect.anything());
+    expect(api.request).not.toHaveBeenCalledWith('GET /api/logs', expect.anything());
 
-    ipc.emitExecutionLog({
+    api.emitExecutionLog({
       id: 1,
       bookId: 'book-1',
       bookTitle: 'Archive',
@@ -421,11 +430,11 @@ describe('App shell', () => {
         updatedAt: new Date().toISOString(),
       },
     ];
-    const ipc = installIpcMock(async (channel, payload) => {
-      switch (channel) {
-        case 'book:list':
+    const api = installApiMock(async (routeKey, payload) => {
+      switch (routeKey) {
+        case 'GET /api/books':
           return copy(books);
-        case 'book:detail': {
+        case 'GET /api/books/:bookId': {
           const { bookId } = payload as { bookId: string };
           const book = books.find((item) => item.id === bookId) ?? books[0];
           return {
@@ -440,7 +449,7 @@ describe('App shell', () => {
             },
           };
         }
-        case 'model:list':
+        case 'GET /api/models':
           return [];
         default:
           return null;
@@ -450,7 +459,7 @@ describe('App shell', () => {
     render(<App />);
 
     await openLogsView();
-    ipc.emitExecutionLog({
+    api.emitExecutionLog({
       id: 1,
       bookId: 'book-1',
       bookTitle: 'Archive',
@@ -463,7 +472,7 @@ describe('App shell', () => {
       errorMessage: null,
       createdAt: '2026-04-30T01:00:00.000Z',
     });
-    ipc.emitExecutionLog({
+    api.emitExecutionLog({
       id: 2,
       bookId: 'book-2',
       bookTitle: 'Compass',
@@ -499,11 +508,11 @@ describe('App shell', () => {
   });
 
   it('searches realtime logs by book title, message, and error text', async () => {
-    const ipc = installIpcMock(async (channel) => {
-      switch (channel) {
-        case 'book:list':
+    const api = installApiMock(async (routeKey) => {
+      switch (routeKey) {
+        case 'GET /api/books':
           return [];
-        case 'model:list':
+        case 'GET /api/models':
           return [];
         default:
           return null;
@@ -513,7 +522,7 @@ describe('App shell', () => {
     render(<App />);
 
     await openLogsView();
-    ipc.emitExecutionLog({
+    api.emitExecutionLog({
       id: 1,
       bookId: 'book-1',
       bookTitle: 'Archive',
@@ -526,7 +535,7 @@ describe('App shell', () => {
       errorMessage: null,
       createdAt: '2026-04-30T01:00:00.000Z',
     });
-    ipc.emitExecutionLog({
+    api.emitExecutionLog({
       id: 2,
       bookId: 'book-2',
       bookTitle: 'Compass',
@@ -556,7 +565,7 @@ describe('App shell', () => {
 
   it('keeps the new-book form open and reports browser API errors', async () => {
     installHttpMock({
-      'book:create': () => ({
+      'POST /api/books': () => ({
         status: 400,
         error: 'Browser API unavailable',
       }),
@@ -580,11 +589,11 @@ describe('App shell', () => {
   });
 
   it('opens the new-book workspace from the empty shelf action', async () => {
-    installIpcMock(async (channel) => {
-      switch (channel) {
-        case 'book:list':
+    installApiMock(async (routeKey) => {
+      switch (routeKey) {
+        case 'GET /api/books':
           return [];
-        case 'model:list':
+        case 'GET /api/models':
           return [];
         default:
           return null;
@@ -652,13 +661,13 @@ describe('App shell', () => {
       },
     ];
 
-    installIpcMock(async (channel, payload) => {
-      switch (channel) {
-        case 'book:list':
+    installApiMock(async (routeKey, payload) => {
+      switch (routeKey) {
+        case 'GET /api/books':
           return copy(books);
-        case 'model:list':
+        case 'GET /api/models':
           return [];
-        case 'book:detail': {
+        case 'GET /api/books/:bookId': {
           const { bookId } = payload as { bookId: string };
           const book = books.find((item) => item.id === bookId) ?? books[0];
 
@@ -706,13 +715,13 @@ describe('App shell', () => {
       },
     ];
 
-    installIpcMock(async (channel, payload) => {
-      switch (channel) {
-        case 'book:list':
+    installApiMock(async (routeKey, payload) => {
+      switch (routeKey) {
+        case 'GET /api/books':
           return copy(books);
-        case 'model:list':
+        case 'GET /api/models':
           return [];
-        case 'book:detail': {
+        case 'GET /api/books/:bookId': {
           const { bookId } = payload as { bookId: string };
 
           return {
@@ -767,13 +776,13 @@ describe('App shell', () => {
       },
     ];
 
-    installIpcMock(async (channel, payload) => {
-      switch (channel) {
-        case 'book:list':
+    installApiMock(async (routeKey, payload) => {
+      switch (routeKey) {
+        case 'GET /api/books':
           return copy(books);
-        case 'model:list':
+        case 'GET /api/models':
           return [];
-        case 'book:detail': {
+        case 'GET /api/books/:bookId': {
           const { bookId } = payload as { bookId: string };
           const book = books.find((item) => item.id === bookId) ?? books[0];
 
@@ -814,7 +823,7 @@ describe('App shell', () => {
     expect(screen.queryByRole('heading', { name: /^Second Book（/ })).toBeNull();
   });
 
-  it('loads books from IPC and refreshes the library after creating one', async () => {
+  it('loads books from the concrete API and refreshes the library after creating one', async () => {
     const books = [
       {
         id: 'book-1',
@@ -838,13 +847,13 @@ describe('App shell', () => {
       },
     ];
 
-    const { invoke } = installIpcMock(async (channel, payload) => {
-      switch (channel) {
-        case 'book:list':
+    const { request } = installApiMock(async (routeKey, payload) => {
+      switch (routeKey) {
+        case 'GET /api/books':
           return copy(books);
-        case 'model:list':
+        case 'GET /api/models':
           return copy(models);
-        case 'book:create': {
+        case 'POST /api/books': {
           const input = payload as {
             idea: string;
             targetChapters: number;
@@ -863,7 +872,7 @@ describe('App shell', () => {
           });
           return 'book-2';
         }
-        case 'book:start':
+        case 'POST /api/books/:bookId/start':
           books[1] = {
             ...books[1],
             title: 'A map eats its explorers.',
@@ -871,7 +880,7 @@ describe('App shell', () => {
             updatedAt: new Date().toISOString(),
           };
           return undefined;
-        case 'book:detail': {
+        case 'GET /api/books/:bookId': {
           const { bookId } = payload as { bookId: string };
           const book = books.find((item) => item.id === bookId) ?? books[0];
 
@@ -906,12 +915,12 @@ describe('App shell', () => {
     fireEvent.click(screen.getByText('开始写作'));
 
     await waitFor(() => {
-      expect(invoke).toHaveBeenCalledWith('book:create', {
+      expect(request).toHaveBeenCalledWith('POST /api/books', {
         idea: 'A map eats its explorers.',
         targetChapters: 500,
         wordsPerChapter: 2500,
       });
-      expect(invoke).toHaveBeenCalledWith('book:start', {
+      expect(request).toHaveBeenCalledWith('POST /api/books/:bookId/start', {
         bookId: 'book-2',
       });
     });
@@ -941,13 +950,13 @@ describe('App shell', () => {
       updatedAt: string;
     }> = [];
 
-    const { invoke } = installIpcMock(async (channel, payload) => {
-      switch (channel) {
-        case 'book:list':
+    const { request } = installApiMock(async (routeKey, payload) => {
+      switch (routeKey) {
+        case 'GET /api/books':
           return copy(books);
-        case 'model:list':
+        case 'GET /api/models':
           return [];
-        case 'book:create': {
+        case 'POST /api/books': {
           const input = payload as {
             idea: string;
             targetChapters: number;
@@ -966,7 +975,7 @@ describe('App shell', () => {
           });
           return 'book-9';
         }
-        case 'book:start':
+        case 'POST /api/books/:bookId/start':
           books[0] = {
             ...books[0],
             title: 'A lighthouse writes back.',
@@ -974,7 +983,7 @@ describe('App shell', () => {
             updatedAt: new Date().toISOString(),
           };
           return undefined;
-        case 'book:detail':
+        case 'GET /api/books/:bookId':
           return {
             book: books[0],
             context: null,
@@ -1000,15 +1009,15 @@ describe('App shell', () => {
     fireEvent.click(screen.getByRole('button', { name: '开始写作' }));
 
     await waitFor(() => {
-      expect(invoke).toHaveBeenCalledWith('book:create', {
+      expect(request).toHaveBeenCalledWith('POST /api/books', {
         idea: 'A lighthouse writes back.',
         targetChapters: 500,
         wordsPerChapter: 2500,
       });
-      expect(invoke).toHaveBeenCalledWith('book:start', {
+      expect(request).toHaveBeenCalledWith('POST /api/books/:bookId/start', {
         bookId: 'book-9',
       });
-      expect(invoke).toHaveBeenCalledWith('book:detail', {
+      expect(request).toHaveBeenCalledWith('GET /api/books/:bookId', {
         bookId: 'book-9',
       });
     });
@@ -1040,13 +1049,13 @@ describe('App shell', () => {
       resolveStart = resolve;
     });
 
-    const { invoke } = installIpcMock(async (channel, payload) => {
-      switch (channel) {
-        case 'book:list':
+    const { request } = installApiMock(async (routeKey, payload) => {
+      switch (routeKey) {
+        case 'GET /api/books':
           return copy(books);
-        case 'model:list':
+        case 'GET /api/models':
           return [];
-        case 'book:create': {
+        case 'POST /api/books': {
           const input = payload as {
             idea: string;
             targetChapters: number;
@@ -1065,7 +1074,7 @@ describe('App shell', () => {
           });
           return 'book-fast-visible';
         }
-        case 'book:start':
+        case 'POST /api/books/:bookId/start':
           await startPromise;
           books[0] = {
             ...books[0],
@@ -1073,7 +1082,7 @@ describe('App shell', () => {
             updatedAt: new Date().toISOString(),
           };
           return undefined;
-        case 'book:detail': {
+        case 'GET /api/books/:bookId': {
           const { bookId } = payload as { bookId: string };
           const book = books.find((item) => item.id === bookId) ?? books[0];
 
@@ -1105,7 +1114,7 @@ describe('App shell', () => {
     expect(
       await screen.findByRole('heading', { name: /^新作品（创建中 · 0 万字）/ })
     ).toBeInTheDocument();
-    expect(invoke).toHaveBeenCalledWith('book:start', {
+    expect(request).toHaveBeenCalledWith('POST /api/books/:bookId/start', {
       bookId: 'book-fast-visible',
     });
 
@@ -1127,20 +1136,20 @@ describe('App shell', () => {
       updatedAt: new Date().toISOString(),
     };
 
-    const { invoke } = installIpcMock(async (channel, payload) => {
-      switch (channel) {
-        case 'book:list':
+    const { request } = installApiMock(async (routeKey, payload) => {
+      switch (routeKey) {
+        case 'GET /api/books':
           return [];
-        case 'model:list':
+        case 'GET /api/models':
           return [];
-        case 'book:create':
+        case 'POST /api/books':
           return createdBook.id;
-        case 'book:start':
+        case 'POST /api/books/:bookId/start':
           await new Promise<void>((resolve) => {
             resolveStart = resolve;
           });
           return undefined;
-        case 'book:detail': {
+        case 'GET /api/books/:bookId': {
           const { bookId } = payload as { bookId: string };
           if (bookId !== createdBook.id) {
             return null;
@@ -1178,7 +1187,7 @@ describe('App shell', () => {
     fireEvent.click(screen.getByRole('button', { name: '开始写作' }));
 
     await waitFor(() => {
-      expect(invoke).toHaveBeenCalledWith('book:detail', {
+      expect(request).toHaveBeenCalledWith('GET /api/books/:bookId', {
         bookId: createdBook.id,
       });
     });
@@ -1194,7 +1203,7 @@ describe('App shell', () => {
     startResolver?.();
 
     await waitFor(() => {
-      expect(invoke).toHaveBeenCalledWith('book:start', {
+      expect(request).toHaveBeenCalledWith('POST /api/books/:bookId/start', {
         bookId: createdBook.id,
       });
     });
@@ -1208,11 +1217,11 @@ describe('App shell', () => {
   });
 
   it('updates the library summary from scheduler progress events', async () => {
-    const { emitProgress } = installIpcMock(async (channel) => {
-      switch (channel) {
-        case 'book:list':
+    const { emitProgress } = installApiMock(async (routeKey) => {
+      switch (routeKey) {
+        case 'GET /api/books':
           return [];
-        case 'model:list':
+        case 'GET /api/models':
           return [];
         default:
           return null;
@@ -1250,13 +1259,13 @@ describe('App shell', () => {
       },
     ];
 
-    const { emitProgress } = installIpcMock(async (channel, payload) => {
-      switch (channel) {
-        case 'book:list':
+    const { emitProgress } = installApiMock(async (routeKey, payload) => {
+      switch (routeKey) {
+        case 'GET /api/books':
           return copy(books);
-        case 'model:list':
+        case 'GET /api/models':
           return [];
-        case 'book:detail': {
+        case 'GET /api/books/:bookId': {
           const { bookId } = payload as { bookId: string };
           const book = books.find((item) => item.id === bookId) ?? books[0];
 
@@ -1341,13 +1350,13 @@ describe('App shell', () => {
       },
     ];
 
-    const ipc = installIpcMock(async (channel, payload) => {
-      switch (channel) {
-        case 'book:list':
+    const api = installApiMock(async (routeKey, payload) => {
+      switch (routeKey) {
+        case 'GET /api/books':
           return copy(books);
-        case 'model:list':
+        case 'GET /api/models':
           return [];
-        case 'book:detail':
+        case 'GET /api/books/:bookId':
           return {
             book: books[0],
             context: null,
@@ -1396,7 +1405,7 @@ describe('App shell', () => {
     );
     expect(await screen.findByText('1 / 2 章')).toBeInTheDocument();
     await waitFor(() => {
-      expect(ipc.invoke).not.toHaveBeenCalledWith('book:detail', {
+      expect(api.request).not.toHaveBeenCalledWith('GET /api/books/:bookId', {
         bookId: 'book-2',
       });
     });
@@ -1427,13 +1436,13 @@ describe('App shell', () => {
       },
     ];
 
-    const { invoke } = installIpcMock(async (channel) => {
-      switch (channel) {
-        case 'book:list':
+    const { request } = installApiMock(async (routeKey) => {
+      switch (routeKey) {
+        case 'GET /api/books':
           return copy(books);
-        case 'model:list':
+        case 'GET /api/models':
           return copy(models);
-        case 'scheduler:startAll':
+        case 'POST /api/scheduler/start':
           books[0] = { ...books[0], status: 'completed' };
           return undefined;
         default:
@@ -1455,7 +1464,7 @@ describe('App shell', () => {
     expect(screen.queryByRole('alert')).toBeNull();
 
     await waitFor(() => {
-      expect(invoke).toHaveBeenCalledWith('scheduler:startAll', undefined);
+      expect(request).toHaveBeenCalledWith('POST /api/scheduler/start', undefined);
     });
 
     await expectToast('批量写作已开始');
@@ -1488,13 +1497,13 @@ describe('App shell', () => {
       },
     ];
 
-    const { invoke } = installIpcMock(async (channel) => {
-      switch (channel) {
-        case 'book:list':
+    const { request } = installApiMock(async (routeKey) => {
+      switch (routeKey) {
+        case 'GET /api/books':
           return copy(books);
-        case 'model:list':
+        case 'GET /api/models':
           return copy(models);
-        case 'scheduler:pauseAll':
+        case 'POST /api/scheduler/pause':
           books[0] = { ...books[0], status: 'paused' };
           return undefined;
         default:
@@ -1516,7 +1525,7 @@ describe('App shell', () => {
     expect(screen.queryByRole('alert')).toBeNull();
 
     await waitFor(() => {
-      expect(invoke).toHaveBeenCalledWith('scheduler:pauseAll', undefined);
+      expect(request).toHaveBeenCalledWith('POST /api/scheduler/pause', undefined);
     });
 
     await expectToast('全部书籍已暂停');
@@ -1645,15 +1654,15 @@ describe('App shell', () => {
       },
     };
 
-    const { invoke } = installIpcMock(async (channel, payload) => {
-      switch (channel) {
-        case 'book:list':
+    const { request } = installApiMock(async (routeKey, payload) => {
+      switch (routeKey) {
+        case 'GET /api/books':
           return copy(books);
-        case 'model:list':
+        case 'GET /api/models':
           return copy(models);
-        case 'book:detail':
+        case 'GET /api/books/:bookId':
           return copy(detail);
-        case 'book:pause':
+        case 'POST /api/books/:bookId/pause':
           books[0] = { ...books[0], status: 'paused' };
           detail.book = books[0];
           detail.progress = { ...detail.progress, phase: 'paused' };
@@ -1679,7 +1688,7 @@ describe('App shell', () => {
     expect(screen.queryByRole('alert')).toBeNull();
 
     await waitFor(() => {
-      expect(invoke).toHaveBeenCalledWith('book:pause', {
+      expect(request).toHaveBeenCalledWith('POST /api/books/:bookId/pause', {
         bookId: 'book-1',
       });
     });
@@ -1750,15 +1759,15 @@ describe('App shell', () => {
     };
 
     const exportDeferred: { resolve?: (value: string) => void } = {};
-    const { invoke } = installIpcMock(async (channel) => {
-      switch (channel) {
-        case 'book:list':
+    const { request } = installApiMock(async (routeKey) => {
+      switch (routeKey) {
+        case 'GET /api/books':
           return copy(books);
-        case 'model:list':
+        case 'GET /api/models':
           return copy(models);
-        case 'book:detail':
+        case 'GET /api/books/:bookId':
           return copy(detail);
-        case 'book:export':
+        case 'POST /api/books/:bookId/exports':
           return new Promise<string>((resolve) => {
             exportDeferred.resolve = resolve;
           });
@@ -1776,7 +1785,7 @@ describe('App shell', () => {
     expect(screen.queryByRole('alert')).toBeNull();
 
     await waitFor(() => {
-      expect(invoke).toHaveBeenCalledWith('book:export', {
+      expect(request).toHaveBeenCalledWith('POST /api/books/:bookId/exports', {
         bookId: 'book-1',
         format: 'txt',
       });
@@ -1835,15 +1844,15 @@ describe('App shell', () => {
       },
     };
 
-    const { invoke } = installIpcMock(async (channel) => {
-      switch (channel) {
-        case 'book:list':
+    const { request } = installApiMock(async (routeKey) => {
+      switch (routeKey) {
+        case 'GET /api/books':
           return copy(books);
-        case 'model:list':
+        case 'GET /api/models':
           return copy(models);
-        case 'book:detail':
+        case 'GET /api/books/:bookId':
           return copy(detail);
-        case 'book:delete':
+        case 'DELETE /api/books/:bookId':
           books.splice(0, books.length);
           return undefined;
         default:
@@ -1860,7 +1869,7 @@ describe('App shell', () => {
     expect(screen.queryByRole('alert')).toBeNull();
 
     await waitFor(() => {
-      expect(invoke).toHaveBeenCalledWith('book:delete', {
+      expect(request).toHaveBeenCalledWith('DELETE /api/books/:bookId', {
         bookId: 'book-1',
       });
     });
@@ -1977,15 +1986,15 @@ describe('App shell', () => {
       },
     };
 
-    const { invoke } = installIpcMock(async (channel, payload) => {
-      switch (channel) {
-        case 'book:list':
+    const { request } = installApiMock(async (routeKey, payload) => {
+      switch (routeKey) {
+        case 'GET /api/books':
           return copy(books);
-        case 'model:list':
+        case 'GET /api/models':
           return copy(models);
-        case 'book:detail':
+        case 'GET /api/books/:bookId':
           return copy(detail);
-        case 'book:resume':
+        case 'POST /api/books/:bookId/resume':
           books[0] = { ...books[0], status: 'completed' };
           detail.book = books[0];
           detail.progress = { ...detail.progress, phase: 'completed' };
@@ -2010,7 +2019,7 @@ describe('App shell', () => {
     expect(screen.queryByRole('alert')).toBeNull();
 
     await waitFor(() => {
-      expect(invoke).toHaveBeenCalledWith('book:resume', {
+      expect(request).toHaveBeenCalledWith('POST /api/books/:bookId/resume', {
         bookId: 'book-1',
       });
     });
@@ -2106,15 +2115,15 @@ describe('App shell', () => {
       },
     };
 
-    const { invoke } = installIpcMock(async (channel) => {
-      switch (channel) {
-        case 'book:list':
+    const { request } = installApiMock(async (routeKey) => {
+      switch (routeKey) {
+        case 'GET /api/books':
           return copy(books);
-        case 'model:list':
+        case 'GET /api/models':
           return copy(models);
-        case 'book:detail':
+        case 'GET /api/books/:bookId':
           return copy(detail);
-        case 'book:restart':
+        case 'POST /api/books/:bookId/restart':
           books[0] = { ...books[0], status: 'completed' };
           detail.book = books[0];
           detail.progress = { ...detail.progress, phase: 'completed' };
@@ -2159,7 +2168,7 @@ describe('App shell', () => {
     expect(screen.queryByRole('alert')).toBeNull();
 
     await waitFor(() => {
-      expect(invoke).toHaveBeenCalledWith('book:restart', {
+      expect(request).toHaveBeenCalledWith('POST /api/books/:bookId/restart', {
         bookId: 'book-1',
       });
     });
@@ -2277,15 +2286,15 @@ describe('App shell', () => {
       },
     };
 
-    const { invoke } = installIpcMock(async (channel) => {
-      switch (channel) {
-        case 'book:list':
+    const { request } = installApiMock(async (routeKey) => {
+      switch (routeKey) {
+        case 'GET /api/books':
           return copy(books);
-        case 'model:list':
+        case 'GET /api/models':
           return copy(models);
-        case 'book:detail':
+        case 'GET /api/books/:bookId':
           return copy(detail);
-        case 'book:writeNext':
+        case 'POST /api/books/:bookId/chapters/write-next':
           books[0] = { ...books[0], status: 'writing' };
           detail.book = books[0];
           detail.progress = { ...detail.progress, phase: 'writing' };
@@ -2335,7 +2344,7 @@ describe('App shell', () => {
     await selectBook('Existing Book');
 
     expect(screen.queryByRole('button', { name: '写下一章' })).toBeNull();
-    expect(invoke).not.toHaveBeenCalledWith('book:writeNext', {
+    expect(request).not.toHaveBeenCalledWith('POST /api/books/:bookId/chapters/write-next', {
       bookId: 'book-1',
     });
   });
@@ -2456,15 +2465,15 @@ describe('App shell', () => {
       },
     };
 
-    const { invoke } = installIpcMock(async (channel) => {
-      switch (channel) {
-        case 'book:list':
+    const { request } = installApiMock(async (routeKey) => {
+      switch (routeKey) {
+        case 'GET /api/books':
           return copy(books);
-        case 'model:list':
+        case 'GET /api/models':
           return copy(models);
-        case 'book:detail':
+        case 'GET /api/books/:bookId':
           return copy(detail);
-        case 'book:writeAll':
+        case 'POST /api/books/:bookId/chapters/write-all':
           books[0] = { ...books[0], status: 'completed' };
           detail.book = books[0];
           detail.progress = { ...detail.progress, phase: 'completed' };
@@ -2520,17 +2529,17 @@ describe('App shell', () => {
     await selectBook('Existing Book');
 
     expect(screen.queryByRole('button', { name: '连续写作' })).toBeNull();
-    expect(invoke).not.toHaveBeenCalledWith('book:writeAll', {
+    expect(request).not.toHaveBeenCalledWith('POST /api/books/:bookId/chapters/write-all', {
       bookId: 'book-1',
     });
   });
 
-  it('loads the saved model config from IPC into the single model form', async () => {
-    installIpcMock(async (channel) => {
-      switch (channel) {
-        case 'book:list':
+  it('loads the saved model config from the concrete API into the single model form', async () => {
+    installApiMock(async (routeKey) => {
+      switch (routeKey) {
+        case 'GET /api/books':
           return [];
-        case 'model:list':
+        case 'GET /api/models':
           return copy([
             {
               id: 'anthropic:claude-3-5-sonnet',
@@ -2569,13 +2578,13 @@ describe('App shell', () => {
       config: Record<string, unknown>;
     }> = [];
 
-    const { invoke } = installIpcMock(async (channel, payload) => {
-      switch (channel) {
-        case 'book:list':
+    const { request } = installApiMock(async (routeKey, payload) => {
+      switch (routeKey) {
+        case 'GET /api/books':
           return [];
-        case 'model:list':
+        case 'GET /api/models':
           return copy(models);
-        case 'model:save': {
+        case 'PUT /api/models/:modelId': {
           const config = payload as (typeof models)[number];
           models.splice(0, models.length, config);
           return config;
@@ -2599,7 +2608,7 @@ describe('App shell', () => {
     fireEvent.click(screen.getByText('保存模型'));
 
     await waitFor(() => {
-      expect(invoke).toHaveBeenCalledWith('model:save', {
+      expect(request).toHaveBeenCalledWith('PUT /api/models/:modelId', {
         id: 'anthropic:claude-3-5-sonnet',
         provider: 'anthropic',
         modelName: 'claude-3-5-sonnet',
@@ -2620,13 +2629,13 @@ describe('App shell', () => {
       reject?: (error: Error) => void;
     } = {};
 
-    installIpcMock(async (channel, payload) => {
-      switch (channel) {
-        case 'book:list':
+    installApiMock(async (routeKey, payload) => {
+      switch (routeKey) {
+        case 'GET /api/books':
           return [];
-        case 'model:list':
+        case 'GET /api/models':
           return [];
-        case 'model:save':
+        case 'PUT /api/models/:modelId':
           return new Promise((_resolve, reject) => {
             saveDeferred.reject = reject;
           });
@@ -2676,13 +2685,13 @@ describe('App shell', () => {
       },
     ];
 
-    const { invoke } = installIpcMock(async (channel, payload) => {
-      switch (channel) {
-        case 'book:list':
+    const { request } = installApiMock(async (routeKey, payload) => {
+      switch (routeKey) {
+        case 'GET /api/books':
           return [];
-        case 'model:list':
+        case 'GET /api/models':
           return copy(models);
-        case 'model:save':
+        case 'PUT /api/models/:modelId':
           return payload ?? null;
         default:
           return null;
@@ -2706,7 +2715,7 @@ describe('App shell', () => {
     fireEvent.click(screen.getByText('保存模型'));
 
     await waitFor(() => {
-      expect(invoke).toHaveBeenCalledWith('model:save', {
+      expect(request).toHaveBeenCalledWith('PUT /api/models/:modelId', {
         id: 'anthropic:claude-3-5-sonnet',
         provider: 'anthropic',
         modelName: 'claude-3-5-sonnet',
@@ -2736,15 +2745,15 @@ describe('App shell', () => {
       },
     ];
 
-    const { invoke } = installIpcMock(async (channel, payload) => {
-      switch (channel) {
-        case 'book:list':
+    const { request } = installApiMock(async (routeKey, payload) => {
+      switch (routeKey) {
+        case 'GET /api/books':
           return [];
-        case 'model:list':
+        case 'GET /api/models':
           return copy(models);
-        case 'book:create':
+        case 'POST /api/books':
           return 'book-1';
-        case 'book:start':
+        case 'POST /api/books/:bookId/start':
           return undefined;
         default:
           return null;
@@ -2767,7 +2776,7 @@ describe('App shell', () => {
     fireEvent.click(screen.getByText('开始写作'));
 
     await waitFor(() => {
-      expect(invoke).toHaveBeenCalledWith('book:create', {
+      expect(request).toHaveBeenCalledWith('POST /api/books', {
         idea: 'A map eats its explorers.',
         targetChapters: 500,
         wordsPerChapter: 2500,
@@ -2776,20 +2785,20 @@ describe('App shell', () => {
   });
 
   it('saves the scheduler concurrency limit from settings', async () => {
-    const { invoke } = installIpcMock(async (channel, payload) => {
-      switch (channel) {
-        case 'book:list':
+    const { request } = installApiMock(async (routeKey, payload) => {
+      switch (routeKey) {
+        case 'GET /api/books':
           return [];
-        case 'model:list':
+        case 'GET /api/models':
           return [];
-        case 'scheduler:status':
+        case 'GET /api/scheduler/status':
           return {
             runningBookIds: [],
             queuedBookIds: [],
             pausedBookIds: [],
             concurrencyLimit: 1,
           };
-        case 'settings:set':
+        case 'PUT /api/settings/:key':
           return payload ?? null;
         default:
           return null;
@@ -2806,7 +2815,7 @@ describe('App shell', () => {
     fireEvent.click(screen.getByText('保存设置'));
 
     await waitFor(() => {
-      expect(invoke).toHaveBeenCalledWith('settings:set', {
+      expect(request).toHaveBeenCalledWith('PUT /api/settings/:key', {
         key: 'scheduler.concurrencyLimit',
         value: '2',
       });
@@ -2817,11 +2826,11 @@ describe('App shell', () => {
   });
 
   it('shows an error toast when starting a newly created book fails', async () => {
-    installIpcMock(async (channel, payload) => {
-      switch (channel) {
-        case 'book:list':
+    installApiMock(async (routeKey, payload) => {
+      switch (routeKey) {
+        case 'GET /api/books':
           return [];
-        case 'model:list':
+        case 'GET /api/models':
           return [
             {
               id: 'openai:gpt-4o-mini',
@@ -2832,9 +2841,9 @@ describe('App shell', () => {
               config: {},
             },
           ];
-        case 'book:create':
+        case 'POST /api/books':
           return 'book-1';
-        case 'book:start':
+        case 'POST /api/books/:bookId/start':
           throw new Error('API key invalid');
         default:
           return null;
@@ -2858,15 +2867,15 @@ describe('App shell', () => {
       resolve?: (value: { ok: boolean; latency: number; error: string | null }) => void;
     } = {};
 
-    installIpcMock(async (channel, payload) => {
-      switch (channel) {
-        case 'book:list':
+    installApiMock(async (routeKey, payload) => {
+      switch (routeKey) {
+        case 'GET /api/books':
           return [];
-        case 'model:list':
+        case 'GET /api/models':
           return [];
-        case 'model:save':
+        case 'PUT /api/models/:modelId':
           return payload ?? null;
-        case 'model:test':
+        case 'POST /api/models/:modelId/test':
           return new Promise((resolve) => {
             modelTestDeferred.resolve = resolve;
           });
@@ -2913,11 +2922,11 @@ describe('App shell', () => {
       updatedAt: string;
     }> = [];
 
-    installIpcMock(async (channel, payload) => {
-      switch (channel) {
-        case 'book:list':
+    installApiMock(async (routeKey, payload) => {
+      switch (routeKey) {
+        case 'GET /api/books':
           return copy(books);
-        case 'model:list':
+        case 'GET /api/models':
           return [
             {
               id: 'openai:gpt-4o-mini',
@@ -2928,7 +2937,7 @@ describe('App shell', () => {
               config: {},
             },
           ];
-        case 'book:create': {
+        case 'POST /api/books': {
           const input = payload as {
             idea: string;
             targetChapters: number;
@@ -2947,12 +2956,12 @@ describe('App shell', () => {
           });
           return 'book-1';
         }
-        case 'book:start':
+        case 'POST /api/books/:bookId/start':
           await new Promise<void>((resolve) => {
             resolveStart = resolve;
           });
           return undefined;
-        case 'book:detail':
+        case 'GET /api/books/:bookId':
           return {
             book: books[0],
             context: null,
@@ -3036,13 +3045,13 @@ describe('App shell', () => {
         phase: 'writing',
       },
     };
-    const ipc = installIpcMock(async (channel, payload) => {
-      switch (channel) {
-        case 'book:list':
+    const api = installApiMock(async (routeKey, payload) => {
+      switch (routeKey) {
+        case 'GET /api/books':
           return copy(books);
-        case 'model:list':
+        case 'GET /api/models':
           return [];
-        case 'book:detail': {
+        case 'GET /api/books/:bookId': {
           const { bookId } = payload as { bookId: string };
           return bookId === 'book-1' ? copy(detail) : null;
         }
@@ -3057,7 +3066,7 @@ describe('App shell', () => {
       await screen.findByRole('heading', { name: /^Stream Book（/ })
     ).toBeInTheDocument();
 
-    ipc.emitBookGeneration({
+    api.emitBookGeneration({
       bookId: 'book-2',
       type: 'chapter-stream',
       volumeIndex: 1,
@@ -3067,7 +3076,7 @@ describe('App shell', () => {
     });
     expect(screen.queryByText('不应显示')).toBeNull();
 
-    ipc.emitBookGeneration({
+    api.emitBookGeneration({
       bookId: 'book-1',
       type: 'progress',
       phase: 'writing',
@@ -3080,7 +3089,7 @@ describe('App shell', () => {
         name: /第 2 章 · Chapter 2 0 千字 写作中/,
       })
     ).toBeInTheDocument();
-    ipc.emitBookGeneration({
+    api.emitBookGeneration({
       bookId: 'book-1',
       type: 'chapter-stream',
       volumeIndex: 1,
@@ -3088,7 +3097,7 @@ describe('App shell', () => {
       title: 'Chapter 2',
       delta: '流式第一段',
     });
-    ipc.emitBookGeneration({
+    api.emitBookGeneration({
       bookId: 'book-1',
       type: 'chapter-stream',
       volumeIndex: 1,
@@ -3121,13 +3130,13 @@ describe('App shell', () => {
         updatedAt: new Date().toISOString(),
       },
     ];
-    const ipc = installIpcMock(async (channel, payload) => {
-      switch (channel) {
-        case 'book:list':
+    const api = installApiMock(async (routeKey, payload) => {
+      switch (routeKey) {
+        case 'GET /api/books':
           return copy(books);
-        case 'model:list':
+        case 'GET /api/models':
           return [];
-        case 'book:detail': {
+        case 'GET /api/books/:bookId': {
           const { bookId } = payload as { bookId: string };
           return bookId === 'book-1'
             ? {
@@ -3165,9 +3174,9 @@ describe('App shell', () => {
       await screen.findByRole('heading', { name: /^Stable Stream Book（/ })
     ).toBeInTheDocument();
 
-    const subscriptionCountAfterSelection = ipc.onBookGeneration.mock.calls.length;
+    const subscriptionCountAfterSelection = api.onBookGeneration.mock.calls.length;
 
-    ipc.emitBookGeneration({
+    api.emitBookGeneration({
       bookId: 'book-1',
       type: 'chapter-stream',
       volumeIndex: 1,
@@ -3175,7 +3184,7 @@ describe('App shell', () => {
       title: 'Chapter 1',
       delta: '第一段',
     });
-    ipc.emitBookGeneration({
+    api.emitBookGeneration({
       bookId: 'book-1',
       type: 'chapter-stream',
       volumeIndex: 1,
@@ -3192,7 +3201,7 @@ describe('App shell', () => {
     ).toBeInTheDocument();
     expect(screen.queryByText('实时输出')).toBeNull();
     await waitFor(() => {
-      expect(ipc.onBookGeneration).toHaveBeenCalledTimes(
+      expect(api.onBookGeneration).toHaveBeenCalledTimes(
         subscriptionCountAfterSelection
       );
     });
@@ -3211,13 +3220,13 @@ describe('App shell', () => {
         updatedAt: new Date().toISOString(),
       },
     ];
-    const ipc = installIpcMock(async (channel, payload) => {
-      switch (channel) {
-        case 'book:list':
+    const api = installApiMock(async (routeKey, payload) => {
+      switch (routeKey) {
+        case 'GET /api/books':
           return copy(books);
-        case 'model:list':
+        case 'GET /api/models':
           return [];
-        case 'book:detail': {
+        case 'GET /api/books/:bookId': {
           const { bookId } = payload as { bookId: string };
           return bookId === 'book-1'
             ? {
@@ -3255,7 +3264,7 @@ describe('App shell', () => {
       await screen.findByRole('heading', { name: /^Rewrite Book（/ })
     ).toBeInTheDocument();
 
-    ipc.emitBookGeneration({
+    api.emitBookGeneration({
       bookId: 'book-1',
       type: 'chapter-stream',
       volumeIndex: 1,
@@ -3263,7 +3272,7 @@ describe('App shell', () => {
       title: 'Chapter 1',
       delta: '短稿',
     });
-    ipc.emitBookGeneration({
+    api.emitBookGeneration({
       bookId: 'book-1',
       type: 'chapter-stream',
       volumeIndex: 1,
@@ -3272,7 +3281,7 @@ describe('App shell', () => {
       delta: '完整重写',
       replace: true,
     });
-    ipc.emitBookGeneration({
+    api.emitBookGeneration({
       bookId: 'book-1',
       type: 'chapter-stream',
       volumeIndex: 1,

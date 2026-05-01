@@ -1,5 +1,10 @@
 # Story Weaver — AI 长篇小说全自动写作系统设计
 
+> **Superseded:** 这份早期设计保留为历史记录。当前架构以
+> `2026-05-01-server-api-runtime-design.md` 为准：渲染端业务调用走具名
+> HTTP API / SSE，Electron 不再承载业务 IPC，也不再使用 `xxx:xxxx`
+> channel 调用作为目标方案。
+
 ## 概述
 
 Story Weaver 是一个 Electron 桌面应用，面向个人作者/网文写手。用户只需提供一个 IDEA，AI 全自动完成世界观构建、大纲生成、章节写作，输出 50 万字以上的长篇小说。支持 50 本书同时写作，多模型切换，多格式导出。

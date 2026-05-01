@@ -127,4 +127,15 @@ describe('workspace import boundaries', () => {
 
     expect(legacySources).toEqual([]);
   });
+
+  it('keeps executable code and tests free of legacy business IPC channel strings', () => {
+    const channelPattern = /['"`](?:book|scheduler|model|settings|logs):[a-zA-Z]/;
+    const offenders = listTrackedSourceFiles()
+      .filter((file) => !file.includes('/dist/'))
+      .filter((file) =>
+        channelPattern.test(readFileSync(path.join(rootDir, file), 'utf8'))
+      );
+
+    expect(offenders).toEqual([]);
+  });
 });

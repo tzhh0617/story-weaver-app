@@ -2,6 +2,12 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
+> **Superseded:** 这份计划记录了中间迁移态，当时还保留 `/api/invoke`
+> 和 IPC channel 兼容层。当前目标架构以
+> `docs/superpowers/specs/2026-05-01-server-api-runtime-design.md` 为准：
+> 所有业务调用使用具名 HTTP API / SSE，不再使用 `xxx:xxxx` channel
+> 调用。
+
 **Goal:** Let the existing Vite renderer run in a normal browser against a local Node server while sharing the same durable SQLite data and migration path as the Electron app.
 
 **Architecture:** Keep the renderer and Electron shell intact. Extract the current Electron runtime composition into a shared runtime factory, add Fastify as a thin HTTP/SSE transport, and make the renderer choose Electron IPC or browser HTTP based on environment. Introduce Drizzle as the schema/migration manager while keeping existing `better-sqlite3` repositories in place.
