@@ -53,7 +53,7 @@
 - Modify: `src/shared/contracts.ts`
 - Test: `tests/core/ipc-contracts.test.ts`
 
-- [ ] **Step 1: Write the failing type test**
+- [x] **Step 1: Write the failing type test**
 
 Append this test to `tests/core/ipc-contracts.test.ts`:
 
@@ -102,7 +102,7 @@ describe('concrete server API contracts', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run:
 
@@ -112,7 +112,7 @@ pnpm exec vitest run tests/core/ipc-contracts.test.ts -t "concrete server API co
 
 Expected: FAIL because the named concrete API types are not exported.
 
-- [ ] **Step 3: Add concrete API type aliases**
+- [x] **Step 3: Add concrete API type aliases**
 
 Add these exports after the existing payload type definitions in `src/shared/contracts.ts`:
 
@@ -147,7 +147,7 @@ export type OkResponse = {
 };
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run:
 
@@ -157,7 +157,7 @@ pnpm exec vitest run tests/core/ipc-contracts.test.ts -t "concrete server API co
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 Run:
 
@@ -176,7 +176,7 @@ git commit -m "feat: add concrete server api contracts"
 - Create: `tests/server/books-routes.test.ts`
 - Modify: `tests/server/export.test.ts`
 
-- [ ] **Step 1: Write failing book route tests**
+- [x] **Step 1: Write failing book route tests**
 
 Create `tests/server/books-routes.test.ts`:
 
@@ -315,7 +315,7 @@ describe('server book routes', () => {
 });
 ```
 
-- [ ] **Step 2: Update export route test to expect concrete export route**
+- [x] **Step 2: Update export route test to expect concrete export route**
 
 In `tests/server/export.test.ts`, replace the `/api/invoke` create/export requests with:
 
@@ -349,7 +349,7 @@ const downloadResponse = await server.inject({
 });
 ```
 
-- [ ] **Step 3: Run tests to verify they fail**
+- [x] **Step 3: Run tests to verify they fail**
 
 Run:
 
@@ -359,7 +359,7 @@ pnpm exec vitest run tests/server/books-routes.test.ts tests/server/export.test.
 
 Expected: FAIL with 404 responses for `/api/books`.
 
-- [ ] **Step 4: Implement book routes**
+- [x] **Step 4: Implement book routes**
 
 Create `server/routes/books.ts`:
 
@@ -477,7 +477,7 @@ export async function registerBookRoutes(
 }
 ```
 
-- [ ] **Step 5: Register book routes**
+- [x] **Step 5: Register book routes**
 
 Modify `server/main.ts` imports and route registration:
 
@@ -491,7 +491,7 @@ Replace the invoke registration line with:
 await registerBookRoutes(app, services, { exportsRegistry });
 ```
 
-- [ ] **Step 6: Run tests to verify they pass**
+- [x] **Step 6: Run tests to verify they pass**
 
 Run:
 
@@ -501,7 +501,7 @@ pnpm exec vitest run tests/server/books-routes.test.ts tests/server/export.test.
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 Run:
 
@@ -523,7 +523,7 @@ git commit -m "feat: add concrete book server routes"
 - Create: `tests/server/models-routes.test.ts`
 - Create: `tests/server/settings-routes.test.ts`
 
-- [ ] **Step 1: Write failing scheduler route tests**
+- [x] **Step 1: Write failing scheduler route tests**
 
 Create `tests/server/scheduler-routes.test.ts`:
 
@@ -586,7 +586,7 @@ describe('server scheduler routes', () => {
 });
 ```
 
-- [ ] **Step 2: Write failing model route tests**
+- [x] **Step 2: Write failing model route tests**
 
 Create `tests/server/models-routes.test.ts`:
 
@@ -654,7 +654,7 @@ describe('server model routes', () => {
 });
 ```
 
-- [ ] **Step 3: Write failing settings route tests**
+- [x] **Step 3: Write failing settings route tests**
 
 Create `tests/server/settings-routes.test.ts`:
 
@@ -748,7 +748,7 @@ describe('server settings routes', () => {
 });
 ```
 
-- [ ] **Step 4: Run tests to verify they fail**
+- [x] **Step 4: Run tests to verify they fail**
 
 Run:
 
@@ -758,7 +758,7 @@ pnpm exec vitest run tests/server/scheduler-routes.test.ts tests/server/models-r
 
 Expected: FAIL with 404 responses for scheduler, models, and settings routes.
 
-- [ ] **Step 5: Implement scheduler routes**
+- [x] **Step 5: Implement scheduler routes**
 
 Create `server/routes/scheduler.ts`:
 
@@ -784,7 +784,7 @@ export async function registerSchedulerRoutes(
 }
 ```
 
-- [ ] **Step 6: Implement model routes**
+- [x] **Step 6: Implement model routes**
 
 Create `server/routes/models.ts`:
 
@@ -837,7 +837,7 @@ export async function registerModelRoutes(
 }
 ```
 
-- [ ] **Step 7: Implement settings routes**
+- [x] **Step 7: Implement settings routes**
 
 Create `server/routes/settings.ts`:
 
@@ -917,7 +917,7 @@ export async function registerSettingsRoutes(
 }
 ```
 
-- [ ] **Step 8: Register scheduler, model, and settings routes**
+- [x] **Step 8: Register scheduler, model, and settings routes**
 
 Modify `server/main.ts` imports and registrations:
 
@@ -935,7 +935,7 @@ await registerModelRoutes(app, services);
 await registerSettingsRoutes(app, services);
 ```
 
-- [ ] **Step 9: Run tests to verify they pass**
+- [x] **Step 9: Run tests to verify they pass**
 
 Run:
 
@@ -945,7 +945,7 @@ pnpm exec vitest run tests/server/scheduler-routes.test.ts tests/server/models-r
 
 Expected: PASS.
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 Run:
 
@@ -968,7 +968,7 @@ git commit -m "feat: add concrete runtime server routes"
 - Modify: `tests/renderer/http-transport.test.tsx`
 - Modify: `tests/renderer/ipc-types.test.ts`
 
-- [ ] **Step 1: Rewrite HTTP transport tests for concrete methods**
+- [x] **Step 1: Rewrite HTTP transport tests for concrete methods**
 
 Replace `tests/renderer/http-transport.test.tsx` with:
 
@@ -1081,7 +1081,7 @@ describe('browser HTTP transport', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run:
 
@@ -1091,7 +1091,7 @@ pnpm exec vitest run tests/renderer/http-transport.test.tsx --reporter=dot
 
 Expected: FAIL because `useStoryWeaverApi` does not exist and the HTTP client still exports invoke-style behavior.
 
-- [ ] **Step 3: Implement concrete HTTP client**
+- [x] **Step 3: Implement concrete HTTP client**
 
 Replace `renderer/lib/story-weaver-http-client.ts` with:
 
@@ -1289,7 +1289,7 @@ export function createHttpStoryWeaverClient(options: { baseUrl?: string } = {}):
 }
 ```
 
-- [ ] **Step 4: Add concrete API hook**
+- [x] **Step 4: Add concrete API hook**
 
 Create `renderer/hooks/useStoryWeaverApi.ts`:
 
@@ -1307,7 +1307,7 @@ export function useStoryWeaverApi(): StoryWeaverApi {
 }
 ```
 
-- [ ] **Step 5: Update hooks to use concrete API type**
+- [x] **Step 5: Update hooks to use concrete API type**
 
 Modify `renderer/hooks/useBooksController.ts`:
 
@@ -1428,7 +1428,7 @@ export function useProgress() {
 }
 ```
 
-- [ ] **Step 6: Replace IPC type test with concrete API type test**
+- [x] **Step 6: Replace IPC type test with concrete API type test**
 
 Rename `tests/renderer/ipc-types.test.ts` to `tests/renderer/api-types.test.ts` and replace contents with:
 
@@ -1450,7 +1450,7 @@ describe('StoryWeaverApi type surface', () => {
 });
 ```
 
-- [ ] **Step 7: Run renderer transport tests to verify pass**
+- [x] **Step 7: Run renderer transport tests to verify pass**
 
 Run:
 
@@ -1460,7 +1460,7 @@ pnpm exec vitest run tests/renderer/http-transport.test.tsx tests/renderer/api-t
 
 Expected: PASS.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 Run:
 
@@ -1480,7 +1480,7 @@ git commit -m "feat: add concrete renderer api client"
 - Modify: `tests/renderer/app-shell.test.tsx`
 - Modify: `tests/renderer/renderer-entry.test.tsx`
 
-- [ ] **Step 1: Write failing app-shell expectation for concrete API**
+- [x] **Step 1: Write failing app-shell expectation for concrete API**
 
 In `tests/renderer/app-shell.test.tsx`, change the shared mock helper so it returns concrete methods instead of `invoke`. Use this object as the baseline:
 
@@ -1560,7 +1560,7 @@ Also replace a representative old assertion:
 expect(api.getBookDetail).not.toHaveBeenCalledWith('book-1');
 ```
 
-- [ ] **Step 2: Run app shell tests to verify they fail**
+- [x] **Step 2: Run app shell tests to verify they fail**
 
 Run:
 
@@ -1570,7 +1570,7 @@ pnpm exec vitest run tests/renderer/app-shell.test.tsx tests/renderer/renderer-e
 
 Expected: FAIL because `App.tsx` still imports `useIpc`, `ipcChannels`, and calls `invoke`.
 
-- [ ] **Step 3: Update `useBookGenerationEvents` to use concrete API**
+- [x] **Step 3: Update `useBookGenerationEvents` to use concrete API**
 
 Modify the type import and parameter name in `renderer/hooks/useBookGenerationEvents.ts`:
 
@@ -1604,7 +1604,7 @@ const unsubscribe = api.onBookGeneration((payload) => {
 }, [api, loadBookDetail, selectedBookId, selectedBookIdRef, setSelectedBookDetail]);
 ```
 
-- [ ] **Step 4: Update `App.tsx` imports and top-level API variable**
+- [x] **Step 4: Update `App.tsx` imports and top-level API variable**
 
 In `renderer/App.tsx`, replace IPC imports:
 
@@ -1644,7 +1644,7 @@ useBookGenerationEvents({
 });
 ```
 
-- [ ] **Step 5: Replace direct invoke calls in `App.tsx`**
+- [x] **Step 5: Replace direct invoke calls in `App.tsx`**
 
 Use this mapping in `renderer/App.tsx`:
 
@@ -1684,7 +1684,7 @@ Use action entries like:
 }
 ```
 
-- [ ] **Step 6: Run app shell tests to verify pass**
+- [x] **Step 6: Run app shell tests to verify pass**
 
 Run:
 
@@ -1694,7 +1694,7 @@ pnpm exec vitest run tests/renderer/app-shell.test.tsx tests/renderer/renderer-e
 
 Expected: PASS after test mocks are updated to concrete API methods.
 
-- [ ] **Step 7: Search for remaining renderer command bus usage**
+- [x] **Step 7: Search for remaining renderer command bus usage**
 
 Run:
 
@@ -1704,7 +1704,7 @@ rg -n "useIpc|ipc\\.invoke|ipcChannels|window\\.storyWeaver|invoke\\(" renderer 
 
 Expected: no matches in renderer app code. Test files may contain only comments describing old behavior; remove those comments if they keep the match noisy.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 Run:
 
@@ -1730,7 +1730,7 @@ git commit -m "feat: migrate renderer to concrete api methods"
 - Modify: `electron-builder.yml`
 - Modify: `tests/core/dev-runtime-config.test.ts`
 
-- [ ] **Step 1: Write failing Electron/server config tests**
+- [x] **Step 1: Write failing Electron/server config tests**
 
 In `tests/core/dev-runtime-config.test.ts`, replace preload whitelist tests with:
 
@@ -1761,7 +1761,7 @@ it('removes obsolete command bus source files', () => {
 });
 ```
 
-- [ ] **Step 2: Run config tests to verify they fail**
+- [x] **Step 2: Run config tests to verify they fail**
 
 Run:
 
@@ -1771,7 +1771,7 @@ pnpm exec vitest run tests/core/dev-runtime-config.test.ts --reporter=dot
 
 Expected: FAIL because Electron still imports/registers IPC, preload exists, and `dist-server/**` is not packaged.
 
-- [ ] **Step 3: Export reusable server starter**
+- [x] **Step 3: Export reusable server starter**
 
 In `server/main.ts`, add:
 
@@ -1807,7 +1807,7 @@ async function main() {
 }
 ```
 
-- [ ] **Step 4: Replace Electron main with server-backed loading**
+- [x] **Step 4: Replace Electron main with server-backed loading**
 
 Modify `electron/main.ts` to remove all IPC imports and use:
 
@@ -1890,7 +1890,7 @@ app.on('window-all-closed', () => {
 });
 ```
 
-- [ ] **Step 5: Delete Electron IPC and preload files**
+- [x] **Step 5: Delete Electron IPC and preload files**
 
 Run:
 
@@ -1898,7 +1898,7 @@ Run:
 git rm electron/preload.cts electron/ipc/books.ts electron/ipc/logs.ts electron/ipc/models.ts electron/ipc/scheduler.ts electron/ipc/settings.ts
 ```
 
-- [ ] **Step 6: Update configs for server-backed Electron**
+- [x] **Step 6: Update configs for server-backed Electron**
 
 Modify `tsconfig.node.json` include:
 
@@ -1917,7 +1917,7 @@ files:
   - build/icon.png
 ```
 
-- [ ] **Step 7: Run config tests to verify pass**
+- [x] **Step 7: Run config tests to verify pass**
 
 Run:
 
@@ -1927,7 +1927,7 @@ pnpm exec vitest run tests/core/dev-runtime-config.test.ts --reporter=dot
 
 Expected: PASS.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 Run:
 
@@ -1950,7 +1950,7 @@ git commit -m "feat: make electron load server runtime"
 - Modify: `tests/server/static.test.ts`
 - Modify: `tests/server/events.test.ts`
 
-- [ ] **Step 1: Write failing deletion tests**
+- [x] **Step 1: Write failing deletion tests**
 
 In `tests/server/static.test.ts`, add:
 
@@ -2023,7 +2023,7 @@ describe('server runtime lifecycle', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail before deletion cleanup**
+- [x] **Step 2: Run tests to verify they fail before deletion cleanup**
 
 Run:
 
@@ -2033,7 +2033,7 @@ pnpm exec vitest run tests/server/static.test.ts tests/server/runtime-lifecycle.
 
 Expected: FAIL if obsolete files still exist or invoke tests still reference `/api/invoke`.
 
-- [ ] **Step 3: Remove invoke route registration and files**
+- [x] **Step 3: Remove invoke route registration and files**
 
 In `server/main.ts`, remove:
 
@@ -2049,13 +2049,13 @@ git rm server/routes/invoke.ts server/channel-dispatch.ts tests/server/invoke.te
 git add tests/server/runtime-lifecycle.test.ts
 ```
 
-- [ ] **Step 4: Remove channel maps from shared contracts**
+- [x] **Step 4: Remove channel maps from shared contracts**
 
 In `src/shared/contracts.ts`, remove the obsolete channel exports after all imports are gone: `ipcChannels`, `IpcChannel`, `ipcInvokeChannels`, `IpcInvokeChannel`, `IpcPayloadMap`, `IpcResponseMap`, and `assertIpcPayload`.
 
 Keep domain DTOs and the concrete API aliases from Task 1.
 
-- [ ] **Step 5: Search for remaining generic command bus references**
+- [x] **Step 5: Search for remaining generic command bus references**
 
 Run:
 
@@ -2065,7 +2065,7 @@ rg -n "ipcChannels|IpcInvoke|IpcPayload|IpcResponse|assertIpcPayload|/api/invoke
 
 Expected: no references in source or tests. References in historical docs can remain.
 
-- [ ] **Step 6: Run tests to verify pass**
+- [x] **Step 6: Run tests to verify pass**
 
 Run:
 
@@ -2075,7 +2075,7 @@ pnpm exec vitest run tests/server tests/core/ipc-contracts.test.ts tests/core/de
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 Run:
 
@@ -2096,7 +2096,7 @@ git commit -m "refactor: remove generic invoke command bus"
 - Modify: `scripts/smoke-browser-persistence.mjs`
 - Create or modify: `scripts/smoke-electron-package.mjs`
 
-- [ ] **Step 1: Write failing smoke/config expectations**
+- [x] **Step 1: Write failing smoke/config expectations**
 
 In `tests/core/dev-runtime-config.test.ts`, update smoke expectations:
 
@@ -2122,7 +2122,7 @@ it('provides an automated Electron package smoke check for server artifacts', ()
 });
 ```
 
-- [ ] **Step 2: Run config test to verify it fails**
+- [x] **Step 2: Run config test to verify it fails**
 
 Run:
 
@@ -2132,7 +2132,7 @@ pnpm exec vitest run tests/core/dev-runtime-config.test.ts --reporter=dot
 
 Expected: FAIL until smoke scripts and docs are updated.
 
-- [ ] **Step 3: Update browser smoke script to use concrete APIs**
+- [x] **Step 3: Update browser smoke script to use concrete APIs**
 
 In `scripts/smoke-browser-persistence.mjs`, replace invoke helper calls with concrete fetch calls:
 
@@ -2164,7 +2164,7 @@ if (!books.some((book) => book.id === createResult.bookId)) {
 }
 ```
 
-- [ ] **Step 4: Update Electron package smoke script**
+- [x] **Step 4: Update Electron package smoke script**
 
 Create `scripts/smoke-electron-package.mjs` if it is missing. It should contain:
 
@@ -2203,7 +2203,7 @@ Ensure `package.json` contains:
 "smoke:electron-package": "node scripts/smoke-electron-package.mjs"
 ```
 
-- [ ] **Step 5: Update `CLAUDE.md`**
+- [x] **Step 5: Update `CLAUDE.md`**
 
 Replace the Electron IPC architecture paragraph with:
 
@@ -2211,7 +2211,7 @@ Replace the Electron IPC architecture paragraph with:
 Renderer business calls use concrete local server APIs such as `GET /api/books`, `POST /api/books/:bookId/start`, and `PUT /api/settings/:key`. The renderer never calls Electron IPC for business behavior. In Electron, the main process starts the same local Fastify server and loads either Vite with a `storyWeaverApi` query parameter during development or the packaged server URL in production. Refreshing the frontend only reconnects HTTP/SSE clients; it does not close the runtime, pause the scheduler, or cancel generation.
 ```
 
-- [ ] **Step 6: Run focused verification**
+- [x] **Step 6: Run focused verification**
 
 Run:
 
@@ -2224,7 +2224,7 @@ pnpm run smoke:browser-persistence
 
 Expected: PASS for all commands.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 Run:
 
