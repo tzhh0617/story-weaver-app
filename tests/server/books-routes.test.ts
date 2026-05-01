@@ -89,7 +89,13 @@ describe('server book routes', () => {
       });
 
       expect(response.statusCode).toBe(400);
-      expect(response.json()).toEqual({ error: 'Invalid book create payload' });
+      expect(response.json()).toEqual({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: expect.any(String),
+          details: expect.any(Array),
+        },
+      });
     } finally {
       await server.close();
     }

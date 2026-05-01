@@ -1,6 +1,7 @@
 import cors from '@fastify/cors';
 import Fastify from 'fastify';
 import type { AddressInfo } from 'node:net';
+import { AppError } from '@story-weaver/shared/errors';
 import { createRuntimeServices } from './runtime/create-runtime-services.js';
 import { resolveServerConfig } from './config.js';
 import { createExportRegistry } from './export-registry.js';
@@ -19,6 +20,7 @@ export async function buildServer(options?: {
   createRuntime?: typeof createRuntimeServices;
 }) {
   const config = resolveServerConfig();
+  const staticDir = options?.staticDir ?? config.staticDir;
   const app = Fastify({ logger: false });
   const services = (options?.createRuntime ?? createRuntimeServices)({
     rootDir: options?.rootDir ?? config.rootDir,
@@ -27,6 +29,29 @@ export async function buildServer(options?: {
 
   app.addHook('onClose', async () => {
     services.close();
+  });
+
+  app.setErrorHandler((error, _request, reply) => {
+    if (error instanceof AppError) {
+      return reply.status(error.statusCode).send({ error: error.toJSON() });
+    }
+
+    if (typeof error === 'object' && error !== null && 'validation' in error) {
+      return reply.status(400).send({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: error instanceof Error ? error.message : String(error),
+        },
+      });
+    }
+
+    reply.log.error(error);
+    return reply.status(500).send({
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: 'Internal server error',
+      },
+    });
   });
 
   await app.register(cors, {
@@ -40,9 +65,7 @@ export async function buildServer(options?: {
   await registerSettingsRoutes(app, services);
   await registerEventRoutes(app, services);
   await registerExportRoutes(app, exportsRegistry);
-  await registerStaticRoutes(app, {
-    staticDir: options?.staticDir ?? config.staticDir,
-  });
+  await registerStaticRoutes(app, { staticDir });
 
   return app;
 }

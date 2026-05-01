@@ -16,6 +16,14 @@ export async function registerStaticRoutes(
   const indexFile = path.join(options.staticDir, 'index.html');
 
   if (!existsSync(indexFile)) {
+    app.setNotFoundHandler((_request, reply) => {
+      reply.status(404).send({
+        error: {
+          code: 'NOT_FOUND',
+          message: 'Not found',
+        },
+      });
+    });
     return;
   }
 
@@ -26,7 +34,12 @@ export async function registerStaticRoutes(
 
   app.setNotFoundHandler((request, reply) => {
     if (request.url.startsWith('/api/')) {
-      return reply.status(404).send({ error: 'Not found' });
+      return reply.status(404).send({
+        error: {
+          code: 'NOT_FOUND',
+          message: 'Not found',
+        },
+      });
     }
 
     return sendIndex(reply, indexFile);

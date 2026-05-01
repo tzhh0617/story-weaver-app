@@ -5,6 +5,7 @@ import type {
   BookExportResponse,
   ViralTropeContractPayload,
 } from '@story-weaver/shared/contracts';
+import { ValidationError } from '@story-weaver/shared/errors';
 import type { RuntimeServices } from '.././runtime/create-runtime-services.js';
 import type { createExportRegistry } from '../export-registry.js';
 
@@ -79,9 +80,9 @@ export async function registerBookRoutes(
 ) {
   app.get('/api/books', async () => services.bookService.listBooks());
 
-  app.post('/api/books', async (request, reply) => {
+  app.post('/api/books', async (request) => {
     if (!isBookCreatePayload(request.body)) {
-      return reply.status(400).send({ error: 'Invalid book create payload' });
+      throw new ValidationError([{ field: 'idea', reason: 'Invalid book create payload' }]);
     }
 
     const bookId = await services.bookService.createBook(request.body);
@@ -147,7 +148,7 @@ export async function registerBookRoutes(
     '/api/books/:bookId/exports',
     async (request, reply): Promise<BookExportResponse | unknown> => {
       if (!isExportFormat(request.body?.format)) {
-        return reply.status(400).send({ error: 'Invalid export format' });
+        throw new ValidationError([{ field: 'format', reason: 'Invalid export format' }]);
       }
 
       const filePath = await services.exportBook(
