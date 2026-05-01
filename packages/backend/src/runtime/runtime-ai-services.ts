@@ -9,7 +9,7 @@ import {
   createAiSceneRecordExtractor,
   createAiSummaryGenerator,
 } from '../core/ai-post-chapter.js';
-import { createAiOutlineService } from '../core/ai-outline.js';
+import { createAiOutlineService } from '../core/ai-outline/outline-service.js';
 import { createChapterWriter } from '../core/chapter-writer.js';
 import { createModelTestService } from '../core/model-test.js';
 import type { NarrativeAudit } from '../core/narrative/types.js';

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createAiOutlineService } from '@story-weaver/backend/core/ai-outline';
+import { createAiOutlineService } from '@story-weaver/backend/core/ai-outline/outline-service';
 import type { NarrativeBible } from '@story-weaver/backend/core/narrative/types';
 
 function validNarrativeBible(): NarrativeBible {

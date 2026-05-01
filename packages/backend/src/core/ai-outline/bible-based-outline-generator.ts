@@ -11,7 +11,7 @@ import {
   validateNarrativeBible,
   validateTensionBudgets,
   validateVolumePlans,
-} from '../narrative/validation.js';
+} from '../narrative/validation/index.js';
 import type {
   ChapterCard,
   ChapterCharacterPressure,
