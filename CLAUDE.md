@@ -8,6 +8,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Development (starts renderer + electron concurrently)
 pnpm run dev
 
+# Browser mode (starts renderer + local Node API server)
+pnpm run dev:web
+
+# Production browser mode (builds renderer/server, then serves dist via Fastify)
+pnpm run start:web
+
+# Start an already-built browser server
+pnpm run start:server
+
 # Type checking (both renderer and electron tsconfigs)
 pnpm run typecheck
 
@@ -23,7 +32,14 @@ pnpm run build         # renderer (vite) + electron (tsc)
 pnpm run package       # build + electron-builder (creates .dmg/.zip)
 ```
 
-Data is stored in `~/.story-weaver/` (SQLite DB, exports, logs).
+Data is stored in `~/.story-weaver/` (SQLite DB, exports, logs). Electron
+mode and browser mode share the same runtime services and SQLite database.
+
+Browser server environment variables:
+- `STORY_WEAVER_SERVER_HOST` — listen host, defaults to `127.0.0.1`
+- `STORY_WEAVER_SERVER_PORT` — listen port, defaults to `5174`
+- `STORY_WEAVER_ROOT_DIR` — runtime data directory, defaults to `~/.story-weaver`
+- `STORY_WEAVER_STATIC_DIR` — built renderer directory, defaults to `dist`
 
 ## Architecture
 
@@ -35,11 +51,19 @@ This is an **Electron desktop app** with a strict two-process split:
 - `electron/preload.cts` — exposes `window.storyWeaver.invoke` and `window.storyWeaver.onProgress` to the renderer via `contextBridge`
 - `electron/ipc/*.ts` — thin IPC handlers that call into `getRuntimeServices()`
 
+### Browser server (`server/`)
+- `server/main.ts` — Fastify local API server for browser mode
+- `server/config.ts` — resolves browser server environment variables and defaults
+- `server/routes/invoke.ts` — `POST /api/invoke`, mirrors existing IPC invoke channels
+- `server/routes/events.ts` — SSE endpoints for scheduler, book generation, and execution logs
+- `server/routes/static.ts` — serves `dist/` and falls back to `index.html` for browser routes
+- `server/channel-dispatch.ts` — validates shared channel payloads and dispatches to runtime services
+
 ### Renderer (`renderer/`)
 - React 19 + Tailwind v4 + shadcn/ui components
 - Root: `renderer/App.tsx` — holds global state (books list, scheduler status, selected book, banner); all sub-pages receive props from here
 - Three views: `Library` (list-detail), `NewBook` (creation form), `Settings` (model config + concurrency)
-- `renderer/hooks/useIpc.ts` — thin wrapper around `window.storyWeaver`; falls back to no-ops outside Electron
+- `renderer/hooks/useIpc.ts` — thin wrapper around `window.storyWeaver`; falls back to HTTP/SSE transport in browser mode
 - `renderer/hooks/useProgress.ts` — subscribes to `scheduler:progress` IPC push events
 - `@/` resolves to `renderer/` (alias in both `vite.config.ts` and `tsconfig.json`)
 

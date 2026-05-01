@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import App from '../../renderer/App';
 
 function copy<T>(value: T): T {
@@ -58,6 +58,64 @@ function installIpcMock(
     },
   };
 }
+
+const emptySchedulerStatus = {
+  runningBookIds: [],
+  queuedBookIds: [],
+  pausedBookIds: [],
+  concurrencyLimit: null,
+};
+
+function installHttpMock(
+  overrides: Record<
+    string,
+    (payload: unknown) => { status?: number; data?: unknown; error?: string }
+  > = {}
+) {
+  return vi.stubGlobal(
+    'fetch',
+    vi.fn(async (_url: URL | string, init?: RequestInit) => {
+      const body = init?.body ? JSON.parse(String(init.body)) : {};
+      const channel = body.channel as string;
+      const payload = body.payload as unknown;
+      const override = overrides[channel];
+      const result: {
+        status?: number;
+        data?: unknown;
+        error?: string;
+      } = override
+        ? override(payload)
+        : (() => {
+            switch (channel) {
+              case 'book:list':
+              case 'model:list':
+                return { data: [] };
+              case 'scheduler:status':
+                return { data: emptySchedulerStatus };
+              case 'settings:get':
+                return { data: null };
+              default:
+                return { data: undefined };
+            }
+          })();
+
+      return new Response(
+        JSON.stringify(
+          result.error ? { error: result.error } : { data: result.data }
+        ),
+        {
+          status: result.status ?? (result.error ? 400 : 200),
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+    })
+  );
+}
+
+afterEach(() => {
+  delete window.storyWeaver;
+  vi.unstubAllGlobals();
+});
 
 async function openView(name: '作品' | '设置' | '写作动态') {
   fireEvent.click(await screen.findByRole('button', { name }));
@@ -126,8 +184,9 @@ describe('App shell', () => {
     expect(await screen.findByText('暂无作品')).toBeInTheDocument();
   });
 
-  it('renders a safe empty preview when Electron IPC is unavailable', async () => {
+  it('renders a safe empty preview in browser HTTP mode', async () => {
     delete window.storyWeaver;
+    installHttpMock();
 
     render(<App />);
 
@@ -353,8 +412,14 @@ describe('App shell', () => {
     expect(screen.queryByText('后台写作失败')).toBeNull();
   });
 
-  it('keeps the new-book form open and explains when IPC is unavailable', async () => {
+  it('keeps the new-book form open and reports browser API errors', async () => {
     delete window.storyWeaver;
+    installHttpMock({
+      'book:create': () => ({
+        status: 400,
+        error: 'Browser API unavailable',
+      }),
+    });
 
     render(<App />);
 
@@ -365,7 +430,7 @@ describe('App shell', () => {
     fireEvent.click(screen.getByRole('button', { name: '开始写作' }));
 
     expect(
-      await screen.findByText('请在桌面应用中创建作品。')
+      await screen.findByText('Browser API unavailable')
     ).toBeInTheDocument();
     expect(
       screen.getByRole('heading', { name: '新建作品' })
@@ -398,6 +463,7 @@ describe('App shell', () => {
 
   it('opens directly into the library workspace without the old hero card', async () => {
     delete window.storyWeaver;
+    installHttpMock();
 
     render(<App />);
 

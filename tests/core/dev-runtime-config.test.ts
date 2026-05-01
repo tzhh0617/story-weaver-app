@@ -24,6 +24,10 @@ const electronTsConfigSource = fs.readFileSync(
   path.resolve(__dirname, '../../tsconfig.node.json'),
   'utf8'
 );
+const electronBuilderConfigSource = fs.readFileSync(
+  path.resolve(__dirname, '../../electron-builder.yml'),
+  'utf8'
+);
 const iconGenerationSource = fs.readFileSync(
   path.resolve(__dirname, '../../scripts/generate-icons.py'),
   'utf8'
@@ -98,5 +102,9 @@ describe('desktop runtime config', () => {
   it('does not force a native rebuild during installation', () => {
     expect(packageJson.scripts?.['rebuild:native']).toBeUndefined();
     expect(packageJson.scripts?.postinstall).toBeUndefined();
+  });
+
+  it('packages database migration files with the Electron app', () => {
+    expect(electronBuilderConfigSource).toContain('drizzle/**');
   });
 });

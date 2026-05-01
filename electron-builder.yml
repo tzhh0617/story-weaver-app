@@ -3,6 +3,7 @@ productName: Story Weaver
 files:
   - dist/**
   - dist-electron/**
+  - drizzle/**
   - build/icon.png
 mac:
   category: public.app-category.productivity

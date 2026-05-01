@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { createHttpStoryWeaverClient } from '../lib/story-weaver-http-client';
 import type {
   IpcInvokeChannel,
   IpcPayloadMap,
@@ -29,14 +30,6 @@ declare global {
   }
 }
 
-const unavailableIpc: StoryWeaverIpc = {
-  isAvailable: false,
-  invoke: async () => undefined as never,
-  onProgress: () => () => undefined,
-  onBookGeneration: () => () => undefined,
-  onExecutionLog: () => () => undefined,
-};
-
 export function useIpc(): StoryWeaverIpc {
   return useMemo(() => {
     if (window.storyWeaver) {
@@ -46,6 +39,6 @@ export function useIpc(): StoryWeaverIpc {
       };
     }
 
-    return unavailableIpc;
+    return createHttpStoryWeaverClient();
   }, []);
 }

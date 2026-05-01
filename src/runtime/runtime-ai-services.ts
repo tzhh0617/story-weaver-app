@@ -8,19 +8,19 @@ import {
   createAiPlotThreadExtractor,
   createAiSceneRecordExtractor,
   createAiSummaryGenerator,
-} from '../src/core/ai-post-chapter.js';
-import { createAiOutlineService } from '../src/core/ai-outline.js';
-import { createChapterWriter } from '../src/core/chapter-writer.js';
-import { createModelTestService } from '../src/core/model-test.js';
-import type { NarrativeAudit } from '../src/core/narrative/types.js';
-import type { OutlineGenerationInput } from '../src/core/types.js';
-import { type ModelConfigInput } from '../src/models/config.js';
-import { createRuntimeRegistry } from '../src/models/registry.js';
+} from '../core/ai-post-chapter.js';
+import { createAiOutlineService } from '../core/ai-outline.js';
+import { createChapterWriter } from '../core/chapter-writer.js';
+import { createModelTestService } from '../core/model-test.js';
+import type { NarrativeAudit } from '../core/narrative/types.js';
+import type { OutlineGenerationInput } from '../core/types.js';
+import { type ModelConfigInput } from '../models/config.js';
+import { createRuntimeRegistry } from '../models/registry.js';
 import {
   createRuntimeMode,
   DEFAULT_MOCK_MODEL_ID,
-} from '../src/models/runtime-mode.js';
-import { createMockStoryServices } from '../src/mock/story-services.js';
+} from '../models/runtime-mode.js';
+import { createMockStoryServices } from '../mock/story-services.js';
 
 const DEFAULT_MOCK_RUNTIME_DELAY_MS = 1000;
 const DEFAULT_MOCK_STREAM_TOKENS_PER_SECOND = 200;
