@@ -20,6 +20,9 @@ pnpm run start:server
 # Smoke test browser server persistence with a temp SQLite DB
 pnpm run smoke:browser-persistence
 
+# Smoke test Electron package contents without writing release/
+pnpm run smoke:electron-package
+
 # Type checking (both renderer and electron tsconfigs)
 pnpm run typecheck
 
@@ -60,6 +63,13 @@ Browser persistence smoke test:
 7. Stop the server and remove the temp directory plus `dist-server`.
 
 Electron packaging smoke test without overwriting `release/`:
+```bash
+rm -rf /tmp/story-weaver-package-smoke
+pnpm run smoke:electron-package
+rm -rf /tmp/story-weaver-package-smoke dist-server
+```
+
+Equivalent manual check:
 ```bash
 rm -rf /tmp/story-weaver-package-smoke
 pnpm run build
