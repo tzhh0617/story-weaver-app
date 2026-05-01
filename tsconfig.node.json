@@ -12,5 +12,11 @@
     "outDir": "dist-electron",
     "types": ["node"]
   },
-  "include": ["electron/**/*.ts", "electron/**/*.cts", "vite.config.ts", "vitest.config.ts"]
+  "include": [
+    "electron/**/*.ts",
+    "server/**/*.ts",
+    "src/runtime/**/*.ts",
+    "vite.config.ts",
+    "vitest.config.ts"
+  ]
 }

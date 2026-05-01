@@ -47,11 +47,30 @@ export async function buildServer(options?: {
   return app;
 }
 
-async function main() {
-  const { host, port } = resolveServerConfig();
-  const app = await buildServer();
+export async function startServer(options?: {
+  rootDir?: string;
+  staticDir?: string;
+  host?: string;
+  port?: number;
+}) {
+  const config = resolveServerConfig();
+  const host = options?.host ?? config.host;
+  const port = options?.port ?? config.port;
+  const app = await buildServer({
+    rootDir: options?.rootDir ?? config.rootDir,
+    staticDir: options?.staticDir ?? config.staticDir,
+  });
 
   await app.listen({ host, port });
+
+  return {
+    app,
+    url: `http://${host}:${port}`,
+  };
+}
+
+async function main() {
+  await startServer();
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

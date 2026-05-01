@@ -1,7 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { ipcInvokeChannels } from '../../src/shared/contracts';
 
 const packageJson = JSON.parse(
   fs.readFileSync(path.resolve(__dirname, '../../package.json'), 'utf8')
@@ -14,10 +13,6 @@ const viteConfigSource = fs.readFileSync(
 );
 const electronMainSource = fs.readFileSync(
   path.resolve(__dirname, '../../electron/main.ts'),
-  'utf8'
-);
-const electronPreloadSource = fs.readFileSync(
-  path.resolve(__dirname, '../../electron/preload.cts'),
   'utf8'
 );
 const electronTsConfigSource = fs.readFileSync(
@@ -40,6 +35,14 @@ const browserPersistenceSmokeSource = fs.existsSync(
       'utf8'
     )
   : '';
+const electronPackageSmokeSource = fs.existsSync(
+  path.resolve(__dirname, '../../scripts/smoke-electron-package.mjs')
+)
+  ? fs.readFileSync(
+      path.resolve(__dirname, '../../scripts/smoke-electron-package.mjs'),
+      'utf8'
+    )
+  : '';
 
 describe('desktop runtime config', () => {
   it('builds renderer assets with a relative base for file:// loading', () => {
@@ -52,38 +55,30 @@ describe('desktop runtime config', () => {
     );
   });
 
-  it('builds the Electron preload before launching the dev shell', () => {
+  it('builds the Electron shell before launching the dev shell', () => {
     expect(packageJson.scripts?.['dev:electron']).toContain(
       'pnpm run build:electron'
     );
   });
 
-  it('loads the preload bridge as a CommonJS script', () => {
-    expect(electronMainSource).toContain(
-      "'dist-electron/electron/preload.cjs'"
-    );
-    expect(electronTsConfigSource).toContain('"electron/**/*.cts"');
+  it('does not register Electron business IPC handlers', () => {
+    expect(electronMainSource).not.toContain('registerBookHandlers');
+    expect(electronMainSource).not.toContain('registerSchedulerHandlers');
+    expect(electronMainSource).not.toContain('registerModelHandlers');
+    expect(electronMainSource).not.toContain('registerSettingsHandlers');
+    expect(electronMainSource).not.toContain('registerLogHandlers');
+    expect(electronMainSource).not.toContain('preload:');
+    expect(electronTsConfigSource).not.toContain('"electron/**/*.cts"');
   });
 
-  it('restricts renderer invoke calls to explicit IPC channels in preload', () => {
-    expect(electronPreloadSource).toContain('allowedInvokeChannels');
-    expect(electronPreloadSource).toContain("'book:list'");
-    expect(electronPreloadSource).toContain("'settings:set'");
-    expect(electronPreloadSource).toContain('Unsupported IPC channel');
+  it('loads the renderer through a local server URL', () => {
+    expect(electronMainSource).toContain('startServer');
+    expect(electronMainSource).toContain('storyWeaverApi');
+    expect(electronMainSource).toContain('mainWindow.loadURL');
   });
 
-  it('keeps the preload invoke whitelist aligned with shared IPC contracts', () => {
-    const match = electronPreloadSource.match(
-      /allowedInvokeChannels = new Set\(\[([\s\S]*?)\]\)/
-    );
-    expect(match?.[1]).toBeTruthy();
-
-    const preloadChannels = Array.from(
-      match?.[1].matchAll(/'([^']+)'/g) ?? [],
-      (channelMatch) => channelMatch[1]
-    ).sort();
-
-    expect(preloadChannels).toEqual([...ipcInvokeChannels].sort());
+  it('packages compiled server files with the Electron app', () => {
+    expect(electronBuilderConfigSource).toContain('dist-server/**');
   });
 
   it('uses the generated icon for the macOS development dock', () => {
@@ -135,5 +130,17 @@ describe('desktop runtime config', () => {
     expect(packageJson.scripts?.['start:server']).toBe(
       'pnpm rebuild better-sqlite3 && node dist-server/server/main.js'
     );
+  });
+
+  it('provides an automated Electron package smoke check', () => {
+    expect(packageJson.scripts?.['smoke:electron-package']).toBe(
+      'node scripts/smoke-electron-package.mjs'
+    );
+    expect(electronPackageSmokeSource).toContain('/tmp/story-weaver-package-smoke');
+    expect(electronPackageSmokeSource).toContain('electron-builder');
+    expect(electronPackageSmokeSource).toContain('/drizzle/meta/_journal.json');
+    expect(electronPackageSmokeSource).toContain('/dist-electron/');
+    expect(electronPackageSmokeSource).toContain('/dist/index.html');
+    expect(electronPackageSmokeSource).toContain('better_sqlite3.node');
   });
 });

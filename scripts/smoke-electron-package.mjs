@@ -1,0 +1,31 @@
+import { execFileSync } from 'node:child_process';
+
+const outputDir = '/tmp/story-weaver-package-smoke';
+
+execFileSync(
+  'pnpm',
+  [
+    'exec',
+    'electron-builder',
+    '--dir',
+    `--config.directories.output=${outputDir}`,
+  ],
+  { stdio: 'inherit' }
+);
+
+const appAsar = `${outputDir}/mac-arm64/Story Weaver.app/Contents/Resources/app.asar`;
+const listing = execFileSync('pnpm', ['exec', 'asar', 'list', appAsar], {
+  encoding: 'utf8',
+});
+
+for (const expected of [
+  '/dist/index.html',
+  '/dist-electron/',
+  '/dist-server/',
+  '/drizzle/meta/_journal.json',
+  'better_sqlite3.node',
+]) {
+  if (!listing.includes(expected)) {
+    throw new Error(`Missing packaged artifact: ${expected}`);
+  }
+}
