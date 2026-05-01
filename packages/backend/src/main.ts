@@ -21,7 +21,7 @@ export async function buildServer(options?: {
 }) {
   const config = resolveServerConfig();
   const staticDir = options?.staticDir ?? config.staticDir;
-  const app = Fastify({ logger: false });
+  const app = Fastify({ logger: process.env.NODE_ENV !== 'test' });
   const services = (options?.createRuntime ?? createRuntimeServices)({
     rootDir: options?.rootDir ?? config.rootDir,
   });
@@ -54,9 +54,13 @@ export async function buildServer(options?: {
     });
   });
 
+  const isDev = process.env.NODE_ENV !== 'production' && process.env.NODE_ENV !== 'test';
+
   await app.register(cors, {
     methods: ['GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    origin: true,
+    origin: isDev
+      ? ['http://localhost:5173', 'http://127.0.0.1:5173']
+      : [],
   });
   await registerHealthRoutes(app);
   await registerBookRoutes(app, services, { exportsRegistry });
