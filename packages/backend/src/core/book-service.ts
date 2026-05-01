@@ -5,10 +5,6 @@ import type {
   BookStatus,
   StoryRoutePlanView,
 } from '@story-weaver/shared/contracts';
-import {
-  DEFAULT_MOCK_MODEL_ID,
-  isMockModelId,
-} from '../models/runtime-mode.js';
 import { buildStoredChapterContext } from './consistency.js';
 import {
   buildChapterDraftPrompt,
@@ -732,7 +728,11 @@ export function createBookService(deps: {
   onBookUpdated?: (bookId: string) => void;
   onGenerationEvent?: (event: BookGenerationEvent) => void;
 }) {
-  const resolveModelId = deps.resolveModelId ?? (() => DEFAULT_MOCK_MODEL_ID);
+  const resolveModelId =
+    deps.resolveModelId ??
+    (() => {
+      throw new Error('No model configured');
+    });
 
   function emitProgress(input: {
     bookId: string;
@@ -1376,7 +1376,6 @@ export function createBookService(deps: {
       }
 
       if (
-        !isMockModelId(modelId) &&
         deps.shouldRewriteShortChapter?.({
           content: result.content,
           wordsPerChapter: book.wordsPerChapter,

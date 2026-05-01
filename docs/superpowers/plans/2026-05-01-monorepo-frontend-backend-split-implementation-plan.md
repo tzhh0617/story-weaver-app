@@ -4,7 +4,7 @@
 
 **Goal:** Move Story Weaver into explicit `@story-weaver/frontend`, `@story-weaver/backend`, and `@story-weaver/shared` workspace packages while preserving browser mode and the Electron desktop app.
 
-**Architecture:** `packages/shared` exposes runtime-neutral API contracts and pure shared setting helpers. `packages/backend` owns Fastify, runtime services, core story generation, AI providers, SQLite repositories, migrations, exports, and mock services. `packages/frontend` owns the React/Vite UI and HTTP/SSE client. Electron imports only the backend server entry and loads the frontend through Vite or backend-served static files.
+**Architecture:** `packages/shared` exposes runtime-neutral API contracts and pure shared setting helpers. `packages/backend` owns Fastify, runtime services, core story generation, AI providers, SQLite repositories, migrations, and exports. `packages/frontend` owns the React/Vite UI and HTTP/SSE client. Electron imports only the backend server entry and loads the frontend through Vite or backend-served static files.
 
 **Tech Stack:** pnpm workspaces, TypeScript, Vite, React, Fastify, Electron, SQLite, Vitest, Testing Library.
 
@@ -471,7 +471,6 @@ git commit -m "refactor: extract shared contracts package"
 - Move: `server/**` to `packages/backend/src/**`
 - Move: `src/core/**` to `packages/backend/src/core/**`
 - Move: `src/models/**` to `packages/backend/src/models/**`
-- Move: `src/mock/**` to `packages/backend/src/mock/**`
 - Move: `src/runtime/**` to `packages/backend/src/runtime/**`
 - Move: `src/storage/**` to `packages/backend/src/storage/**`
 - Move: `src/utils/**` to `packages/backend/src/utils/**`
@@ -548,10 +547,6 @@ Create `packages/backend/package.json`:
       "types": "./dist/models/*.d.ts",
       "import": "./dist/models/*.js"
     },
-    "./mock/*": {
-      "types": "./dist/mock/*.d.ts",
-      "import": "./dist/mock/*.js"
-    },
     "./storage/*": {
       "types": "./dist/storage/*.d.ts",
       "import": "./dist/storage/*.js"
@@ -613,7 +608,6 @@ git mv server/main.ts packages/backend/src/main.ts
 git mv server/routes packages/backend/src/routes
 git mv src/core packages/backend/src/core
 git mv src/models packages/backend/src/models
-git mv src/mock packages/backend/src/mock
 git mv src/runtime packages/backend/src/runtime
 git mv src/storage packages/backend/src/storage
 git mv src/utils packages/backend/src/utils
@@ -666,7 +660,6 @@ Replace test imports:
 ../../src/core/
 ../../src/storage/
 ../../src/models/
-../../src/mock/
 ../../src/runtime/
 ../../server/main
 ```
@@ -677,7 +670,6 @@ with package imports:
 @story-weaver/backend/core/
 @story-weaver/backend/storage/
 @story-weaver/backend/models/
-@story-weaver/backend/mock/
 @story-weaver/backend/runtime/create-runtime-services
 @story-weaver/backend
 ```
@@ -695,7 +687,6 @@ Modify `vitest.config.ts` aliases:
 '@story-weaver/backend/core/': path.resolve(__dirname, 'packages/backend/src/core/'),
 '@story-weaver/backend/storage/': path.resolve(__dirname, 'packages/backend/src/storage/'),
 '@story-weaver/backend/models/': path.resolve(__dirname, 'packages/backend/src/models/'),
-'@story-weaver/backend/mock/': path.resolve(__dirname, 'packages/backend/src/mock/'),
 '@story-weaver/backend/runtime/create-runtime-services': path.resolve(__dirname, 'packages/backend/src/runtime/create-runtime-services.ts'),
 ```
 
@@ -998,16 +989,14 @@ git commit -m "refactor: move frontend into workspace package"
 - Modify: `electron-builder.yml`
 - Modify: `scripts/smoke-browser-persistence.mjs`
 - Modify: `scripts/smoke-electron-package.mjs`
-- Test: `tests/electron/runtime-mock-fallback.test.ts`
+- Test: `tests/runtime/create-runtime-services.test.ts`
 - Test: `tests/server/static.test.ts`
 
-- [ ] **Step 1: Write failing Electron backend import test**
+- [ ] **Step 1: Write focused runtime backend import test**
 
-Modify `tests/electron/runtime-mock-fallback.test.ts` so runtime imports come from the backend package:
+Modify `tests/runtime/create-runtime-services.test.ts` so runtime imports come from the backend package and no-model startup is asserted as an error:
 
 ```ts
-import { DEFAULT_MOCK_MODEL_ID } from '@story-weaver/backend/models/runtime-mode';
-import { countStoryCharacters } from '@story-weaver/backend/core/story-constraints';
 import type { RuntimeServices } from '@story-weaver/backend/runtime/create-runtime-services';
 ```
 
@@ -1022,7 +1011,7 @@ const runtimeModule = await import('@story-weaver/backend/runtime/create-runtime
 Run:
 
 ```bash
-pnpm exec vitest run tests/electron/runtime-mock-fallback.test.ts tests/server/static.test.ts --reporter=dot
+pnpm exec vitest run tests/runtime/create-runtime-services.test.ts tests/server/static.test.ts --reporter=dot
 ```
 
 Expected: FAIL only if package aliases or static paths are incomplete.
@@ -1171,7 +1160,7 @@ Keep the native `better_sqlite3.node` assertion unchanged unless electron-builde
 Run:
 
 ```bash
-pnpm exec vitest run tests/electron/runtime-mock-fallback.test.ts tests/server/static.test.ts tests/architecture/import-boundaries.test.ts --reporter=dot
+pnpm exec vitest run tests/runtime/create-runtime-services.test.ts tests/server/static.test.ts tests/architecture/import-boundaries.test.ts --reporter=dot
 pnpm run typecheck
 pnpm run build
 ```
@@ -1237,7 +1226,7 @@ rg "src/|server/|renderer/" package.json tsconfig.json tsconfig.node.json tsconf
 For each result:
 
 - Replace `src/shared` imports with `@story-weaver/shared`.
-- Replace `src/core`, `src/storage`, `src/models`, `src/runtime`, `src/mock`, and `server` imports with `@story-weaver/backend`.
+- Replace `src/core`, `src/storage`, `src/models`, `src/runtime`, and `server` imports with `@story-weaver/backend`.
 - Replace `renderer` imports with `@story-weaver/frontend` or `@` when inside frontend code.
 - Replace build paths with `packages/frontend/dist` and `packages/backend/dist`.
 
@@ -1260,7 +1249,7 @@ This is a pnpm workspace with explicit frontend, backend, and shared packages.
 
 ### Backend (`packages/backend`)
 - Fastify local API server for browser and Electron modes.
-- Owns story core, runtime services, model providers, mock services, SQLite storage, exports, and route validation.
+- Owns story core, runtime services, model providers, SQLite storage, exports, and route validation.
 - May import `@story-weaver/shared`.
 
 ### Shared (`packages/shared`)

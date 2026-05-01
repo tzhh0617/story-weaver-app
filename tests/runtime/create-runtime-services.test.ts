@@ -59,10 +59,8 @@ describe('createRuntimeServices', () => {
     }
   });
 
-  it('resumes paused books through the background scheduler', async () => {
+  it('marks scheduled books as errored when no model is configured', async () => {
     vi.stubEnv('STORY_WEAVER_DISABLE_LOCAL_ENV', '1');
-    vi.stubEnv('STORY_WEAVER_MOCK_DELAY_MS', '80');
-    vi.stubEnv('STORY_WEAVER_MOCK_STREAM_TOKENS_PER_SECOND', '300000');
     const rootDir = mkdtempSync(path.join(os.tmpdir(), 'story-weaver-runtime-'));
     const services = createRuntimeServices({ rootDir });
 
@@ -73,14 +71,12 @@ describe('createRuntimeServices', () => {
         wordsPerChapter: 90,
       });
 
-      await services.bookService.startBook(bookId);
-      services.pauseBook(bookId);
-      await services.resumeBook(bookId);
+      await services.startBook(bookId);
+      const detail = await waitForBookStatus(services, bookId, 'error');
 
-      expect(services.getSchedulerStatus().runningBookIds).toContain(bookId);
-
-      const detail = await waitForBookStatus(services, bookId, 'completed');
-      expect(detail?.chapters.filter((chapter) => chapter.content)).toHaveLength(3);
+      expect(detail?.progress?.phase).toBe('error');
+      expect(detail?.progress?.errorMsg).toBe('No model configured');
+      expect(detail?.chapters).toEqual([]);
     } finally {
       services.close();
       rmSync(rootDir, { recursive: true, force: true });

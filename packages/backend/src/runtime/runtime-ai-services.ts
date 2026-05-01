@@ -24,111 +24,7 @@ import {
 import { createRuntimeRegistry } from '../models/registry.js';
 import {
   createRuntimeMode,
-  DEFAULT_MOCK_MODEL_ID,
 } from '../models/runtime-mode.js';
-import { createMockStoryServices } from '../mock/story-services.js';
-
-const DEFAULT_MOCK_RUNTIME_DELAY_MS = 1000;
-const DEFAULT_MOCK_STREAM_TOKENS_PER_SECOND = 200;
-const MOCK_STREAM_CHUNK_TOKENS = 40;
-
-function parseMockRuntimeDelayMs(value: string | undefined) {
-  if (value === undefined) {
-    return DEFAULT_MOCK_RUNTIME_DELAY_MS;
-  }
-
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed < 0) {
-    return DEFAULT_MOCK_RUNTIME_DELAY_MS;
-  }
-
-  return parsed;
-}
-
-function parseMockStreamTokensPerSecond(value: string | undefined) {
-  if (value === undefined) {
-    return DEFAULT_MOCK_STREAM_TOKENS_PER_SECOND;
-  }
-
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    return DEFAULT_MOCK_STREAM_TOKENS_PER_SECOND;
-  }
-
-  return parsed;
-}
-
-function countMockStreamTokens(text: string) {
-  let count = 0;
-
-  for (const character of text) {
-    if (!/\s/u.test(character)) {
-      count += 1;
-    }
-  }
-
-  return count;
-}
-
-function splitMockStreamChunks(text: string, maxTokens: number) {
-  const chunks: string[] = [];
-  let chunk = '';
-  let tokenCount = 0;
-
-  for (const character of text) {
-    chunk += character;
-    if (!/\s/u.test(character)) {
-      tokenCount += 1;
-    }
-
-    if (tokenCount >= maxTokens) {
-      chunks.push(chunk);
-      chunk = '';
-      tokenCount = 0;
-    }
-  }
-
-  if (chunk) {
-    chunks.push(chunk);
-  }
-
-  return chunks;
-}
-
-async function streamMockChapterContent(
-  content: string,
-  onChunk: (chunk: string) => void
-) {
-  const tokensPerSecond = parseMockStreamTokensPerSecond(
-    process.env.STORY_WEAVER_MOCK_STREAM_TOKENS_PER_SECOND
-  );
-  const chunks = splitMockStreamChunks(content, MOCK_STREAM_CHUNK_TOKENS);
-
-  for (const chunk of chunks) {
-    const chunkTokens = countMockStreamTokens(chunk);
-    const delayMs = Math.max(1, (chunkTokens / tokensPerSecond) * 1000);
-    await new Promise((resolve) => setTimeout(resolve, delayMs));
-    onChunk(chunk);
-  }
-}
-
-async function waitForMockRuntimeDelay() {
-  const delayMs = parseMockRuntimeDelayMs(
-    process.env.STORY_WEAVER_MOCK_DELAY_MS
-  );
-
-  if (delayMs <= 0) {
-    return;
-  }
-
-  await new Promise((resolve) => setTimeout(resolve, delayMs));
-}
-
-async function withMockRuntimeDelay<T>(operation: () => Promise<T>) {
-  const result = await operation();
-  await waitForMockRuntimeDelay();
-  return result;
-}
 
 function getRuntimeModelMode(persistedConfigs: ModelConfigInput[]) {
   const environmentConfigs = resolveEnvironmentModelConfigs();
@@ -136,7 +32,6 @@ function getRuntimeModelMode(persistedConfigs: ModelConfigInput[]) {
   return createRuntimeMode({
     persistedConfigs,
     environmentConfigs: environmentConfigs.configs,
-    fallbackModelId: DEFAULT_MOCK_MODEL_ID,
     preferEnvironmentConfigs: environmentConfigs.preferEnvironmentConfigs,
   });
 }
@@ -147,10 +42,6 @@ function getRuntimeLanguageModel(input: {
 }) {
   const runtimeMode = getRuntimeModelMode(input.persistedConfigs);
   const modelId = normalizeModelId(input.modelId);
-
-  if (runtimeMode.kind === 'mock') {
-    throw new Error(`Model not found: ${modelId}`);
-  }
 
   if (!runtimeMode.availableConfigs.some((config) => config.id === modelId)) {
     throw new Error(`Model not found: ${modelId}`);
@@ -168,19 +59,12 @@ export function createRuntimeAiServices(input: {
   };
 }) {
   const { modelConfigs } = input;
-  const mockServices = createMockStoryServices();
 
   const outlineService = {
     async generateTitleFromIdea(
       outlineInput: OutlineGenerationInput & { modelId: string }
     ) {
       const runtimeMode = getRuntimeModelMode(modelConfigs.list());
-      if (runtimeMode.kind === 'mock') {
-        return withMockRuntimeDelay(() =>
-          mockServices.outlineService.generateTitleFromIdea(outlineInput)
-        );
-      }
-
       const registry = createRuntimeRegistry(runtimeMode.availableConfigs);
       return createAiOutlineService({
         registry: registry as {
@@ -197,12 +81,6 @@ export function createRuntimeAiServices(input: {
       outlineInput: OutlineGenerationInput & { modelId: string }
     ) {
       const runtimeMode = getRuntimeModelMode(modelConfigs.list());
-      if (runtimeMode.kind === 'mock') {
-        return withMockRuntimeDelay(() =>
-          mockServices.outlineService.generateFromIdea(outlineInput)
-        );
-      }
-
       const registry = createRuntimeRegistry(runtimeMode.availableConfigs);
       return createAiOutlineService({
         registry: registry as {
@@ -224,18 +102,6 @@ export function createRuntimeAiServices(input: {
     }) {
       const persistedConfigs = modelConfigs.list();
       const runtimeMode = getRuntimeModelMode(persistedConfigs);
-      if (runtimeMode.kind === 'mock') {
-        return withMockRuntimeDelay(async () => {
-          const result = await mockServices.chapterWriter.writeChapter(chapterInput);
-
-          if (chapterInput.onChunk) {
-            await streamMockChapterContent(result.content, chapterInput.onChunk);
-          }
-
-          return result;
-        });
-      }
-
       const model = getRuntimeLanguageModel({
         persistedConfigs,
         modelId: chapterInput.modelId,
@@ -275,10 +141,6 @@ export function createRuntimeAiServices(input: {
     }) => T
   ) {
     const runtimeMode = getRuntimeModelMode(modelConfigs.list());
-    if (runtimeMode.kind === 'mock') {
-      return null;
-    }
-
     const registry = createRuntimeRegistry(runtimeMode.availableConfigs);
     return factory({
       registry: registry as { languageModel: (id: string) => unknown },
@@ -292,10 +154,6 @@ export function createRuntimeAiServices(input: {
   const summaryGenerator = {
     async summarizeChapter(summaryInput: { modelId: string; content: string }) {
       const service = createRegistryBackedService(createAiSummaryGenerator);
-      if (!service) {
-        return mockServices.summaryGenerator.summarizeChapter(summaryInput);
-      }
-
       return service.summarizeChapter(summaryInput);
     },
   };
@@ -307,10 +165,6 @@ export function createRuntimeAiServices(input: {
       content: string;
     }) {
       const service = createRegistryBackedService(createAiPlotThreadExtractor);
-      if (!service) {
-        return mockServices.plotThreadExtractor.extractThreads(extractInput);
-      }
-
       return service.extractThreads(extractInput);
     },
   };
@@ -322,10 +176,6 @@ export function createRuntimeAiServices(input: {
       content: string;
     }) {
       const service = createRegistryBackedService(createAiCharacterStateExtractor);
-      if (!service) {
-        return mockServices.characterStateExtractor.extractStates(extractInput);
-      }
-
       return service.extractStates(extractInput);
     },
   };
@@ -337,10 +187,6 @@ export function createRuntimeAiServices(input: {
       content: string;
     }) {
       const service = createRegistryBackedService(createAiSceneRecordExtractor);
-      if (!service) {
-        return mockServices.sceneRecordExtractor.extractScene(extractInput);
-      }
-
       return service.extractScene(extractInput);
     },
   };
@@ -352,12 +198,6 @@ export function createRuntimeAiServices(input: {
       content: string;
     }) {
       const service = createRegistryBackedService(createAiChapterUpdateExtractor);
-      if (!service) {
-        return mockServices.chapterUpdateExtractor.extractChapterUpdate(
-          extractInput
-        );
-      }
-
       return service.extractChapterUpdate(extractInput);
     },
   };
@@ -369,10 +209,6 @@ export function createRuntimeAiServices(input: {
       auditContext: string;
     }) {
       const service = createRegistryBackedService(createAiChapterAuditor);
-      if (!service) {
-        return mockServices.chapterAuditor.auditChapter(auditInput);
-      }
-
       return service.auditChapter(auditInput);
     },
   };
@@ -385,10 +221,6 @@ export function createRuntimeAiServices(input: {
       issues: NarrativeAudit['issues'];
     }) {
       const service = createRegistryBackedService(createAiChapterRevision);
-      if (!service) {
-        return mockServices.chapterRevision.reviseChapter(revisionInput);
-      }
-
       return service.reviseChapter(revisionInput);
     },
   };
@@ -396,10 +228,6 @@ export function createRuntimeAiServices(input: {
   const narrativeStateExtractor = {
     async extractState(stateInput: { modelId: string; content: string }) {
       const service = createRegistryBackedService(createAiNarrativeStateExtractor);
-      if (!service) {
-        return mockServices.narrativeStateExtractor.extractState(stateInput);
-      }
-
       return service.extractState(stateInput);
     },
   };
@@ -409,11 +237,6 @@ export function createRuntimeAiServices(input: {
       bookId: string;
       chapterIndex: number;
     }) {
-      const runtimeMode = getRuntimeModelMode(modelConfigs.list());
-      if (runtimeMode.kind === 'mock') {
-        return mockServices.narrativeCheckpoint.reviewCheckpoint(checkpointInput);
-      }
-
       return {
         checkpointType: 'arc',
         arcReport: {},
@@ -445,7 +268,6 @@ export function createRuntimeAiServices(input: {
       const runtimeMode = getRuntimeModelMode(modelConfigs.list());
 
       if (
-        runtimeMode.kind === 'mock' ||
         !runtimeMode.availableConfigs.some((config) => config.id === normalizedModelId)
       ) {
         return {

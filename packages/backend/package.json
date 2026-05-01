@@ -28,10 +28,6 @@
       "types": "./dist/models/*.d.ts",
       "import": "./dist/models/*.js"
     },
-    "./mock/*": {
-      "types": "./dist/mock/*.d.ts",
-      "import": "./dist/mock/*.js"
-    },
     "./storage/*": {
       "types": "./dist/storage/*.d.ts",
       "import": "./dist/storage/*.js"

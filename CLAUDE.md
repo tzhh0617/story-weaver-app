@@ -88,7 +88,7 @@ This is a pnpm workspace with explicit frontend, backend, and shared packages.
 
 ### Backend (`packages/backend`)
 - Fastify local API server for browser and Electron modes.
-- Owns story core, runtime services, model providers, mock services, SQLite storage, exports, and route validation.
+- Owns story core, runtime services, model providers, SQLite storage, exports, and route validation.
 - May import `@story-weaver/shared`.
 - Concrete route modules live under `packages/backend/src/routes`.
 
@@ -116,8 +116,9 @@ not close the runtime, pause the scheduler, or cancel generation.
 - `tsconfig.server.json` — backend compatibility typecheck.
 - Each workspace package also has its own `tsconfig.json`.
 
-### Mock / Dev Mode
-When no model configs are saved and no `OPENAI_API_KEY` / `ANTHROPIC_API_KEY`
-env vars are set, `createRuntimeMode` returns `kind: 'mock'` and all AI calls
-are handled by deterministic mocks in `packages/backend/src/mock`. This lets the
-full UI flow work without API keys.
+### Model Runtime
+Generation requires at least one complete saved model config or a complete
+environment model config from `OPENAI_API_KEY` / `ANTHROPIC_API_KEY`.
+`createRuntimeMode` filters invalid configs and `resolveModelId()` throws
+`No model configured` when none remain; the runtime no longer auto-generates
+mock content when no model is available.

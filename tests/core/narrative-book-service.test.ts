@@ -231,7 +231,7 @@ describe('narrative book-service integration', () => {
       sceneRecordExtractor: {
         extractScene: vi.fn().mockResolvedValue(null),
       },
-      resolveModelId: () => 'mock',
+      resolveModelId: () => 'test:model',
     });
 
     const bookId = service.createBook({
@@ -317,7 +317,7 @@ describe('narrative book-service integration', () => {
       sceneRecordExtractor: {
         extractScene: vi.fn().mockResolvedValue(null),
       },
-      resolveModelId: () => 'mock',
+      resolveModelId: () => 'test:model',
     });
 
     const bookId = service.createBook({
@@ -471,7 +471,7 @@ describe('narrative book-service integration', () => {
       sceneRecordExtractor: {
         extractScene: vi.fn().mockResolvedValue(null),
       },
-      resolveModelId: () => 'mock',
+      resolveModelId: () => 'test:model',
     });
 
     const bookId = service.createBook({

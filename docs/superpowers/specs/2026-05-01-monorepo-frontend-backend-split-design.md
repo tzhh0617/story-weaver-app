@@ -7,7 +7,7 @@ Split Story Weaver into explicit monorepo packages for frontend, backend, and sh
 The target architecture is:
 
 - `packages/frontend`: React/Vite UI and browser transport.
-- `packages/backend`: Fastify API, runtime services, AI orchestration, model providers, SQLite repositories, story core, and mock services.
+- `packages/backend`: Fastify API, runtime services, AI orchestration, model providers, SQLite repositories, and story core.
 - `packages/shared`: API contracts, shared types, and pure cross-runtime constants/helpers.
 - `electron`: desktop shell that starts the backend server and loads the frontend. It must not contain business logic.
 
@@ -44,7 +44,7 @@ The root package remains the orchestration layer for scripts, Electron packaging
 - AI model registry and providers.
 - SQLite schema, migrations, and repositories.
 - Export generation and local file serving registry.
-- Deterministic mock services used by tests and development fallback.
+- Model runtime validation and strict failure when no usable model is configured.
 
 `packages/frontend` owns browser/UI behavior:
 
@@ -100,7 +100,6 @@ packages/
       routes/
       core/
       models/
-      mock/
       runtime/
       storage/
       utils/
@@ -189,7 +188,7 @@ Use staged moves to keep the app working between steps:
 
 1. Introduce workspace metadata and package-level TypeScript configs.
 2. Move shared contracts and pure shared helpers from `src/shared` into `packages/shared/src`.
-3. Move backend-owned modules from `server` and `src/core|storage|models|runtime|mock|utils` into `packages/backend/src`.
+3. Move backend-owned modules from `server` and `src/core|storage|models|runtime|utils` into `packages/backend/src`.
 4. Move renderer files into `packages/frontend/src` and update Vite aliases.
 5. Update import paths to use `@story-weaver/shared`, `@story-weaver/backend`, and frontend-local aliases.
 6. Update root scripts, package build outputs, Electron startup imports, and Electron packaging config.
@@ -220,7 +219,7 @@ Import-boundary violations should fail tests or typecheck, not rely on review co
 Use existing tests as regression coverage while updating import paths:
 
 - `tests/server/*`: import backend server utilities from `@story-weaver/backend`.
-- `tests/core/*`, `tests/storage/*`, `tests/models/*`, `tests/runtime/*`, `tests/mock/*`: import backend internals from `@story-weaver/backend` package subpaths.
+- `tests/core/*`, `tests/storage/*`, `tests/models/*`, `tests/runtime/*`: import backend internals from `@story-weaver/backend` package subpaths.
 - `tests/renderer/*`: import frontend modules from `@story-weaver/frontend` or package-local aliases where appropriate.
 - Contract tests: import shared types from `@story-weaver/shared`.
 
@@ -249,6 +248,6 @@ pnpm run smoke:electron-package
 - Browser mode can create, list, read, start, pause, resume, restart, write, and export books through the backend API.
 - Electron desktop mode still starts the local backend and loads the frontend successfully.
 - Existing SQLite data location and migration behavior remain compatible.
-- Existing model mock fallback behavior remains compatible.
+- Generation requires a complete saved or environment model config; no-model execution fails with a clear error instead of generating placeholder content.
 - Import-boundary tests prevent reintroducing ambiguous `src` ownership.
 - Full typecheck, test, build, browser persistence smoke, and Electron package smoke pass.

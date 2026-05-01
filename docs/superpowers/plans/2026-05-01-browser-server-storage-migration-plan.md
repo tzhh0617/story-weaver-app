@@ -109,7 +109,7 @@ Expected: PASS.
 - Create: `src/runtime/app-paths.ts`
 - Modify: `electron/runtime.ts`
 - Test: `tests/runtime/create-runtime-services.test.ts`
-- Test: `tests/electron/runtime-mock-fallback.test.ts`
+- Test: `tests/server/runtime-lifecycle.test.ts`
 
 - [x] **Step 1: Write failing shared runtime boot test**
 
@@ -131,7 +131,7 @@ Update `electron/runtime.ts` so `getRuntimeServices()` calls `createRuntimeServi
 
 - [x] **Step 5: Verify runtime behavior**
 
-Run: `pnpm exec vitest run tests/runtime/create-runtime-services.test.ts tests/electron/runtime-mock-fallback.test.ts --reporter=dot`
+Run: `pnpm exec vitest run tests/runtime/create-runtime-services.test.ts tests/server/runtime-lifecycle.test.ts --reporter=dot`
 
 Expected: PASS.
 

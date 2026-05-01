@@ -1,23 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import {
-  createRuntimeMode,
-  DEFAULT_MOCK_MODEL_ID,
-} from '@story-weaver/backend/models/runtime-mode';
+import { createRuntimeMode } from '@story-weaver/backend/models/runtime-mode';
 
 describe('createRuntimeMode', () => {
-  it('enters mock mode when no complete model config is available', () => {
+  it('throws when no complete model config is available', () => {
     const mode = createRuntimeMode({
       persistedConfigs: [],
       environmentConfigs: [],
-      fallbackModelId: DEFAULT_MOCK_MODEL_ID,
     });
 
-    expect(mode.kind).toBe('mock');
+    expect(mode.kind).toBe('real');
     expect(mode.availableConfigs).toEqual([]);
-    expect(mode.resolveModelId()).toBe(DEFAULT_MOCK_MODEL_ID);
+    expect(() => mode.resolveModelId()).toThrow('No model configured');
   });
 
-  it('stays in mock mode when configs exist but are incomplete', () => {
+  it('rejects incomplete configs instead of selecting a placeholder model', () => {
     const mode = createRuntimeMode({
       persistedConfigs: [],
       environmentConfigs: [
@@ -30,11 +26,11 @@ describe('createRuntimeMode', () => {
           config: {},
         },
       ],
-      fallbackModelId: DEFAULT_MOCK_MODEL_ID,
     });
 
-    expect(mode.kind).toBe('mock');
+    expect(mode.kind).toBe('real');
     expect(mode.availableConfigs).toEqual([]);
+    expect(() => mode.resolveModelId()).toThrow('No model configured');
   });
 
   it('enters real mode when a persisted config is complete', () => {
@@ -50,7 +46,6 @@ describe('createRuntimeMode', () => {
         },
       ],
       environmentConfigs: [],
-      fallbackModelId: DEFAULT_MOCK_MODEL_ID,
     });
 
     expect(mode.kind).toBe('real');
@@ -80,7 +75,6 @@ describe('createRuntimeMode', () => {
           config: {},
         },
       ],
-      fallbackModelId: DEFAULT_MOCK_MODEL_ID,
     });
 
     expect(mode.availableConfigs).toEqual([
@@ -110,7 +104,6 @@ describe('createRuntimeMode', () => {
           config: {},
         },
       ],
-      fallbackModelId: DEFAULT_MOCK_MODEL_ID,
       preferEnvironmentConfigs: true,
     });
 
@@ -140,7 +133,6 @@ describe('createRuntimeMode', () => {
           config: {},
         },
       ],
-      fallbackModelId: DEFAULT_MOCK_MODEL_ID,
       preferEnvironmentConfigs: true,
     });
 

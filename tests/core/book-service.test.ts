@@ -8,9 +8,16 @@ import { createCharacterRepository } from '@story-weaver/backend/storage/charact
 import { createPlotThreadRepository } from '@story-weaver/backend/storage/plot-threads';
 import { createProgressRepository } from '@story-weaver/backend/storage/progress';
 import { createSceneRecordRepository } from '@story-weaver/backend/storage/scene-records';
-import { createBookService } from '@story-weaver/backend/core/book-service';
+import { createBookService as createBackendBookService } from '@story-weaver/backend/core/book-service';
 import { countStoryCharacters } from '@story-weaver/backend/core/story-constraints';
 import type { BookGenerationEvent } from '@story-weaver/shared/contracts';
+
+function createBookService(input: Parameters<typeof createBackendBookService>[0]) {
+  return createBackendBookService({
+    resolveModelId: () => 'test:model',
+    ...input,
+  });
+}
 
 describe('createBookService', () => {
   it('creates and lists books from persisted storage', () => {
@@ -1904,7 +1911,7 @@ describe('createBookService', () => {
     expect(chapter?.summary).toBe('第二稿补足了场景、冲突和情绪推进。');
   });
 
-  it('skips short-chapter rewrite when using a mock model id', async () => {
+  it('runs short-chapter rewrite without model-id-specific mock exceptions', async () => {
     const db = createDatabase(':memory:');
     const writeChapter = vi.fn().mockResolvedValue({
       content: '太短',
@@ -1952,7 +1959,7 @@ describe('createBookService', () => {
         extractScene: vi.fn().mockResolvedValue(null),
       },
       shouldRewriteShortChapter,
-      resolveModelId: () => 'mock:preview',
+      resolveModelId: () => 'test:model',
     });
 
     const bookId = service.createBook({
@@ -1964,8 +1971,11 @@ describe('createBookService', () => {
     await service.startBook(bookId);
     await service.writeNextChapter(bookId);
 
-    expect(shouldRewriteShortChapter).not.toHaveBeenCalled();
-    expect(writeChapter).toHaveBeenCalledTimes(1);
+    expect(shouldRewriteShortChapter).toHaveBeenCalledWith({
+      content: '太短',
+      wordsPerChapter: 20,
+    });
+    expect(writeChapter).toHaveBeenCalledTimes(2);
     expect(service.getBookDetail(bookId)?.chapters[0]?.content).toBe('太短');
   });
 

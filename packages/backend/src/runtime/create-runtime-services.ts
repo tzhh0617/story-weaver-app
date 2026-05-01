@@ -19,10 +19,7 @@ import type {
 } from '@story-weaver/shared/contracts';
 import type { ModelConfigInput } from '../models/config.js';
 import { resolveEnvironmentModelConfigs } from '../models/environment-config.js';
-import {
-  createRuntimeMode,
-  DEFAULT_MOCK_MODEL_ID,
-} from '../models/runtime-mode.js';
+import { createRuntimeMode } from '../models/runtime-mode.js';
 import { createSettingsRepository } from '../storage/settings.js';
 import { createRuntimeAiServices } from './runtime-ai-services.js';
 
@@ -128,7 +125,6 @@ export function createRuntimeServices(input: {
     const runtimeMode = createRuntimeMode({
       persistedConfigs: modelConfigs.list(),
       environmentConfigs: environmentConfigs.configs,
-      fallbackModelId: DEFAULT_MOCK_MODEL_ID,
       preferEnvironmentConfigs: environmentConfigs.preferEnvironmentConfigs,
     });
 

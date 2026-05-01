@@ -58,7 +58,7 @@ describe('createDatabase', () => {
           words_per_chapter, created_at, updated_at
         ) VALUES (
           'book-legacy', 'Legacy Book', 'A city remembers.',
-          'writing', 'mock:fallback', 1, 1200,
+          'writing', 'test:model', 1, 1200,
           '2026-04-30T00:00:00.000Z', '2026-04-30T00:00:00.000Z'
         );
 

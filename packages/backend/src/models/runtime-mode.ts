@@ -3,16 +3,9 @@ import {
   validateModelConfig,
 } from './config.js';
 
-export const DEFAULT_MOCK_MODEL_ID = 'mock:fallback';
-
-export function isMockModelId(modelId: string) {
-  return modelId.startsWith('mock:');
-}
-
 type RuntimeModeInput = {
   persistedConfigs: ModelConfigInput[];
   environmentConfigs: ModelConfigInput[];
-  fallbackModelId: string;
   preferEnvironmentConfigs?: boolean;
 };
 
@@ -41,8 +34,15 @@ export function createRuntimeMode(input: RuntimeModeInput) {
   });
 
   return {
-    kind: availableConfigs.length > 0 ? 'real' : 'mock',
+    kind: 'real',
     availableConfigs,
-    resolveModelId: () => availableConfigs[0]?.id ?? input.fallbackModelId,
+    resolveModelId: () => {
+      const modelId = availableConfigs[0]?.id;
+      if (!modelId) {
+        throw new Error('No model configured');
+      }
+
+      return modelId;
+    },
   } as const;
 }

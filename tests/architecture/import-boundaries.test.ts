@@ -15,6 +15,7 @@ function listTrackedSourceFiles() {
     .split('\n')
     .filter(Boolean)
     .filter((file) => /\.(ts|tsx|cts|mts)$/.test(file))
+    .filter((file) => existsSync(path.join(rootDir, file)))
     .filter((file) => !file.startsWith('dist'))
     .filter((file) => !file.startsWith('dist-electron'))
     .filter((file) => !file.startsWith('dist-server'));
