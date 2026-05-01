@@ -25,36 +25,30 @@ describe('server export route', () => {
     try {
       const createResponse = await server.inject({
         method: 'POST',
-        url: '/api/invoke',
+        url: '/api/books',
         payload: {
-          channel: 'book:create',
-          payload: {
-            idea: 'A city remembers every exported chapter.',
-            targetChapters: 1,
-            wordsPerChapter: 1200,
-          },
+          idea: 'A city remembers every exported chapter.',
+          targetChapters: 1,
+          wordsPerChapter: 1200,
         },
       });
-      const bookId = createResponse.json().data as string;
+      const bookId = createResponse.json().bookId as string;
 
       const exportResponse = await server.inject({
         method: 'POST',
-        url: '/api/invoke',
-        payload: {
-          channel: 'book:export',
-          payload: { bookId, format: 'txt' },
-        },
+        url: `/api/books/${bookId}/exports`,
+        payload: { format: 'txt' },
       });
 
       expect(exportResponse.statusCode).toBe(200);
-      expect(exportResponse.json().data).toMatchObject({
+      expect(exportResponse.json()).toMatchObject({
         filePath: expect.stringMatching(/\.txt$/),
         downloadUrl: expect.stringMatching(/^\/api\/exports\//),
       });
 
       const downloadResponse = await server.inject({
         method: 'GET',
-        url: exportResponse.json().data.downloadUrl,
+        url: exportResponse.json().downloadUrl,
       });
 
       expect(downloadResponse.statusCode).toBe(200);

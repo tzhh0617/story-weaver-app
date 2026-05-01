@@ -3,6 +3,7 @@ import Fastify from 'fastify';
 import { createRuntimeServices } from '../src/runtime/create-runtime-services.js';
 import { resolveServerConfig } from './config.js';
 import { createExportRegistry } from './export-registry.js';
+import { registerBookRoutes } from './routes/books.js';
 import { registerEventRoutes } from './routes/events.js';
 import { registerExportRoutes } from './routes/exports.js';
 import { registerHealthRoutes } from './routes/health.js';
@@ -29,6 +30,7 @@ export async function buildServer(options?: {
     origin: true,
   });
   await registerHealthRoutes(app);
+  await registerBookRoutes(app, services, { exportsRegistry });
   await registerInvokeRoutes(app, services, { exportsRegistry });
   await registerEventRoutes(app, services);
   await registerExportRoutes(app, exportsRegistry);
