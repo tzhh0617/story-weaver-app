@@ -10,7 +10,6 @@ import { createScheduler } from '../core/scheduler.js';
 import { buildAppPaths } from '../shared/paths.js';
 import { createDatabase, createRepositories } from '../storage/database.js';
 import { createModelConfigRepository } from '../storage/model-configs.js';
-import { exportBookToFile } from '../storage/export.js';
 import { createExecutionLogStream } from '../storage/logs.js';
 import type {
   BookExportFormat,
@@ -24,6 +23,12 @@ import { createSettingsRepository } from '../storage/settings.js';
 import { createRuntimeAiServices } from './runtime-ai-services.js';
 import { createLoggingService } from './create-logging-service.js';
 import { createBookRunner } from './create-book-runner.js';
+import {
+  createEventBroadcastService,
+  type SchedulerStatusView,
+} from './create-event-broadcast-service.js';
+import { createBatchOperationsService } from './create-batch-operations-service.js';
+import { createBookExportService } from './create-book-export-service.js';
 
 export type RuntimeServices = {
   bookService: ReturnType<typeof createBookOrchestrator>;
@@ -44,19 +49,9 @@ export type RuntimeServices = {
   startAllBooks: () => Promise<void>;
   pauseAllBooks: () => Promise<void>;
   setSchedulerConcurrencyLimit: (limit: number | null) => void;
-  getSchedulerStatus: () => {
-    runningBookIds: string[];
-    queuedBookIds: string[];
-    pausedBookIds: string[];
-    concurrencyLimit: number | null;
-  };
+  getSchedulerStatus: () => SchedulerStatusView;
   subscribeSchedulerStatus: (
-    listener: (status: {
-      runningBookIds: string[];
-      queuedBookIds: string[];
-      pausedBookIds: string[];
-      concurrencyLimit: number | null;
-    }) => void
+    listener: (status: SchedulerStatusView) => void
   ) => () => void;
   subscribeBookGeneration: (
     listener: (event: BookGenerationEvent) => void
@@ -107,20 +102,9 @@ export function createRuntimeServices(input: {
   const settings = repositories.settings;
   const logs = createExecutionLogStream();
   const aiServices = createRuntimeAiServices({ modelConfigs });
-  const schedulerListeners = new Set<
-    (status: {
-      runningBookIds: string[];
-      queuedBookIds: string[];
-      pausedBookIds: string[];
-      concurrencyLimit: number | null;
-    }) => void
-  >();
-  const bookGenerationListeners = new Set<
-    (event: BookGenerationEvent) => void
-  >();
   const runningBookIds = new Set<string>();
+  let scheduler: ReturnType<typeof createScheduler>;
   let bookService!: ReturnType<typeof createBookOrchestrator>;
-  let closed = false;
 
   function listModelConfigs() {
     const environmentConfigs = resolveEnvironmentModelConfigs();
@@ -135,38 +119,18 @@ export function createRuntimeServices(input: {
 
   const logging = createLoggingService({ books, logs });
 
-  function currentSchedulerStatus() {
-    const schedulerStatus = scheduler.getStatus();
-    return {
-      ...schedulerStatus,
-      pausedBookIds: bookService
-        .listBooks()
-        .filter((book) => book.status === 'paused')
-        .map((book) => book.id),
-    };
-  }
+  const eventBroadcast = createEventBroadcastService({
+    getSchedulerStatus: () => scheduler.getStatus(),
+    getBooks: () => bookService.listBooks(),
+    logging,
+  });
 
-  function emitSchedulerStatus() {
-    const status = currentSchedulerStatus();
-    for (const listener of schedulerListeners) {
-      listener(status);
-    }
-  }
-
-  function emitBookGeneration(event: BookGenerationEvent) {
-    logging.logGenerationEvent(event);
-
-    for (const listener of bookGenerationListeners) {
-      listener(event);
-    }
-  }
-
-  const scheduler = createScheduler({
+  scheduler = createScheduler({
     concurrencyLimit: parseConcurrencyLimit(
       settings.get('scheduler.concurrencyLimit')
     ),
     onStatusChange: () => {
-      emitSchedulerStatus();
+      eventBroadcast.emitSchedulerStatus();
     },
   });
 
@@ -223,9 +187,9 @@ export function createRuntimeServices(input: {
       }),
     resolveModelId: aiServices.resolveModelId,
     onBookUpdated: () => {
-      emitSchedulerStatus();
+      eventBroadcast.emitSchedulerStatus();
     },
-    onGenerationEvent: emitBookGeneration,
+    onGenerationEvent: eventBroadcast.emitBookGeneration,
   });
 
   const bookRunner = createBookRunner({
@@ -233,12 +197,27 @@ export function createRuntimeServices(input: {
     progress,
     bookService,
     logExecution: logging.logExecution,
-    emitBookGeneration,
-    emitSchedulerStatus,
+    emitBookGeneration: eventBroadcast.emitBookGeneration,
+    emitSchedulerStatus: eventBroadcast.emitSchedulerStatus,
     scheduler,
     runningBookIds,
     createEngineForBook,
   });
+
+  const batchOps = createBatchOperationsService({
+    bookService,
+    logging,
+    bookRunner,
+    scheduler,
+    emitSchedulerStatus: eventBroadcast.emitSchedulerStatus,
+  });
+
+  const exportService = createBookExportService({
+    bookService,
+    exportDir: appPaths.exportDir,
+  });
+
+  let closed = false;
 
   return {
     bookService,
@@ -267,7 +246,7 @@ export function createRuntimeServices(input: {
         phase: 'paused',
         message: '作品已暂停',
       });
-      emitSchedulerStatus();
+      eventBroadcast.emitSchedulerStatus();
     },
     writeNextChapter: async (bookId: string) => {
       logging.logExecution({
@@ -365,102 +344,23 @@ export function createRuntimeServices(input: {
         bookRunner.markBookErrored(bookId, error);
         throw error;
       }
-      emitSchedulerStatus();
+      eventBroadcast.emitSchedulerStatus();
     },
     deleteBook: async (bookId: string) => {
       scheduler.unregister(bookId);
       bookService.deleteBook(bookId);
-      emitSchedulerStatus();
+      eventBroadcast.emitSchedulerStatus();
     },
-    exportBook: async (bookId: string, format: BookExportFormat) => {
-      const detail = bookService.getBookDetail(bookId);
-
-      if (!detail) {
-        throw new Error(`Book not found: ${bookId}`);
-      }
-
-      const result = await exportBookToFile({
-        exportDir: appPaths.exportDir,
-        format,
-        title: detail.book.title,
-        chapters: detail.chapters.map((chapter) => ({
-          chapterIndex: chapter.chapterIndex,
-          title: chapter.title,
-          content: chapter.content,
-        })),
-      });
-
-      return result.filePath;
-    },
-    startAllBooks: async () => {
-      const runnableBooks = bookService
-        .listBooks()
-        .filter((book) => book.status !== 'completed' && book.status !== 'paused');
-
-      logging.logExecution({
-        level: 'info',
-        eventType: 'scheduler_start_all',
-        message: `批量开始 ${runnableBooks.length} 本作品`,
-      });
-
-      for (const book of runnableBooks) {
-        logging.logExecution({
-          bookId: book.id,
-          level: 'info',
-          eventType: 'book_queued',
-          message: '作品已加入后台执行队列',
-        });
-        bookRunner.registerBackgroundRunner(book);
-      }
-
-      await scheduler.startAll();
-    },
-    pauseAllBooks: async () => {
-      scheduler.pauseAll();
-
-      const pausableBooks = bookService
-        .listBooks()
-        .filter(
-          (book) => book.status !== 'completed' && book.status !== 'paused'
-        );
-
-      logging.logExecution({
-        level: 'info',
-        eventType: 'scheduler_pause_all',
-        message: `批量暂停 ${pausableBooks.length} 本作品`,
-      });
-
-      for (const book of pausableBooks) {
-        bookService.pauseBook(book.id);
-        logging.logExecution({
-          bookId: book.id,
-          level: 'info',
-          eventType: 'book_paused',
-          phase: 'paused',
-          message: '作品已暂停',
-        });
-      }
-
-      emitSchedulerStatus();
-    },
+    exportBook: exportService.exportBook,
+    startAllBooks: batchOps.startAllBooks,
+    pauseAllBooks: batchOps.pauseAllBooks,
     setSchedulerConcurrencyLimit: (limit: number | null) => {
       scheduler.setConcurrencyLimit(limit);
-      emitSchedulerStatus();
+      eventBroadcast.emitSchedulerStatus();
     },
-    getSchedulerStatus: () => currentSchedulerStatus(),
-    subscribeSchedulerStatus: (listener) => {
-      schedulerListeners.add(listener);
-      listener(currentSchedulerStatus());
-      return () => {
-        schedulerListeners.delete(listener);
-      };
-    },
-    subscribeBookGeneration: (listener) => {
-      bookGenerationListeners.add(listener);
-      return () => {
-        bookGenerationListeners.delete(listener);
-      };
-    },
+    getSchedulerStatus: () => eventBroadcast.currentSchedulerStatus(),
+    subscribeSchedulerStatus: eventBroadcast.subscribeSchedulerStatus,
+    subscribeBookGeneration: eventBroadcast.subscribeBookGeneration,
     subscribeExecutionLogs: (listener) => logs.subscribe(listener),
     testModel: aiServices.testModel,
     close: () => {
@@ -470,8 +370,7 @@ export function createRuntimeServices(input: {
 
       closed = true;
       scheduler.pauseAll();
-      schedulerListeners.clear();
-      bookGenerationListeners.clear();
+      eventBroadcast.clear();
       runningBookIds.clear();
       db.close();
     },

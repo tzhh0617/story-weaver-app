@@ -1,124 +1,9 @@
-import type { BookGenerationEvent, BookStatus } from '@story-weaver/shared/contracts';
-import type {
-  ChapterCharacterPressure,
-  ChapterRelationshipAction,
-  ChapterTensionBudget,
-  ChapterThreadAction,
-} from '../../narrative/types.js';
-import { normalizeChapterOutlinesToTarget } from '../../story-constraints.js';
-import type { OutlineBundle, OutlineGenerationInput } from '../../types.js';
 import { deriveTitleFromIdea } from '../book/book-state.js';
+import type { OutlineAggregateDeps } from './outline-aggregate-deps.js';
+import { createOutlineProgressTracker } from './outline-aggregate-deps.js';
+import { saveOutlineBundle } from './outline-bundle-saver.js';
 
-export type OutlineAggregateDeps = {
-  books: {
-    getById: (bookId: string) =>
-      | {
-          id: string;
-          title: string;
-          idea: string;
-          status: string;
-          targetChapters: number;
-          wordsPerChapter: number;
-          viralStrategy?: unknown;
-          createdAt: string;
-          updatedAt: string;
-        }
-      | undefined;
-    updateStatus: (bookId: string, status: BookStatus) => void;
-    updateTitle: (bookId: string, title: string) => void;
-    saveContext: (input: {
-      bookId: string;
-      worldSetting: string;
-      outline: string;
-      styleGuide?: string | null;
-    }) => void;
-    getContext: (bookId: string) =>
-      | {
-          bookId: string;
-          worldSetting: string;
-          outline: string;
-          styleGuide: string | null;
-        }
-      | undefined;
-  };
-  chapters: {
-    upsertOutline: (input: {
-      bookId: string;
-      volumeIndex: number;
-      chapterIndex: number;
-      title: string;
-      outline: string;
-    }) => void;
-    listByBook: (bookId: string) => Array<{
-      bookId: string;
-      volumeIndex: number;
-      chapterIndex: number;
-      title: string | null;
-      outline: string | null;
-      content: string | null;
-      summary: string | null;
-      wordCount: number;
-      auditScore?: number | null;
-      draftAttempts?: number;
-    }>;
-  };
-  progress: {
-    updatePhase: (
-      bookId: string,
-      phase: string,
-      metadata?: {
-        currentVolume?: number | null;
-        currentChapter?: number | null;
-        stepLabel?: string | null;
-        errorMsg?: string | null;
-      }
-    ) => void;
-  };
-  outlineService: {
-    generateTitleFromIdea?: (
-      input: OutlineGenerationInput & { modelId: string }
-    ) => Promise<string>;
-    generateFromIdea: (
-      input: OutlineGenerationInput & { modelId: string }
-    ) => Promise<OutlineBundle>;
-  };
-  storyBibles?: {
-    saveGraph: (
-      bookId: string,
-      bible: NonNullable<OutlineBundle['narrativeBible']>
-    ) => void;
-  };
-  volumePlans?: {
-    upsertMany: (bookId: string, plans: NonNullable<OutlineBundle['volumePlans']>) => void;
-  };
-  chapterCards?: {
-    upsertMany: (cards: NonNullable<OutlineBundle['chapterCards']>) => void;
-    upsertThreadActions?: (
-      bookId: string,
-      volumeIndex: number,
-      chapterIndex: number,
-      actions: ChapterThreadAction[]
-    ) => void;
-    upsertCharacterPressures?: (
-      bookId: string,
-      volumeIndex: number,
-      chapterIndex: number,
-      pressures: ChapterCharacterPressure[]
-    ) => void;
-    upsertRelationshipActions?: (
-      bookId: string,
-      volumeIndex: number,
-      chapterIndex: number,
-      actions: ChapterRelationshipAction[]
-    ) => void;
-  };
-  chapterTensionBudgets?: {
-    upsertMany: (budgets: ChapterTensionBudget[]) => void;
-  };
-  resolveModelId: () => string;
-  onBookUpdated?: (bookId: string) => void;
-  onGenerationEvent?: (event: BookGenerationEvent) => void;
-};
+export type { OutlineAggregateDeps } from './outline-aggregate-deps.js';
 
 function saveChapterOutlines(
   deps: {
@@ -134,7 +19,7 @@ function saveChapterOutlines(
     onBookUpdated?: (bookId: string) => void;
   },
   bookId: string,
-  chapterOutlines: OutlineBundle['chapterOutlines']
+  chapterOutlines: import('../../types.js').OutlineBundle['chapterOutlines']
 ) {
   for (const chapter of chapterOutlines) {
     deps.chapters.upsertOutline({
@@ -152,41 +37,11 @@ function saveChapterOutlines(
 }
 
 export function createOutlineAggregate(deps: OutlineAggregateDeps) {
-  function emitProgress(input: {
-    bookId: string;
-    phase: string;
-    stepLabel: string;
-    currentVolume?: number | null;
-    currentChapter?: number | null;
-  }) {
-    deps.onGenerationEvent?.({
-      bookId: input.bookId,
-      type: 'progress',
-      phase: input.phase,
-      stepLabel: input.stepLabel,
-      currentVolume: input.currentVolume ?? null,
-      currentChapter: input.currentChapter ?? null,
-    });
-  }
-
-  function updateTrackedPhase(input: {
-    bookId: string;
-    phase: string;
-    stepLabel: string;
-    currentVolume?: number | null;
-    currentChapter?: number | null;
-    notifyBookUpdated?: boolean;
-  }) {
-    deps.progress.updatePhase(input.bookId, input.phase, {
-      currentVolume: input.currentVolume ?? null,
-      currentChapter: input.currentChapter ?? null,
-      stepLabel: input.stepLabel,
-    });
-    emitProgress(input);
-    if (input.notifyBookUpdated) {
-      deps.onBookUpdated?.(input.bookId);
-    }
-  }
+  const { updateTrackedPhase } = createOutlineProgressTracker({
+    progress: deps.progress,
+    onBookUpdated: deps.onBookUpdated,
+    onGenerationEvent: deps.onGenerationEvent,
+  });
 
   return {
     async generateFromIdea(bookId: string) {
@@ -296,72 +151,11 @@ export function createOutlineAggregate(deps: OutlineAggregateDeps) {
       }
 
       // Phase 3: Post-generation saves
-      deps.books.saveContext({
+      saveOutlineBundle(deps, {
         bookId,
-        worldSetting: outlineBundle.worldSetting,
-        outline: outlineBundle.masterOutline,
+        bundle: outlineBundle,
+        targetChapters: book.targetChapters,
       });
-
-      if (outlineBundle.narrativeBible) {
-        deps.storyBibles?.saveGraph(bookId, outlineBundle.narrativeBible);
-      }
-      if (outlineBundle.volumePlans) {
-        deps.volumePlans?.upsertMany(bookId, outlineBundle.volumePlans);
-      }
-      if (outlineBundle.chapterCards) {
-        deps.chapterCards?.upsertMany(outlineBundle.chapterCards);
-      }
-      if (outlineBundle.chapterTensionBudgets?.length) {
-        deps.chapterTensionBudgets?.upsertMany(outlineBundle.chapterTensionBudgets);
-      }
-      for (const card of outlineBundle.chapterCards ?? []) {
-        const threadActions = (outlineBundle.chapterThreadActions ?? []).filter(
-          (action) =>
-            action.volumeIndex === card.volumeIndex &&
-            action.chapterIndex === card.chapterIndex
-        );
-        const characterPressures = (
-          outlineBundle.chapterCharacterPressures ?? []
-        ).filter(
-          (pressure) =>
-            pressure.volumeIndex === card.volumeIndex &&
-            pressure.chapterIndex === card.chapterIndex
-        );
-        const relationshipActions = (
-          outlineBundle.chapterRelationshipActions ?? []
-        ).filter(
-          (action) =>
-            action.volumeIndex === card.volumeIndex &&
-            action.chapterIndex === card.chapterIndex
-        );
-        deps.chapterCards?.upsertThreadActions?.(
-          bookId,
-          card.volumeIndex,
-          card.chapterIndex,
-          threadActions
-        );
-        deps.chapterCards?.upsertCharacterPressures?.(
-          bookId,
-          card.volumeIndex,
-          card.chapterIndex,
-          characterPressures
-        );
-        deps.chapterCards?.upsertRelationshipActions?.(
-          bookId,
-          card.volumeIndex,
-          card.chapterIndex,
-          relationshipActions
-        );
-      }
-
-      saveChapterOutlines(
-        deps,
-        bookId,
-        normalizeChapterOutlinesToTarget(
-          outlineBundle.chapterOutlines,
-          book.targetChapters
-        )
-      );
 
       // Phase 4: Final status update
       deps.books.updateStatus(bookId, 'building_outline');
