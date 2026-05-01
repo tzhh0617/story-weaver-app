@@ -8,7 +8,7 @@ const packageJson = JSON.parse(
   scripts?: Record<string, string>;
 };
 const viteConfigSource = fs.readFileSync(
-  path.resolve(__dirname, '../../vite.config.ts'),
+  path.resolve(__dirname, '../../packages/frontend/vite.config.ts'),
   'utf8'
 );
 const electronMainSource = fs.readFileSync(
@@ -83,7 +83,9 @@ describe('desktop runtime config', () => {
 
   it('serves packaged renderer assets from the Electron app path', () => {
     expect(electronMainSource).toContain('staticDir');
-    expect(electronMainSource).toContain("path.join(app.getAppPath(), 'dist')");
+    expect(electronMainSource).toContain(
+      "path.join(app.getAppPath(), 'packages/frontend/dist')"
+    );
   });
 
   it('starts the Electron-owned server on an available local port', () => {
@@ -91,7 +93,7 @@ describe('desktop runtime config', () => {
   });
 
   it('packages compiled server files with the Electron app', () => {
-    expect(electronBuilderConfigSource).toContain('dist-server/**');
+    expect(electronBuilderConfigSource).toContain('packages/backend/dist/**');
   });
 
   it('removes obsolete command bus source files', () => {
@@ -132,7 +134,9 @@ describe('desktop runtime config', () => {
   });
 
   it('keeps the renderer dev server pinned to port 5173', () => {
-    expect(packageJson.scripts?.['dev:renderer']).toBe('vite --strictPort');
+    expect(packageJson.scripts?.['dev:frontend']).toBe(
+      'pnpm --filter @story-weaver/frontend dev'
+    );
   });
 
   it('does not force a native rebuild during installation', () => {
@@ -159,11 +163,11 @@ describe('desktop runtime config', () => {
   });
 
   it('rebuilds native SQLite bindings for Node before browser server startup', () => {
-    expect(packageJson.scripts?.['dev:server']).toBe(
-      'pnpm rebuild better-sqlite3 && tsx server/main.ts'
+    expect(packageJson.scripts?.['dev:backend']).toBe(
+      'pnpm --filter @story-weaver/backend dev'
     );
     expect(packageJson.scripts?.['start:server']).toBe(
-      'pnpm rebuild better-sqlite3 && node dist-server/server/main.js'
+      'pnpm --filter @story-weaver/backend start'
     );
   });
 
@@ -175,7 +179,11 @@ describe('desktop runtime config', () => {
     expect(electronPackageSmokeSource).toContain('electron-builder');
     expect(electronPackageSmokeSource).toContain('/drizzle/meta/_journal.json');
     expect(electronPackageSmokeSource).toContain('/dist-electron/');
-    expect(electronPackageSmokeSource).toContain('/dist/index.html');
+    expect(electronPackageSmokeSource).toContain(
+      '/packages/frontend/dist/index.html'
+    );
+    expect(electronPackageSmokeSource).toContain('/packages/backend/dist/');
+    expect(electronPackageSmokeSource).toContain('/packages/shared/dist/');
     expect(electronPackageSmokeSource).toContain('better_sqlite3.node');
   });
 });

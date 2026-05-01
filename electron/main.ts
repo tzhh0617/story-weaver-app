@@ -14,7 +14,7 @@ async function ensureServer() {
   if (!server) {
     server = await startServer({
       port: 0,
-      staticDir: path.join(app.getAppPath(), 'dist'),
+      staticDir: path.join(app.getAppPath(), 'packages/frontend/dist'),
     });
   }
 

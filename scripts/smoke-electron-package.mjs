@@ -21,9 +21,10 @@ const listing = execFileSync('pnpm', ['exec', 'asar', 'list', appAsar], {
 });
 
 for (const expected of [
-  '/dist/index.html',
+  '/packages/frontend/dist/index.html',
+  '/packages/backend/dist/',
+  '/packages/shared/dist/',
   '/dist-electron/',
-  '/dist-server/',
   '/drizzle/meta/_journal.json',
   'better_sqlite3.node',
 ]) {

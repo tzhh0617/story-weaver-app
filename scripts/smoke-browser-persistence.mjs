@@ -147,7 +147,7 @@ async function main() {
   await run(pnpmCommand(), ['run', 'build']);
 
   console.log(`Starting browser server on ${baseUrl}`);
-  serverProcess = spawn(process.execPath, ['dist-server/server/main.js'], {
+  serverProcess = spawn(process.execPath, ['packages/backend/dist/main.js'], {
     stdio: 'inherit',
     shell: false,
     env: {
@@ -155,6 +155,7 @@ async function main() {
       STORY_WEAVER_ROOT_DIR: rootDir,
       STORY_WEAVER_SERVER_HOST: host,
       STORY_WEAVER_SERVER_PORT: String(port),
+      STORY_WEAVER_STATIC_DIR: path.resolve('packages/frontend/dist'),
     },
   });
 

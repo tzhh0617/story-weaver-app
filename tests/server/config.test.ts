@@ -9,7 +9,7 @@ describe('resolveServerConfig', () => {
       host: '127.0.0.1',
       port: 5174,
       rootDir: path.join(os.homedir(), '.story-weaver'),
-      staticDir: path.resolve('dist'),
+      staticDir: path.resolve('packages/frontend/dist'),
     });
   });
 

@@ -50,6 +50,15 @@ importers:
       '@radix-ui/react-tooltip':
         specifier: ^1.2.8
         version: 1.2.8(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
+      '@story-weaver/backend':
+        specifier: workspace:*
+        version: link:packages/backend
+      '@story-weaver/frontend':
+        specifier: workspace:*
+        version: link:packages/frontend
+      '@story-weaver/shared':
+        specifier: workspace:*
+        version: link:packages/shared
       ai:
         specifier: ^6.0.168
         version: 6.0.168(zod@4.3.6)
@@ -141,6 +150,20 @@ importers:
       wait-on:
         specifier: ^8.0.1
         version: 8.0.5
+
+  packages/backend:
+    dependencies:
+      '@story-weaver/shared':
+        specifier: workspace:*
+        version: link:../shared
+
+  packages/frontend:
+    dependencies:
+      '@story-weaver/shared':
+        specifier: workspace:*
+        version: link:../shared
+
+  packages/shared: {}
 
 packages:
 

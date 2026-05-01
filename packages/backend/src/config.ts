@@ -29,6 +29,7 @@ export function resolveServerConfig(
     host: env.STORY_WEAVER_SERVER_HOST || '127.0.0.1',
     port: parsePort(env.STORY_WEAVER_SERVER_PORT),
     rootDir: env.STORY_WEAVER_ROOT_DIR || path.join(os.homedir(), '.story-weaver'),
-    staticDir: env.STORY_WEAVER_STATIC_DIR || path.resolve('dist'),
+    staticDir:
+      env.STORY_WEAVER_STATIC_DIR || path.resolve('packages/frontend/dist'),
   };
 }
