@@ -10,7 +10,7 @@ import { createProgressRepository } from '../../src/storage/progress';
 import { createSceneRecordRepository } from '../../src/storage/scene-records';
 import { createBookService } from '../../src/core/book-service';
 import { countStoryCharacters } from '../../src/core/story-constraints';
-import type { BookGenerationEvent } from '../../src/shared/contracts';
+import type { BookGenerationEvent } from '@story-weaver/shared/contracts';
 
 describe('createBookService', () => {
   it('creates and lists books from persisted storage', () => {

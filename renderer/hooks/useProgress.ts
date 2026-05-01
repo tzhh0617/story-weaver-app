@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { SchedulerStatus } from '../../src/shared/contracts';
+import type { SchedulerStatus } from '@story-weaver/shared/contracts';
 import { useStoryWeaverApi } from './useStoryWeaverApi';
 
 const emptyStatus: SchedulerStatus = {

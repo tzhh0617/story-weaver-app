@@ -18,8 +18,20 @@
     "jsx": "react-jsx",
     "types": ["vitest/globals"],
     "paths": {
-      "@/*": ["renderer/*"]
+      "@/*": ["renderer/*"],
+      "@story-weaver/shared": ["packages/shared/src/index.ts"],
+      "@story-weaver/shared/contracts": ["packages/shared/src/contracts.ts"],
+      "@story-weaver/shared/settings": ["packages/shared/src/settings.ts"],
+      "@story-weaver/shared/*": ["packages/shared/src/*"]
     }
   },
-  "include": ["renderer", "src", "tests", "vite.config.ts", "vitest.config.ts", "tailwind.config.ts"]
+  "include": [
+    "renderer",
+    "src",
+    "packages/shared/src",
+    "tests",
+    "vite.config.ts",
+    "vitest.config.ts",
+    "tailwind.config.ts"
+  ]
 }

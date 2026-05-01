@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import Settings from '../../renderer/pages/Settings';
-import type { ModelSavePayload } from '../../src/shared/contracts';
+import type { ModelSavePayload } from '@story-weaver/shared/contracts';
 
 type SettingsProps = Parameters<typeof Settings>[0];
 

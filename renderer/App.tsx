@@ -10,12 +10,12 @@ import {
   parseBooleanSetting,
   serializeBooleanSetting,
   SHORT_CHAPTER_REVIEW_ENABLED_KEY,
-} from '../src/core/chapter-review';
+} from '@story-weaver/shared/settings';
 import {
   type BookExportFormat,
   type ExecutionLogRecord,
   type SchedulerStatus,
-} from '../src/shared/contracts';
+} from '@story-weaver/shared/contracts';
 import { useStoryWeaverApi } from './hooks/useStoryWeaverApi';
 import { useProgress } from './hooks/useProgress';
 import { useBookGenerationEvents } from './hooks/useBookGenerationEvents';

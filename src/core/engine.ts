@@ -1,4 +1,4 @@
-import type { BookStatus } from '../shared/contracts.js';
+import type { BookStatus } from '@story-weaver/shared/contracts';
 
 type EngineResultStatus = 'completed' | 'paused' | 'deleted';
 

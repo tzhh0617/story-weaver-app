@@ -1,5 +1,5 @@
 import { AlertCircle, CheckCircle2, Info } from 'lucide-react';
-import type { ExecutionLogLevel } from '../src/shared/contracts';
+import type { ExecutionLogLevel } from '@story-weaver/shared/contracts';
 import { getStatusLabel } from './status-labels';
 
 export const executionLogLevelLabels: Record<ExecutionLogLevel, string> = {

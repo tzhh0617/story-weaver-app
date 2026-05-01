@@ -1,6 +1,6 @@
 import { Search } from 'lucide-react';
 import { useState } from 'react';
-import type { SchedulerStatus } from '../../src/shared/contracts';
+import type { SchedulerStatus } from '@story-weaver/shared/contracts';
 import BookCard from '../components/BookCard';
 import { EmptyState } from '../components/EmptyState';
 import { Button } from '../components/ui/button';

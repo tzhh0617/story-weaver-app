@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import type React from 'react';
 import {
   type BookGenerationEvent,
-} from '../../src/shared/contracts';
+} from '@story-weaver/shared/contracts';
 import type { BookDetailData } from '../types/book-detail';
 import type { StoryWeaverApi } from './useStoryWeaverApi';
 

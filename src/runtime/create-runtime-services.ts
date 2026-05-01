@@ -16,7 +16,7 @@ import type {
   BookExportFormat,
   BookGenerationEvent,
   ExecutionLogRecord,
-} from '../shared/contracts.js';
+} from '@story-weaver/shared/contracts';
 import { createSettingsRepository } from '../storage/settings.js';
 import { createRuntimeAiServices } from './runtime-ai-services.js';
 

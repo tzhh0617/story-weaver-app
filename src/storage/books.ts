@@ -1,5 +1,5 @@
 import type { Database as SqliteDatabase } from 'better-sqlite3';
-import type { BookRecord } from '../shared/contracts.js';
+import type { BookRecord } from '@story-weaver/shared/contracts';
 import { deleteBookPlanningData } from './book-graph.js';
 
 type NewBookInput = Pick<

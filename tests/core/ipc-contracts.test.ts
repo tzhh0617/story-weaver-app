@@ -8,7 +8,7 @@ import {
   type ModelTestResponse,
   type OkResponse,
   type SettingValueResponse,
-} from '../../src/shared/contracts';
+} from '@story-weaver/shared/contracts';
 
 function makeBookDetailContractFixture(): BookDetail {
   return {

@@ -9,7 +9,7 @@ import {
 import type {
   BookExportFormat,
   ExecutionLogRecord,
-} from '../../src/shared/contracts';
+} from '@story-weaver/shared/contracts';
 import ChapterList from '../components/ChapterList';
 import { Badge } from '../components/ui/badge';
 import {

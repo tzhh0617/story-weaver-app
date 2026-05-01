@@ -10,7 +10,14 @@
     "strict": true,
     "skipLibCheck": true,
     "outDir": "dist-server",
-    "types": ["node"]
+    "baseUrl": ".",
+    "types": ["node"],
+    "paths": {
+      "@story-weaver/shared": ["packages/shared/src/index.ts"],
+      "@story-weaver/shared/contracts": ["packages/shared/src/contracts.ts"],
+      "@story-weaver/shared/settings": ["packages/shared/src/settings.ts"],
+      "@story-weaver/shared/*": ["packages/shared/src/*"]
+    }
   },
   "include": ["server/**/*.ts", "src/runtime/**/*.ts"]
 }

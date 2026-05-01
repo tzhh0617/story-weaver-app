@@ -4,7 +4,7 @@ import type {
   BookExportFormat,
   BookExportResponse,
   ViralTropeContractPayload,
-} from '../../src/shared/contracts.js';
+} from '@story-weaver/shared/contracts';
 import type { RuntimeServices } from '../../src/runtime/create-runtime-services.js';
 import type { createExportRegistry } from '../export-registry.js';
 

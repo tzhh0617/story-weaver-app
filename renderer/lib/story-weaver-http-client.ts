@@ -5,7 +5,7 @@ import type {
   BookListItem,
   ModelSavePayload,
   SchedulerStatus,
-} from '../../src/shared/contracts';
+} from '@story-weaver/shared/contracts';
 
 export type StoryWeaverApi = {
   listBooks: () => Promise<BookListItem[]>;

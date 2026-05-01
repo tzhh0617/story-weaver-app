@@ -3,7 +3,7 @@ import { ListFilter, Search } from 'lucide-react';
 import type {
   ExecutionLogLevel,
   ExecutionLogRecord,
-} from '../../src/shared/contracts';
+} from '@story-weaver/shared/contracts';
 import { Badge } from '../components/ui/badge';
 import {
   layoutCardClassName,

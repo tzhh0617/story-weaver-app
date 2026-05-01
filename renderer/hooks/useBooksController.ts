@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { BookListItem } from '../../src/shared/contracts';
+import type { BookListItem } from '@story-weaver/shared/contracts';
 import type { BookDetailData } from '../types/book-detail';
 import type { StoryWeaverApi } from './useStoryWeaverApi';
 

@@ -1,7 +1,7 @@
 import type {
   ExecutionLogLevel,
   ExecutionLogRecord,
-} from '../shared/contracts.js';
+} from '@story-weaver/shared/contracts';
 
 type ExecutionLogInput = {
   bookId?: string | null;

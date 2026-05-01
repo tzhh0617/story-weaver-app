@@ -1,6 +1,6 @@
 import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import type { BookExportFormat } from '../shared/contracts.js';
+import type { BookExportFormat } from '@story-weaver/shared/contracts';
 
 type ExportChapter = {
   title: string;

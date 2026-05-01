@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from './ui/select';
-import type { ModelSavePayload } from '../../src/shared/contracts';
+import type { ModelSavePayload } from '@story-weaver/shared/contracts';
 
 const supportedProviders = ['openai', 'anthropic'] as const;
 type SupportedProvider = (typeof supportedProviders)[number];

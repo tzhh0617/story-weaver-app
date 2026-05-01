@@ -4,7 +4,7 @@ import type {
   BookRecord,
   BookStatus,
   StoryRoutePlanView,
-} from '../shared/contracts.js';
+} from '@story-weaver/shared/contracts';
 import {
   DEFAULT_MOCK_MODEL_ID,
   isMockModelId,
