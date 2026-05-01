@@ -4,7 +4,7 @@ import {
   SHORT_CHAPTER_REVIEW_ENABLED_KEY,
   shouldRewriteShortChapter,
 } from '../core/chapter-review.js';
-import { createBookService } from '../core/book-service.js';
+import { createBookOrchestrator } from '../core/orchestrator.js';
 import { createNovelEngine } from '../core/engine.js';
 import { createScheduler } from '../core/scheduler.js';
 import { buildAppPaths } from '../shared/paths.js';
@@ -24,7 +24,7 @@ import { createSettingsRepository } from '../storage/settings.js';
 import { createRuntimeAiServices } from './runtime-ai-services.js';
 
 export type RuntimeServices = {
-  bookService: ReturnType<typeof createBookService>;
+  bookService: ReturnType<typeof createBookOrchestrator>;
   modelConfigs: ReturnType<typeof createModelConfigRepository>;
   listModelConfigs: () => ModelConfigInput[];
   settings: ReturnType<typeof createSettingsRepository>;
@@ -117,7 +117,7 @@ export function createRuntimeServices(input: {
     (event: BookGenerationEvent) => void
   >();
   const runningBookIds = new Set<string>();
-  let bookService!: ReturnType<typeof createBookService>;
+  let bookService!: ReturnType<typeof createBookOrchestrator>;
   let closed = false;
 
   function listModelConfigs() {
@@ -375,7 +375,7 @@ export function createRuntimeServices(input: {
     });
   }
 
-  bookService = createBookService({
+  bookService = createBookOrchestrator({
     books,
     chapters,
     characters,
