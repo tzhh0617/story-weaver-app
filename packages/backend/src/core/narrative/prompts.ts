@@ -1,5 +1,9 @@
 import type { NarrativeAudit, ViralStoryProtocol } from './types.js';
 import { buildOpeningRetentionProtocolLines } from './opening-retention.js';
+import {
+  buildAiFirstTextPolicyLines,
+  buildJsonOutputPolicyLines,
+} from './text-policy.js';
 import { formatViralProtocolForPrompt } from './viral-story-protocol.js';
 
 export { parseJsonObject } from './json.js';
@@ -20,12 +24,14 @@ export function buildNarrativeBiblePrompt(input: {
 }) {
   return [
     'Design a long-form Chinese web novel narrative bible.',
-    'Return valid JSON only. Do not wrap JSON in markdown fences.',
+    ...buildJsonOutputPolicyLines(),
     `User idea: ${input.idea}`,
     `Target chapters: ${input.targetChapters}`,
     `Words per chapter: ${input.wordsPerChapter}`,
     'The JSON must include premise, genreContract, targetReaderExperience, themeQuestion, themeAnswerDirection, centralDramaticQuestion, endingState, voiceGuide.',
+    'The JSON must include characterArcs array, relationshipEdges array, worldRules array, and narrativeThreads array. Use [] only when genuinely empty.',
     'Each characterArcs item must include id, name, roleType, desire, fear, flaw, misbelief, wound, externalGoal, internalNeed, arcDirection, decisionLogic, lineWillNotCross, lineMayEventuallyCross, currentArcPhase.',
+    'Each relationshipEdges item must include id, fromCharacterId, toCharacterId, visibleLabel, hiddenTruth, dependency, debt, misunderstanding, affection, harmPattern, sharedGoal, valueConflict, trustLevel, tensionLevel, currentState, plannedTurns.',
     'Each worldRules item must include id, category, ruleText, cost, whoBenefits, whoSuffers, taboo, violationConsequence, allowedException, currentStatus.',
     'Each narrativeThreads item must include id, type, promise, plantedAt, expectedPayoff, resolvedAt, currentState, importance, payoffMustChange, ownerCharacterId, relatedRelationshipId, notes.',
     'The JSON may include viralStoryProtocol with readerPromise, targetEmotion, coreDesire, protagonistDrive, hookEngine, payoffCadence, tropeContract, antiClicheRules, longTermQuestion.',
@@ -41,12 +47,13 @@ export function buildVolumePlanPrompt(input: {
 }) {
   return [
     'Create volume plans for this long-form Chinese web novel.',
-    'Return valid JSON only: an array of volume plan objects.',
+    ...buildJsonOutputPolicyLines(),
+    'Return an array of volume plan objects.',
     `Target chapters: ${input.targetChapters}`,
     `Narrative bible summary:\n${input.bibleSummary}`,
     ...viralPromptBlock(input.viralStoryProtocol),
     'Chapter ranges must continuously cover chapter 1 through targetChapters.',
-    'Each volume must include title, chapterStart, chapterEnd, roleInStory, mainPressure, promisedPayoff, characterArcMovement, relationshipMovement, worldExpansion, endingTurn.',
+    'Each volume must include volumeIndex, title, chapterStart, chapterEnd, roleInStory, mainPressure, promisedPayoff, characterArcMovement, relationshipMovement, worldExpansion, endingTurn.',
     'Each volume must include a stage payoff that serves the reader promise when viral protocol is available.',
     'Each volume ending must upgrade the long-term reader question.',
   ].join('\n');
@@ -61,7 +68,8 @@ export function buildChapterCardPrompt(input: {
 }) {
   return [
     'Create chapter cards for a long-form Chinese web novel.',
-    'Return valid JSON only with keys cards, threadActions, characterPressures, relationshipActions.',
+    ...buildJsonOutputPolicyLines(),
+    'Return an object with keys cards, threadActions, characterPressures, relationshipActions.',
     `Book id: ${input.bookId}`,
     `Target chapters: ${input.targetChapters}`,
     `Narrative bible summary:\n${input.bibleSummary}`,
@@ -69,6 +77,9 @@ export function buildChapterCardPrompt(input: {
     'Each card must include volumeIndex, chapterIndex, title, plotFunction, povCharacterId, externalConflict, internalConflict, relationshipChange, worldRuleUsedOrTested, informationReveal, readerReward, endingHook, mustChange, forbiddenMoves.',
     'Every chapter must produce an irreversible mustChange.',
     'threadActions must use action plant, advance, misdirect, or payoff.',
+    'threadActions items must include volumeIndex, chapterIndex, threadId, action, requiredEffect.',
+    'characterPressures items must include volumeIndex, chapterIndex, characterId, desirePressure, fearPressure, flawTrigger, expectedChoice.',
+    'relationshipActions items must include volumeIndex, chapterIndex, relationshipId, action, requiredChange.',
     'Do not create extra major characters unless required by the bible.',
     ...viralPromptBlock(input.viralStoryProtocol),
     'When viral protocol is available, each chapter must serve readerPromise and advance or complicate longTermQuestion.',
@@ -91,7 +102,8 @@ export function buildTensionBudgetPrompt(input: {
 }) {
   return [
     'Create tension budgets for a long-form Chinese web novel.',
-    'Return valid JSON only: an array of chapter tension budget objects.',
+    ...buildJsonOutputPolicyLines(),
+    'Return an array of chapter tension budget objects.',
     `Book id: ${input.bookId}`,
     `Target chapters: ${input.targetChapters}`,
     `Narrative bible summary:\n${input.bibleSummary}`,
@@ -125,11 +137,12 @@ export function buildNarrativeDraftPrompt(input: {
     'Write the next chapter of a long-form Chinese web novel.',
     `Book idea: ${input.idea}`,
     `Write approximately ${input.wordsPerChapter} Chinese characters.`,
+    ...buildAiFirstTextPolicyLines(),
     input.routePlanText ? `Story route requirements:\n${input.routePlanText}` : '',
     ...viralPromptBlock(input.viralStoryProtocol, input.chapterIndex),
     input.commandContext,
     'Hard requirements: complete mustChange, fulfill the Tension Budget when provided, make forcedChoice visible through action, make costToPay visible before the chapter ends, preserve forbiddenMoves, show world-rule cost when a rule is used, and make relationship changes visible through action.',
-    'Return only the final chapter prose. Do not include any chapter title, heading, Markdown title, or title line in the正文. Do not summarize or explain.',
+    'Return only the final chapter prose. Do not include any chapter title, heading, Markdown title, or title line in the body text. Do not summarize or explain.',
   ].join('\n');
 }
 
@@ -142,7 +155,8 @@ export function buildChapterAuditPrompt(input: {
 }) {
   return [
     'Audit this chapter draft for long-form narrative drift.',
-    'Return valid JSON only with passed, score, decision, issues, scoring, stateUpdates.',
+    ...buildJsonOutputPolicyLines(),
+    'Return an object with passed, score, decision, issues, scoring, stateUpdates.',
     'When viral protocol is provided, scoring must include scoring.viral: openingHook, desireClarity, payoffStrength, readerQuestionStrength, tropeFulfillment, antiClicheFreshness.',
     'Issue type enum: character_logic, relationship_static, world_rule_violation, mainline_stall, thread_leak, pacing_problem, theme_drift, chapter_too_empty, forbidden_move, missing_reader_reward, flat_chapter, weak_choice_pressure, missing_consequence, soft_hook, repeated_tension_pattern, weak_reader_promise, unclear_desire, missing_payoff, payoff_without_cost, generic_trope, weak_reader_question, stale_hook_engine.',
     'Also audit flatness with scoring.flatness: conflictEscalation, choicePressure, consequenceVisibility, irreversibleChange, hookStrength.',
@@ -164,6 +178,7 @@ export function buildRevisionPrompt(input: {
     input.originalPrompt,
     '',
     'Revise the draft using the audit issues below.',
+    ...buildAiFirstTextPolicyLines(),
     'Preserve the chapter direction and useful prose. Do not introduce new major characters or new major rules.',
     'If an issue is viral-specific, preserve the chapter direction and fix the reader-promise, payoff, cost, hook, or anti-cliche failure locally.',
     `Draft:\n${input.draft}`,

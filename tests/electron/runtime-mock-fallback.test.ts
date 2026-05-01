@@ -112,7 +112,10 @@ describe('runtime mock fallback', () => {
     expect(detail?.book.title).toMatch(/[一-龥]/);
     expect(detail?.context?.worldSetting).toMatch(/[一-龥]/);
     expect(detail?.chapters[0]?.content).toMatch(/[一-龥]/);
-    expect(detail?.chapters[0]?.content).toContain('逐出山门');
+    expect(detail?.chapters[0]?.content?.split('\n')[0]).not.toBe(
+      detail?.chapters[0]?.title
+    );
+    expect(detail?.chapters[0]?.content).toMatch(/旧案|古镜|因果|代价/);
     expect(detail?.latestScene?.location).toMatch(/祖祠废井|问罪台|藏经阁|外门石阶/);
     expect(detail?.plotThreads.some((thread) => /旧案|禁物|古镜/.test(thread.description))).toBe(
       true

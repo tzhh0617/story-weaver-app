@@ -177,8 +177,6 @@ function buildExpandedMockChapter(input: {
   );
   const hookEnding = buildHookEnding(input.genre, input.seedText);
   const paragraphs = [
-    input.chapterTitle,
-    '',
     `${input.openingImage}，${input.location}的空气像被${input.pressureSource}一寸寸压紧。${input.protagonist}站在人群尽头，听着那些刻薄的宣判一字一句落下，连指节都攥得发白。`,
     `${input.chapterOutline}可真正让他心口发冷的，并不是羞辱本身，而是那股从旧物深处缓缓苏醒的回应。`,
   ];

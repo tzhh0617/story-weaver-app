@@ -191,6 +191,8 @@ export function buildChapterContext(input: {
   currentChapterOutline: string;
 }) {
   return [
+    'Local continuity fallback:',
+    'Use this as stored facts only; do not treat it as a semantic rewrite or style guide.',
     'World rules:',
     ...input.worldRules,
     'Character anchors:',

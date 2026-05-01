@@ -44,6 +44,20 @@ export default function Library({
 }) {
   const [searchQuery, setSearchQuery] = useState('');
   const completedCount = books.filter((book) => book.status === 'completed').length;
+  const runningBookIds = new Set(scheduler.runningBookIds);
+  const pausedBookIds = new Set(scheduler.pausedBookIds);
+  const writingCount = new Set([
+    ...scheduler.runningBookIds,
+    ...books
+      .filter((book) => book.status === 'writing' || runningBookIds.has(book.id))
+      .map((book) => book.id),
+  ]).size;
+  const pausedCount = new Set([
+    ...scheduler.pausedBookIds,
+    ...books
+      .filter((book) => book.status === 'paused' || pausedBookIds.has(book.id))
+      .map((book) => book.id),
+  ]).size;
   const hasRunnableBooks = books.some(
     (book) => book.status !== 'completed' && book.status !== 'paused'
   );
@@ -51,10 +65,10 @@ export default function Library({
     (book) => book.status !== 'completed' && book.status !== 'paused'
   );
   const shelfStats = [
-    { label: '完成', value: `${completedCount}/50` },
-    { label: '写作中', value: scheduler.runningBookIds.length },
+    { label: '完成', value: `${completedCount}/${books.length}` },
+    { label: '写作中', value: writingCount },
     { label: '排队', value: scheduler.queuedBookIds.length },
-    { label: '已暂停', value: scheduler.pausedBookIds.length },
+    { label: '已暂停', value: pausedCount },
   ];
   const normalizedSearchQuery = searchQuery.trim().toLowerCase();
   const visibleBooks = normalizedSearchQuery

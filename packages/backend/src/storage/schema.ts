@@ -57,24 +57,30 @@ export const chapters = sqliteTable(
   })
 );
 
-export const characterArcs = sqliteTable('character_arcs', {
-  id: text('id').primaryKey(),
-  bookId: text('book_id').notNull(),
-  name: text('name').notNull(),
-  roleType: text('role_type').notNull(),
-  desire: text('desire').notNull(),
-  fear: text('fear').notNull(),
-  flaw: text('flaw').notNull(),
-  misbelief: text('misbelief').notNull(),
-  wound: text('wound'),
-  externalGoal: text('external_goal').notNull(),
-  internalNeed: text('internal_need').notNull(),
-  arcDirection: text('arc_direction').notNull(),
-  decisionLogic: text('decision_logic').notNull(),
-  lineWillNotCross: text('line_will_not_cross'),
-  lineMayEventuallyCross: text('line_may_eventually_cross'),
-  currentArcPhase: text('current_arc_phase').notNull(),
-});
+export const characterArcs = sqliteTable(
+  'character_arcs',
+  {
+    id: text('id').notNull(),
+    bookId: text('book_id').notNull(),
+    name: text('name').notNull(),
+    roleType: text('role_type').notNull(),
+    desire: text('desire').notNull(),
+    fear: text('fear').notNull(),
+    flaw: text('flaw').notNull(),
+    misbelief: text('misbelief').notNull(),
+    wound: text('wound'),
+    externalGoal: text('external_goal').notNull(),
+    internalNeed: text('internal_need').notNull(),
+    arcDirection: text('arc_direction').notNull(),
+    decisionLogic: text('decision_logic').notNull(),
+    lineWillNotCross: text('line_will_not_cross'),
+    lineMayEventuallyCross: text('line_may_eventually_cross'),
+    currentArcPhase: text('current_arc_phase').notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.bookId, table.id] }),
+  })
+);
 
 export const characterStates = sqliteTable(
   'character_states',
@@ -102,25 +108,31 @@ export const characterStates = sqliteTable(
   })
 );
 
-export const relationshipEdges = sqliteTable('relationship_edges', {
-  id: text('id').primaryKey(),
-  bookId: text('book_id').notNull(),
-  fromCharacterId: text('from_character_id').notNull(),
-  toCharacterId: text('to_character_id').notNull(),
-  visibleLabel: text('visible_label').notNull(),
-  hiddenTruth: text('hidden_truth'),
-  dependency: text('dependency'),
-  debt: text('debt'),
-  misunderstanding: text('misunderstanding'),
-  affection: text('affection'),
-  harmPattern: text('harm_pattern'),
-  sharedGoal: text('shared_goal'),
-  valueConflict: text('value_conflict'),
-  trustLevel: integer('trust_level').notNull(),
-  tensionLevel: integer('tension_level').notNull(),
-  currentState: text('current_state').notNull(),
-  plannedTurnsJson: text('planned_turns_json').notNull().default('[]'),
-});
+export const relationshipEdges = sqliteTable(
+  'relationship_edges',
+  {
+    id: text('id').notNull(),
+    bookId: text('book_id').notNull(),
+    fromCharacterId: text('from_character_id').notNull(),
+    toCharacterId: text('to_character_id').notNull(),
+    visibleLabel: text('visible_label').notNull(),
+    hiddenTruth: text('hidden_truth'),
+    dependency: text('dependency'),
+    debt: text('debt'),
+    misunderstanding: text('misunderstanding'),
+    affection: text('affection'),
+    harmPattern: text('harm_pattern'),
+    sharedGoal: text('shared_goal'),
+    valueConflict: text('value_conflict'),
+    trustLevel: integer('trust_level').notNull(),
+    tensionLevel: integer('tension_level').notNull(),
+    currentState: text('current_state').notNull(),
+    plannedTurnsJson: text('planned_turns_json').notNull().default('[]'),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.bookId, table.id] }),
+  })
+);
 
 export const relationshipStates = sqliteTable(
   'relationship_states',
@@ -145,35 +157,47 @@ export const relationshipStates = sqliteTable(
   })
 );
 
-export const worldRules = sqliteTable('world_rules', {
-  id: text('id').primaryKey(),
-  bookId: text('book_id').notNull(),
-  category: text('category').notNull(),
-  ruleText: text('rule_text').notNull(),
-  cost: text('cost').notNull(),
-  whoBenefits: text('who_benefits'),
-  whoSuffers: text('who_suffers'),
-  taboo: text('taboo'),
-  violationConsequence: text('violation_consequence'),
-  allowedException: text('allowed_exception'),
-  currentStatus: text('current_status').notNull(),
-});
+export const worldRules = sqliteTable(
+  'world_rules',
+  {
+    id: text('id').notNull(),
+    bookId: text('book_id').notNull(),
+    category: text('category').notNull(),
+    ruleText: text('rule_text').notNull(),
+    cost: text('cost').notNull(),
+    whoBenefits: text('who_benefits'),
+    whoSuffers: text('who_suffers'),
+    taboo: text('taboo'),
+    violationConsequence: text('violation_consequence'),
+    allowedException: text('allowed_exception'),
+    currentStatus: text('current_status').notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.bookId, table.id] }),
+  })
+);
 
-export const narrativeThreads = sqliteTable('narrative_threads', {
-  id: text('id').primaryKey(),
-  bookId: text('book_id').notNull(),
-  type: text('type').notNull(),
-  promise: text('promise').notNull(),
-  plantedAt: integer('planted_at').notNull(),
-  expectedPayoff: integer('expected_payoff'),
-  resolvedAt: integer('resolved_at'),
-  currentState: text('current_state').notNull(),
-  importance: text('importance').notNull(),
-  payoffMustChange: text('payoff_must_change').notNull(),
-  ownerCharacterId: text('owner_character_id'),
-  relatedRelationshipId: text('related_relationship_id'),
-  notes: text('notes'),
-});
+export const narrativeThreads = sqliteTable(
+  'narrative_threads',
+  {
+    id: text('id').notNull(),
+    bookId: text('book_id').notNull(),
+    type: text('type').notNull(),
+    promise: text('promise').notNull(),
+    plantedAt: integer('planted_at').notNull(),
+    expectedPayoff: integer('expected_payoff'),
+    resolvedAt: integer('resolved_at'),
+    currentState: text('current_state').notNull(),
+    importance: text('importance').notNull(),
+    payoffMustChange: text('payoff_must_change').notNull(),
+    ownerCharacterId: text('owner_character_id'),
+    relatedRelationshipId: text('related_relationship_id'),
+    notes: text('notes'),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.bookId, table.id] }),
+  })
+);
 
 export const volumePlans = sqliteTable(
   'volume_plans',
@@ -392,30 +416,38 @@ export const settings = sqliteTable('settings', {
   value: text('value').notNull(),
 });
 
-export const characters = sqliteTable('characters', {
-  id: text('id').primaryKey(),
-  bookId: text('book_id').notNull(),
-  name: text('name').notNull(),
-  roleType: text('role_type').notNull(),
-  personality: text('personality').notNull(),
-  speechStyle: text('speech_style'),
-  appearance: text('appearance'),
-  abilities: text('abilities'),
-  background: text('background'),
-  relationships: text('relationships'),
-  firstAppear: integer('first_appear'),
-  isActive: integer('is_active').notNull().default(1),
-});
+export const characters = sqliteTable(
+  'characters',
+  {
+    id: text('id').notNull(),
+    bookId: text('book_id').notNull(),
+    name: text('name').notNull(),
+    roleType: text('role_type').notNull(),
+    personality: text('personality').notNull(),
+    speechStyle: text('speech_style'),
+    appearance: text('appearance'),
+    abilities: text('abilities'),
+    background: text('background'),
+    relationships: text('relationships'),
+    firstAppear: integer('first_appear'),
+    isActive: integer('is_active').notNull().default(1),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.bookId, table.id] }),
+  })
+);
 
 export const plotThreads = sqliteTable('plot_threads', {
-  id: text('id').primaryKey(),
+  id: text('id').notNull(),
   bookId: text('book_id').notNull(),
   description: text('description').notNull(),
   plantedAt: integer('planted_at').notNull(),
   expectedPayoff: integer('expected_payoff'),
   resolvedAt: integer('resolved_at'),
   importance: text('importance').notNull().default('normal'),
-});
+}, (table) => ({
+  pk: primaryKey({ columns: [table.bookId, table.id] }),
+}));
 
 export const worldSettings = sqliteTable(
   'world_settings',

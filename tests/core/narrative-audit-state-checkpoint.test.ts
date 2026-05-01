@@ -372,6 +372,94 @@ describe('normalizeNarrativeStateDelta', () => {
       themeProgression: '',
     });
   });
+
+  it('filters malformed state rows before persistence', () => {
+    expect(
+      normalizeNarrativeStateDelta({
+        characterStates: [
+          {
+            characterId: '',
+            characterName: '无效角色',
+          },
+          {
+            characterId: 'lin-mu',
+            characterName: ' 林牧 ',
+            location: ' 档案门 ',
+            status: 'null',
+          },
+        ],
+        relationshipStates: [
+          {
+            relationshipId: '',
+            trustLevel: 1,
+            tensionLevel: 2,
+            currentState: '无效关系',
+          },
+          {
+            relationshipId: 'lin-mu-ally',
+            trustLevel: '3' as unknown as number,
+            tensionLevel: 4,
+            currentState: ' 互相试探 ',
+            changeSummary: 'null',
+          },
+        ],
+        threadUpdates: [
+          {
+            threadId: '',
+            currentState: 'open',
+          },
+          {
+            threadId: 'main-ledger-truth',
+            currentState: 'done' as never,
+          },
+          {
+            threadId: 'main-ledger-truth',
+            currentState: 'advanced',
+            resolvedAt: Number.NaN,
+            notes: ' 推进线索 ',
+          },
+        ],
+        scene: {
+          location: '',
+          timeInStory: '夜',
+          charactersPresent: ['林牧'],
+        },
+        themeProgression: ' null ',
+      })
+    ).toEqual({
+      characterStates: [
+        {
+          characterId: 'lin-mu',
+          characterName: '林牧',
+          location: '档案门',
+          status: null,
+          knowledge: null,
+          emotion: null,
+          powerLevel: null,
+          arcPhase: null,
+        },
+      ],
+      relationshipStates: [
+        {
+          relationshipId: 'lin-mu-ally',
+          trustLevel: 3,
+          tensionLevel: 4,
+          currentState: '互相试探',
+          changeSummary: null,
+        },
+      ],
+      threadUpdates: [
+        {
+          threadId: 'main-ledger-truth',
+          currentState: 'advanced',
+          resolvedAt: null,
+          notes: '推进线索',
+        },
+      ],
+      scene: null,
+      themeProgression: '',
+    });
+  });
 });
 
 describe('shouldRunCheckpoint', () => {

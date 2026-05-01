@@ -184,7 +184,8 @@ describe('mock story services', () => {
 
     expect(result.content).toMatch(/[一-龥]/);
     expect(countStoryCharacters(result.content)).toBeGreaterThanOrEqual(3000);
-    expect(result.content).toContain('逐出山门');
+    expect(result.content.split('\n')[0]).not.toBe('逐出山门');
+    expect(result.content).toContain('主角在众目睽睽之下被废去外门名籍');
     expect(result.content).toMatch(/然而|就在这时|可偏偏/);
   });
 
@@ -202,7 +203,8 @@ describe('mock story services', () => {
     });
 
     expect(countStoryCharacters(result.content)).toBeGreaterThan(90);
-    expect(result.content).toContain('逐出山门');
+    expect(result.content.split('\n')[0]).not.toBe('逐出山门');
+    expect(result.content).toContain('主角在众目睽睽之下被废去外门名籍');
     expect(result.content).toMatch(/然而|就在这时|可偏偏/);
   });
 
@@ -218,7 +220,8 @@ describe('mock story services', () => {
       ].join('\n'),
     });
 
-    expect(result.content).toContain('夜市旧账');
+    expect(result.content.split('\n')[0]).not.toBe('夜市旧账');
+    expect(result.content).toContain('旧城夜市追查一份失踪档案');
     expect(result.content).toMatch(/旧城夜市|高架桥下|封账大厅|地下档案库/);
     expect(result.content).not.toContain('山门');
   });

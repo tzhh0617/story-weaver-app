@@ -287,6 +287,39 @@ describe('createAiOutlineService', () => {
     ]);
   });
 
+  it('preserves pipe characters inside generated chapter outline text', async () => {
+    const fakeModel = { id: 'model' };
+    const registry = {
+      languageModel: vi.fn().mockReturnValue(fakeModel),
+    };
+    const generateText = vi
+      .fn()
+      .mockResolvedValueOnce({ text: 'not json' })
+      .mockResolvedValueOnce({ text: 'world' })
+      .mockResolvedValueOnce({ text: 'outline' })
+      .mockResolvedValueOnce({ text: 'Volume 1' })
+      .mockResolvedValueOnce({
+        text: '1|第一章|主角发现旧账|但线索指向更危险的人',
+      });
+
+    const service = createAiOutlineService({
+      registry: registry as never,
+      generateText: generateText as never,
+    });
+
+    const result = await service.generateFromIdea({
+      bookId: 'book-1',
+      idea: 'The moon taxes miracles.',
+      targetChapters: 1,
+      wordsPerChapter: 180,
+      modelId: 'openai:gpt-4o-mini',
+    });
+
+    expect(result.chapterOutlines[0]?.outline).toBe(
+      '主角发现旧账|但线索指向更危险的人'
+    );
+  });
+
   it('generates tension budgets after chapter cards', async () => {
     const fakeModel = { id: 'model' };
     const prompts: string[] = [];
@@ -393,6 +426,163 @@ describe('createAiOutlineService', () => {
       true
     );
     expect(generateText).toHaveBeenCalledTimes(4);
+  });
+
+  it('filters malformed chapter action rows before returning generated outlines', async () => {
+    const fakeModel = { id: 'model' };
+    const responses = [
+      JSON.stringify(validNarrativeBible()),
+      JSON.stringify([
+        {
+          volumeIndex: 1,
+          title: '命簿初鸣',
+          chapterStart: 1,
+          chapterEnd: 1,
+          roleInStory: '建立追查目标。',
+          mainPressure: '宗门追捕。',
+          promisedPayoff: '发现账簿碎页。',
+          characterArcMovement: '林牧开始信任同伴。',
+          relationshipMovement: '师徒裂痕出现。',
+          worldExpansion: '展示命簿代价。',
+          endingTurn: '碎页指向师父。',
+        },
+      ]),
+      JSON.stringify({
+        cards: [
+          {
+            volumeIndex: 1,
+            chapterIndex: 1,
+            title: '旧页',
+            plotFunction: '开局。',
+            povCharacterId: 'lin-mu',
+            externalConflict: '宗门追捕。',
+            internalConflict: '林牧想保密却需要求助。',
+            relationshipChange: '林牧欠下同伴人情。',
+            worldRuleUsedOrTested: 'record-cost',
+            informationReveal: '命簿会吞记忆。',
+            readerReward: 'truth',
+            endingHook: '碎页浮现林家姓名。',
+            mustChange: '林牧从逃避变为主动追查。',
+            forbiddenMoves: [],
+          },
+        ],
+        threadActions: [
+          {
+            volumeIndex: 1,
+            chapterIndex: 1,
+            action: 'advance',
+            requiredEffect: '主线线索推进。',
+          },
+          {
+            volumeIndex: 1,
+            chapterIndex: 1,
+            threadId: 'main-ledger-truth',
+            action: 'advance',
+            requiredEffect: '碎页证明林家旧案与师父相关。',
+          },
+        ],
+        characterPressures: [
+          {
+            volumeIndex: 1,
+            chapterIndex: 1,
+            desirePressure: '想立刻查明真相。',
+            fearPressure: '害怕再次被抹除。',
+            flawTrigger: '独自承担。',
+            expectedChoice: '隐瞒危险。',
+          },
+          {
+            volumeIndex: 1,
+            chapterIndex: 1,
+            characterId: 'lin-mu',
+            desirePressure: '想立刻查明真相。',
+            fearPressure: '害怕再次被抹除。',
+            flawTrigger: '独自承担。',
+            expectedChoice: '向同伴透露一半真相。',
+          },
+        ],
+        relationshipActions: [
+          {
+            volumeIndex: 1,
+            chapterIndex: 1,
+            action: 'strain',
+            requiredChange: '信任裂痕加深。',
+          },
+          {
+            volumeIndex: 1,
+            chapterIndex: 1,
+            relationshipId: 'lin-mu-ally',
+            action: 'strain',
+            requiredChange: '同伴发现林牧仍在隐瞒。',
+          },
+        ],
+      }),
+      JSON.stringify([
+        {
+          volumeIndex: 1,
+          chapterIndex: 1,
+          pressureLevel: 'high',
+          dominantTension: 'moral_choice',
+          requiredTurn: '胜利会伤害同伴。',
+          forcedChoice: '保住证据，或救下同伴。',
+          costToPay: '失去同伴信任。',
+          irreversibleChange: '林牧无法继续旁观。',
+          readerQuestion: '谁安排了这次选择？',
+          hookPressure: '章末出现更坏记录。',
+          flatnessRisks: ['不要用解释代替冲突。'],
+        },
+      ]),
+    ];
+    const registry = {
+      languageModel: vi.fn().mockReturnValue(fakeModel),
+    };
+    const generateText = vi.fn().mockImplementation(async () => ({
+      text: responses.shift() ?? '',
+    }));
+    const service = createAiOutlineService({
+      registry: registry as never,
+      generateText: generateText as never,
+    });
+
+    const result = await service.generateFromIdea({
+      bookId: 'book-1',
+      idea: '命簿修复师追查家族旧案。',
+      targetChapters: 1,
+      wordsPerChapter: 2000,
+      modelId: 'model-1',
+    });
+
+    expect(result.chapterThreadActions).toEqual([
+      {
+        bookId: 'book-1',
+        volumeIndex: 1,
+        chapterIndex: 1,
+        threadId: 'main-ledger-truth',
+        action: 'advance',
+        requiredEffect: '碎页证明林家旧案与师父相关。',
+      },
+    ]);
+    expect(result.chapterCharacterPressures).toEqual([
+      {
+        bookId: 'book-1',
+        volumeIndex: 1,
+        chapterIndex: 1,
+        characterId: 'lin-mu',
+        desirePressure: '想立刻查明真相。',
+        fearPressure: '害怕再次被抹除。',
+        flawTrigger: '独自承担。',
+        expectedChoice: '向同伴透露一半真相。',
+      },
+    ]);
+    expect(result.chapterRelationshipActions).toEqual([
+      {
+        bookId: 'book-1',
+        volumeIndex: 1,
+        chapterIndex: 1,
+        relationshipId: 'lin-mu-ally',
+        action: 'strain',
+        requiredChange: '同伴发现林牧仍在隐瞒。',
+      },
+    ]);
   });
 
   it('reports missing narrative bible arrays as validation errors', async () => {

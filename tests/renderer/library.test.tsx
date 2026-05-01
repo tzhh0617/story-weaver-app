@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import Library from '@story-weaver/frontend/pages/Library';
 
@@ -112,6 +112,70 @@ describe('Library', () => {
     expect(workspaceCard).toContainElement(
       screen.getByRole('button', { name: '北境遗城' })
     );
+  });
+
+  it('summarizes the shelf from real book and scheduler data', () => {
+    render(
+      <Library
+        books={[
+          {
+            id: 'book-1',
+            title: 'Completed Book',
+            idea: 'A finished manuscript.',
+            status: 'completed',
+            targetChapters: 500,
+            wordsPerChapter: 2500,
+            updatedAt: '2026-04-28T12:00:00.000Z',
+            createdAt: '2026-04-28T10:00:00.000Z',
+          },
+          {
+            id: 'book-2',
+            title: 'Writing Book',
+            idea: 'A running manuscript.',
+            status: 'writing',
+            targetChapters: 500,
+            wordsPerChapter: 2500,
+            updatedAt: '2026-04-28T12:00:00.000Z',
+            createdAt: '2026-04-28T10:00:00.000Z',
+          },
+          {
+            id: 'book-3',
+            title: 'Paused Book',
+            idea: 'A paused manuscript.',
+            status: 'paused',
+            targetChapters: 500,
+            wordsPerChapter: 2500,
+            updatedAt: '2026-04-28T12:00:00.000Z',
+            createdAt: '2026-04-28T10:00:00.000Z',
+          },
+          {
+            id: 'book-4',
+            title: 'Queued Book',
+            idea: 'A queued manuscript.',
+            status: 'building_outline',
+            targetChapters: 500,
+            wordsPerChapter: 2500,
+            updatedAt: '2026-04-28T12:00:00.000Z',
+            createdAt: '2026-04-28T10:00:00.000Z',
+          },
+        ]}
+        scheduler={{
+          runningBookIds: [],
+          queuedBookIds: ['book-4'],
+          pausedBookIds: [],
+          concurrencyLimit: 3,
+        }}
+        onSelectBook={vi.fn()}
+        onStartAll={vi.fn()}
+        onPauseAll={vi.fn()}
+      />
+    );
+
+    const stats = screen.getByText('完成').closest('dl');
+
+    expect(stats).not.toBeNull();
+    expect(within(stats as HTMLElement).getByText('1/4')).toBeInTheDocument();
+    expect(within(stats as HTMLElement).getAllByText('1')).toHaveLength(3);
   });
 
   it('shows an empty-state message when there are no books yet', () => {

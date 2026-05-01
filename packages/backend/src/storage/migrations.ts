@@ -38,7 +38,7 @@ export const migrations = [
   );
 
   CREATE TABLE IF NOT EXISTS character_arcs (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL,
     book_id TEXT NOT NULL,
     name TEXT NOT NULL,
     role_type TEXT NOT NULL,
@@ -54,6 +54,7 @@ export const migrations = [
     line_will_not_cross TEXT,
     line_may_eventually_cross TEXT,
     current_arc_phase TEXT NOT NULL,
+    PRIMARY KEY (book_id, id),
     FOREIGN KEY (book_id) REFERENCES books(id)
   );
 
@@ -74,7 +75,7 @@ export const migrations = [
   );
 
   CREATE TABLE IF NOT EXISTS relationship_edges (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL,
     book_id TEXT NOT NULL,
     from_character_id TEXT NOT NULL,
     to_character_id TEXT NOT NULL,
@@ -91,6 +92,7 @@ export const migrations = [
     tension_level INTEGER NOT NULL,
     current_state TEXT NOT NULL,
     planned_turns_json TEXT NOT NULL DEFAULT '[]',
+    PRIMARY KEY (book_id, id),
     FOREIGN KEY (book_id) REFERENCES books(id)
   );
 
@@ -108,7 +110,7 @@ export const migrations = [
   );
 
   CREATE TABLE IF NOT EXISTS world_rules (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL,
     book_id TEXT NOT NULL,
     category TEXT NOT NULL,
     rule_text TEXT NOT NULL,
@@ -119,11 +121,12 @@ export const migrations = [
     violation_consequence TEXT,
     allowed_exception TEXT,
     current_status TEXT NOT NULL,
+    PRIMARY KEY (book_id, id),
     FOREIGN KEY (book_id) REFERENCES books(id)
   );
 
   CREATE TABLE IF NOT EXISTS narrative_threads (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL,
     book_id TEXT NOT NULL,
     type TEXT NOT NULL,
     promise TEXT NOT NULL,
@@ -136,6 +139,7 @@ export const migrations = [
     owner_character_id TEXT,
     related_relationship_id TEXT,
     notes TEXT,
+    PRIMARY KEY (book_id, id),
     FOREIGN KEY (book_id) REFERENCES books(id)
   );
 
@@ -324,7 +328,7 @@ export const migrations = [
   );
 
   CREATE TABLE IF NOT EXISTS characters (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL,
     book_id TEXT NOT NULL,
     name TEXT NOT NULL,
     role_type TEXT NOT NULL,
@@ -336,17 +340,19 @@ export const migrations = [
     relationships TEXT,
     first_appear INTEGER,
     is_active INTEGER NOT NULL DEFAULT 1,
+    PRIMARY KEY (book_id, id),
     FOREIGN KEY (book_id) REFERENCES books(id)
   );
 
   CREATE TABLE IF NOT EXISTS plot_threads (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL,
     book_id TEXT NOT NULL,
     description TEXT NOT NULL,
     planted_at INTEGER NOT NULL,
     expected_payoff INTEGER,
     resolved_at INTEGER,
     importance TEXT NOT NULL DEFAULT 'normal',
+    PRIMARY KEY (book_id, id),
     FOREIGN KEY (book_id) REFERENCES books(id)
   );
 

@@ -15,7 +15,7 @@ export function createNarrativeThreadRepository(db: SqliteDatabase) {
           @currentState, @importance, @payoffMustChange, @ownerCharacterId,
           @relatedRelationshipId, @notes
         )
-        ON CONFLICT(id) DO UPDATE SET
+        ON CONFLICT(book_id, id) DO UPDATE SET
           type = excluded.type,
           promise = excluded.promise,
           planted_at = excluded.planted_at,

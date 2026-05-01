@@ -95,4 +95,63 @@ describe('buildWorldPrompt', () => {
     expect(prompt).toContain('story-structure');
     expect(prompt).toContain('Chapter outline: Opening');
   });
+
+  it('caps requested volume count to the target chapter count', () => {
+    const prompt = buildVolumeOutlinePrompt('Master outline', {
+      targetChapters: 3,
+      wordsPerChapter: 1200,
+    });
+
+    expect(prompt).toContain('Expand this into 3 volume outlines.');
+    expect(prompt).not.toContain('Expand this into 10 volume outlines.');
+  });
+
+  it('states the no-title chapter prose rule cleanly', () => {
+    const prompt = buildChapterDraftPrompt({
+      idea: 'A mountain archive decides who may remember history.',
+      worldSetting: 'World setting',
+      masterOutline: 'Master outline',
+      continuityContext: null,
+      chapterTitle: 'Chapter 1',
+      chapterOutline: 'Opening',
+      targetChapters: 3,
+      wordsPerChapter: 1200,
+    });
+
+    expect(prompt).toContain(
+      'Do not include any chapter title, heading, Markdown title, or title line in the body text.'
+    );
+    expect(prompt).not.toContain('in the正文');
+  });
+
+  it('centralizes AI-first style constraints in legacy generation prompts', () => {
+    const worldPrompt = buildWorldPrompt({
+      idea: 'A mountain archive decides who may remember history.',
+      targetChapters: 80,
+      wordsPerChapter: 2500,
+    });
+    const draftPrompt = buildChapterDraftPrompt({
+      idea: 'A mountain archive decides who may remember history.',
+      worldSetting: 'World setting',
+      masterOutline: 'Master outline',
+      continuityContext: 'Previous chapter ended at the archive gate.',
+      chapterTitle: 'Gate Debt',
+      chapterOutline: 'The protagonist must pay a memory debt.',
+      targetChapters: 80,
+      wordsPerChapter: 2500,
+    });
+
+    for (const prompt of [worldPrompt, draftPrompt]) {
+      expect(prompt).toContain('AI-first text policy');
+      expect(prompt).toContain(
+        'The model is responsible for producing text that already satisfies the requested style and format.'
+      );
+      expect(prompt).toContain(
+        'Local code will only perform structural guards such as trimming, JSON parsing, and storage-safe fallback handling.'
+      );
+      expect(prompt).toContain(
+        'Use Chinese web novel prose: short readable paragraphs, visible conflict, action and dialogue over exposition, and a forward-driving ending hook.'
+      );
+    }
+  });
 });

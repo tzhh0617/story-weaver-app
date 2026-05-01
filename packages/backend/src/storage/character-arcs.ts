@@ -20,7 +20,7 @@ export function createCharacterArcRepository(db: SqliteDatabase) {
             @externalGoal, @internalNeed, @arcDirection, @decisionLogic,
             @lineWillNotCross, @lineMayEventuallyCross, @currentArcPhase
           )
-          ON CONFLICT(id) DO UPDATE SET
+          ON CONFLICT(book_id, id) DO UPDATE SET
             name = excluded.name,
             role_type = excluded.role_type,
             desire = excluded.desire,

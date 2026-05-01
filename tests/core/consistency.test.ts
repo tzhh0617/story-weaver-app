@@ -68,4 +68,24 @@ describe('buildStoredChapterContext', () => {
     expect(result).toContain('World rules:');
     expect(result).not.toContain('World rule 19');
   });
+
+  it('labels stored chapter context as a local fallback rather than semantic summary', () => {
+    const result = buildStoredChapterContext({
+      worldSetting: '命簿改写必须付出记忆代价。',
+      characterStates: [],
+      plotThreads: [],
+      latestScene: null,
+      chapters: [],
+      currentChapter: {
+        volumeIndex: 1,
+        chapterIndex: 1,
+        outline: '林牧第一次发现命簿异常。',
+      },
+    });
+
+    expect(result).toContain('Local continuity fallback');
+    expect(result).toContain(
+      'Use this as stored facts only; do not treat it as a semantic rewrite or style guide.'
+    );
+  });
 });

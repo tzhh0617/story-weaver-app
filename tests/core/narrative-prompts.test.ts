@@ -6,6 +6,7 @@ import {
   buildNarrativeDraftPrompt,
   buildRevisionPrompt,
   buildTensionBudgetPrompt,
+  buildVolumePlanPrompt,
   parseJsonObject,
 } from '@story-weaver/backend/core/narrative/prompts';
 
@@ -40,6 +41,24 @@ describe('narrative prompts', () => {
     expect(prompt).toContain('flaw');
     expect(prompt).toContain('cost');
     expect(prompt).toContain('themeAnswerDirection');
+    expect(prompt).toContain('characterArcs array');
+    expect(prompt).toContain('relationshipEdges array');
+    expect(prompt).toContain('worldRules array');
+    expect(prompt).toContain('narrativeThreads array');
+    expect(prompt).toContain('visibleLabel');
+    expect(prompt).toContain('trustLevel');
+    expect(prompt).toContain('plannedTurns');
+  });
+
+  it('requires volume plans to include volumeIndex for persistence', () => {
+    const prompt = buildVolumePlanPrompt({
+      targetChapters: 80,
+      bibleSummary: '主题：自由的代价。',
+    });
+
+    expect(prompt).toContain('volumeIndex');
+    expect(prompt).toContain('chapterStart');
+    expect(prompt).toContain('chapterEnd');
   });
 
   it('requires chapter cards to include mustChange and readerReward', () => {
@@ -53,6 +72,9 @@ describe('narrative prompts', () => {
     expect(prompt).toContain('mustChange');
     expect(prompt).toContain('readerReward');
     expect(prompt).toContain('forbiddenMoves');
+    expect(prompt).toContain('threadActions items must include');
+    expect(prompt).toContain('characterPressures items must include');
+    expect(prompt).toContain('relationshipActions items must include');
   });
 
   it('injects the opening retention protocol into chapter card prompts', () => {
@@ -82,6 +104,36 @@ describe('narrative prompts', () => {
     expect(prompt).toContain('Do not include any chapter title');
     expect(prompt).toContain('Chapter Mission');
     expect(prompt).toContain('approximately 2000 Chinese characters');
+  });
+
+  it('centralizes AI-first style constraints in narrative draft and revision prompts', () => {
+    const draftPrompt = buildNarrativeDraftPrompt({
+      idea: '命簿',
+      wordsPerChapter: 2000,
+      commandContext: 'Chapter Mission: 林牧必须主动追查。',
+    });
+    const revisionPrompt = buildRevisionPrompt({
+      originalPrompt: '写第一章。',
+      draft: '林牧直接胜利。',
+      issues: [
+        {
+          type: 'pacing_problem',
+          severity: 'major',
+          evidence: '没有动作推进。',
+          fixInstruction: '改成通过动作和对话推进。',
+        },
+      ],
+    });
+
+    for (const prompt of [draftPrompt, revisionPrompt]) {
+      expect(prompt).toContain('AI-first text policy');
+      expect(prompt).toContain(
+        'The model is responsible for producing text that already satisfies the requested style and format.'
+      );
+      expect(prompt).toContain(
+        'Use Chinese web novel prose: short readable paragraphs, visible conflict, action and dialogue over exposition, and a forward-driving ending hook.'
+      );
+    }
   });
 
   it('injects story route plans into draft prompts', () => {

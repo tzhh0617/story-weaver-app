@@ -171,7 +171,7 @@ function buildShortChapterRewritePrompt(input: {
     `Generated effective word count: ${input.actualWordCount}`,
     `Soft target word count: approximately ${input.wordsPerChapter}`,
     'Start over from the original chapter brief and write a complete replacement draft. Preserve the same chapter identity, outline, continuity, and story direction, but expand scenes, conflict, sensory detail, and emotional beats naturally.',
-    'Do not include any chapter title, heading, Markdown title, or title line in the正文.',
+    'Do not include any chapter title, heading, Markdown title, or title line in the body text.',
     'Do not summarize, do not explain the rewrite, and do not truncate the prose.',
   ].join('\n');
 }
@@ -437,7 +437,7 @@ export function createBookService(deps: {
       resolvedAt?: number | null;
       importance?: string | null;
     }) => void;
-    resolveThread: (id: string, resolvedAt: number) => void;
+    resolveThread: (bookId: string, id: string, resolvedAt: number) => void;
     listByBook: (bookId: string) => Array<{
       id: string;
       bookId: string;
@@ -1500,6 +1500,8 @@ export function createBookService(deps: {
             draft: result.content,
             auditContext,
             routePlanText,
+            viralStoryProtocol: storyBible?.viralStoryProtocol ?? null,
+            chapterIndex: nextChapter.chapterIndex,
           });
           deps.chapterAudits?.save({
             bookId,
@@ -1558,7 +1560,7 @@ export function createBookService(deps: {
       }
 
       for (const threadId of chapterUpdate.resolvedThreadIds) {
-        deps.plotThreads.resolveThread(threadId, nextChapter.chapterIndex);
+        deps.plotThreads.resolveThread(bookId, threadId, nextChapter.chapterIndex);
       }
 
       for (const state of chapterUpdate.characterStates) {

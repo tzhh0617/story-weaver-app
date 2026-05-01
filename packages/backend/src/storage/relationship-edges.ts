@@ -18,7 +18,7 @@ export function createRelationshipEdgeRepository(db: SqliteDatabase) {
             @harmPattern, @sharedGoal, @valueConflict, @trustLevel,
             @tensionLevel, @currentState, @plannedTurnsJson
           )
-          ON CONFLICT(id) DO UPDATE SET
+          ON CONFLICT(book_id, id) DO UPDATE SET
             visible_label = excluded.visible_label,
             hidden_truth = excluded.hidden_truth,
             dependency = excluded.dependency,
