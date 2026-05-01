@@ -1,6 +1,5 @@
 import type { BookGenerationEvent, BookStatus } from '@story-weaver/shared/contracts';
 import type {
-  ChapterCard,
   ChapterCharacterPressure,
   ChapterRelationshipAction,
   ChapterTensionBudget,
