@@ -4,3 +4,5 @@ export { createOutlineAggregate } from './outline/index.js';
 export type { OutlineAggregateDeps } from './outline/index.js';
 export { createChapterAggregate } from './chapter/index.js';
 export type { ChapterAggregateDeps } from './chapter/index.js';
+export { createNarrativeWorldAggregate } from './narrative-world/index.js';
+export type { NarrativeWorldDeps } from './narrative-world/index.js';
