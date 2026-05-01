@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import BookDetail from '../../renderer/pages/BookDetail';
+import BookDetail from '@story-weaver/frontend/pages/BookDetail';
 
 describe('BookDetail', () => {
   let scrollIntoViewSpy: ReturnType<typeof vi.fn>;

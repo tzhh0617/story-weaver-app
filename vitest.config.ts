@@ -5,6 +5,10 @@ export default defineConfig({
   resolve: {
     alias: [
       {
+        find: /^@story-weaver\/frontend\/(.*)$/,
+        replacement: path.resolve(__dirname, 'packages/frontend/src/$1'),
+      },
+      {
         find: /^@story-weaver\/backend\/(.*)$/,
         replacement: path.resolve(__dirname, 'packages/backend/src/$1'),
       },
@@ -26,7 +30,7 @@ export default defineConfig({
       },
       {
         find: '@',
-        replacement: path.resolve(__dirname, 'renderer'),
+        replacement: path.resolve(__dirname, 'packages/frontend/src'),
       },
     ],
   },

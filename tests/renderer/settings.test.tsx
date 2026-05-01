@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import Settings from '../../renderer/pages/Settings';
+import Settings from '@story-weaver/frontend/pages/Settings';
 
 async function selectProvider(value: string) {
   fireEvent.change(screen.getByLabelText('Provider'), {

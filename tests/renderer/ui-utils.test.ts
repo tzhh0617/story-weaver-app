@@ -1,8 +1,8 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { createElement } from 'react';
 import { describe, expect, it } from 'vitest';
-import { cn } from '../../renderer/lib/utils';
-import { Button } from '../../renderer/components/ui/button';
+import { cn } from '@story-weaver/frontend/lib/utils';
+import { Button } from '@story-weaver/frontend/components/ui/button';
 import {
   Sidebar,
   SidebarContent,
@@ -10,7 +10,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
-} from '../../renderer/components/ui/sidebar';
+} from '@story-weaver/frontend/components/ui/sidebar';
 
 describe('cn', () => {
   it('merges truthy class names into a single string', () => {

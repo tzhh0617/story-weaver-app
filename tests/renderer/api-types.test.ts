@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { StoryWeaverApi } from '../../renderer/hooks/useStoryWeaverApi';
+import type { StoryWeaverApi } from '@story-weaver/frontend/hooks/useStoryWeaverApi';
 
 function acceptsApi(api: StoryWeaverApi) {
   void api.listBooks().then((books) => books.at(0)?.id);

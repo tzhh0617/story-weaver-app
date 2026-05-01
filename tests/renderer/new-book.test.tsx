@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import NewBook from '../../renderer/pages/NewBook';
+import NewBook from '@story-weaver/frontend/pages/NewBook';
 
 describe('NewBook', () => {
   it('associates visible labels with the form controls', () => {

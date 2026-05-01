@@ -25,7 +25,7 @@
   "include": [
     "electron/**/*.ts",
     "packages/backend/src/**/*.ts",
-    "vite.config.ts",
+    "packages/frontend/vite.config.ts",
     "vitest.config.ts"
   ]
 }

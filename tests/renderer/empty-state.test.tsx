@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { EmptyState } from '../../renderer/components/EmptyState';
+import { EmptyState } from '@story-weaver/frontend/components/EmptyState';
 
 describe('EmptyState', () => {
   it('renders a titled empty-state container with supporting copy', () => {

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   formatChapterWordCount,
   formatTotalWordCount,
-} from '../../renderer/word-count-format';
+} from '@story-weaver/frontend/word-count-format';
 
 describe('word count formatting', () => {
   it('uses Chinese units with at most one decimal place', () => {

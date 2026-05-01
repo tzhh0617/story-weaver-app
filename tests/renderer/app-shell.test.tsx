@@ -6,7 +6,7 @@ import {
   waitFor,
 } from '@testing-library/react';
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import App from '../../renderer/App';
+import App from '@story-weaver/frontend/App';
 
 function copy<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;

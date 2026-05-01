@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import Library from '../../renderer/pages/Library';
+import Library from '@story-weaver/frontend/pages/Library';
 
 describe('Library', () => {
   it('renders the library title inside the shared intro panel', () => {

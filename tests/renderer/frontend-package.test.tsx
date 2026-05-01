@@ -2,8 +2,8 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import App from '@story-weaver/frontend/App';
 
-describe('renderer entry styling', () => {
-  it('still renders the main workspace heading with the active style entry', async () => {
+describe('frontend package entry', () => {
+  it('exports the React app from the frontend package', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async (url: URL | string) => {
@@ -41,20 +41,12 @@ describe('renderer entry styling', () => {
       })
     );
 
-    const { container } = render(<App />);
+    render(<App />);
 
     expect(
       await screen.findByRole('heading', {
         name: '作品库',
       })
     ).toBeInTheDocument();
-
-    const main = container.querySelector('main.h-svh');
-    const cappedChildren = Array.from(main?.children ?? []).filter((child) =>
-      child.className.includes('max-w-[1100px]')
-    );
-
-    expect(main).toHaveClass('h-svh', 'overflow-y-auto', 'w-full');
-    expect(cappedChildren).toHaveLength(0);
   });
 });

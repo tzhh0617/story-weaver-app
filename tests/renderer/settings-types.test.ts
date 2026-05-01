@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import Settings from '../../renderer/pages/Settings';
+import Settings from '@story-weaver/frontend/pages/Settings';
 import type { ModelSavePayload } from '@story-weaver/shared/contracts';
 
 type SettingsProps = Parameters<typeof Settings>[0];

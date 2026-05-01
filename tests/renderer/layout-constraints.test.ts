@@ -2,8 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const rendererRoot = path.resolve(__dirname, '../../renderer');
-const projectRoot = path.resolve(rendererRoot, '..');
+const rendererRoot = path.resolve(__dirname, '../../packages/frontend/src');
+const projectRoot = path.resolve(rendererRoot, '../../..');
 const arbitraryPixelMaxWidthPattern = /max-w-\[\d+px\]/;
 
 function listRendererSourceFiles(directory: string): string[] {

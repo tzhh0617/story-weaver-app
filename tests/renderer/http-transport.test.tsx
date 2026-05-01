@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { createHttpStoryWeaverClient } from '../../renderer/lib/story-weaver-http-client';
-import { useStoryWeaverApi } from '../../renderer/hooks/useStoryWeaverApi';
+import { createHttpStoryWeaverClient } from '@story-weaver/frontend/lib/story-weaver-http-client';
+import { useStoryWeaverApi } from '@story-weaver/frontend/hooks/useStoryWeaverApi';
 
 function Probe() {
   const api = useStoryWeaverApi();

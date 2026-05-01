@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
-import ChapterList from '../../renderer/components/ChapterList';
+import ChapterList from '@story-weaver/frontend/components/ChapterList';
 
 describe('ChapterList', () => {
   it('shows audit score when a chapter has been audited', () => {
@@ -166,7 +166,7 @@ describe('ChapterList', () => {
 
   it('defines the ink wash with soft masks and irregular edges instead of square texture artifacts', () => {
     const css = readFileSync(
-      join(process.cwd(), 'renderer/index.css'),
+      join(process.cwd(), 'packages/frontend/src/index.css'),
       'utf8'
     );
     const inkWashRule = css.slice(
