@@ -7,7 +7,9 @@ from PIL import Image, ImageDraw
 
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
-SOURCE_LOGO = ROOT_DIR / "renderer" / "assets" / "story-weaver-logo.png"
+SOURCE_LOGO = (
+    ROOT_DIR / "packages" / "frontend" / "src" / "assets" / "story-weaver-logo.png"
+)
 BUILD_DIR = ROOT_DIR / "build"
 ICONSET_DIR = BUILD_DIR / "mac" / "StoryWeaver.iconset"
 PADDED_ICON = BUILD_DIR / "icon.png"

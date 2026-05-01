@@ -122,7 +122,7 @@ describe('renderer layout constraints', () => {
   it('defines the shared shadcn theme tokens used by overlay and form primitives', () => {
     const cssSource = fs.readFileSync(path.join(rendererRoot, 'index.css'), 'utf8');
     const tailwindSource = fs.readFileSync(
-      path.resolve(rendererRoot, '../tailwind.config.ts'),
+      path.resolve(rendererRoot, '../../../tailwind.config.ts'),
       'utf8'
     );
 

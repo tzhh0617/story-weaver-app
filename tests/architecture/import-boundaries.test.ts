@@ -115,4 +115,15 @@ describe('workspace import boundaries', () => {
 
     expect(offenders).toEqual([]);
   });
+
+  it('does not keep application source in legacy root directories', () => {
+    const legacySources = listTrackedSourceFiles().filter(
+      (file) =>
+        file.startsWith('src/') ||
+        file.startsWith('server/') ||
+        file.startsWith('renderer/')
+    );
+
+    expect(legacySources).toEqual([]);
+  });
 });
