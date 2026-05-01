@@ -120,8 +120,8 @@ export type BookDetail = {
       bookId: string;
       chapterIndex: number;
       checkpointType?: string;
-      report: unknown;
-      futureCardRevisions: unknown[];
+      report: Record<string, unknown> | null;
+      futureCardRevisions: Array<Record<string, unknown>>;
       createdAt: string;
     }>;
   };

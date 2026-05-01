@@ -27,6 +27,7 @@
       "@story-weaver/shared/contracts": ["packages/shared/src/contracts.ts"],
       "@story-weaver/shared/settings": ["packages/shared/src/settings.ts"],
       "@story-weaver/shared/errors": ["packages/shared/src/errors.ts"],
+      "@story-weaver/shared/validation": ["packages/shared/src/validation.ts"],
       "@story-weaver/shared/schemas/book-schemas": ["packages/shared/src/schemas/book-schemas.ts"],
       "@story-weaver/shared/schemas/model-schemas": ["packages/shared/src/schemas/model-schemas.ts"],
       "@story-weaver/shared/schemas/settings-schemas": ["packages/shared/src/schemas/settings-schemas.ts"],

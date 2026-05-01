@@ -29,6 +29,10 @@ export default defineConfig({
         replacement: path.resolve(__dirname, 'packages/shared/src/errors.ts'),
       },
       {
+        find: '@story-weaver/shared/validation',
+        replacement: path.resolve(__dirname, 'packages/shared/src/validation.ts'),
+      },
+      {
         find: '@story-weaver/shared/schemas/book-schemas',
         replacement: path.resolve(__dirname, 'packages/shared/src/schemas/book-schemas.ts'),
       },

@@ -19,6 +19,10 @@
     "./errors": {
       "types": "./dist/errors.d.ts",
       "import": "./dist/errors.js"
+    },
+    "./validation": {
+      "types": "./dist/validation.d.ts",
+      "import": "./dist/validation.js"
     }
   },
   "scripts": {
