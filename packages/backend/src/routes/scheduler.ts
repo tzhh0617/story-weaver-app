@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import type { RuntimeServices } from '../../src/runtime/create-runtime-services.js';
+import type { RuntimeServices } from '.././runtime/create-runtime-services.js';
 
 export async function registerSchedulerRoutes(
   app: FastifyInstance,

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createDatabase } from '../../src/storage/database';
-import { createBookRepository } from '../../src/storage/books';
-import { createChapterRepository } from '../../src/storage/chapters';
+import { createDatabase } from '@story-weaver/backend/storage/database';
+import { createBookRepository } from '@story-weaver/backend/storage/books';
+import { createChapterRepository } from '@story-weaver/backend/storage/chapters';
 
 describe('book repository', () => {
   afterEach(() => {

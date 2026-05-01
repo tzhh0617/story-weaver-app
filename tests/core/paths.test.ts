@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildAppPaths } from '../../src/shared/paths';
+import { buildAppPaths } from '@story-weaver/backend/shared/paths';
 
 describe('buildAppPaths', () => {
   it('builds stable data, export, and log paths under the app root', () => {

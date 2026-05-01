@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createModelTestService } from '../../src/core/model-test';
+import { createModelTestService } from '@story-weaver/backend/core/model-test';
 
 describe('createModelTestService', () => {
   it('returns ok and latency when the model responds', async () => {

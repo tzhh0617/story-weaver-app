@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createChapterWriter } from '../../src/core/chapter-writer';
+import { createChapterWriter } from '@story-weaver/backend/core/chapter-writer';
 
 describe('createChapterWriter', () => {
   it('records tokens and returns chapter text', async () => {

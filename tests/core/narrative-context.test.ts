@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildNarrativeCommandContext } from '../../src/core/narrative/context';
+import { buildNarrativeCommandContext } from '@story-weaver/backend/core/narrative/context';
 
 describe('buildNarrativeCommandContext', () => {
   it('keeps chapter mission and forbidden moves when trimming', () => {

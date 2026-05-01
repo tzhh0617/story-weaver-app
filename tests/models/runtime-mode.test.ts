@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   createRuntimeMode,
   DEFAULT_MOCK_MODEL_ID,
-} from '../../src/models/runtime-mode';
+} from '@story-weaver/backend/models/runtime-mode';
 
 describe('createRuntimeMode', () => {
   it('enters mock mode when no complete model config is available', () => {

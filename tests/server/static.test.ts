@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { buildServer } from '../../server/main';
+import { buildServer } from '@story-weaver/backend';
 
 const roots: string[] = [];
 

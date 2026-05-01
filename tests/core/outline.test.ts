@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createOutlineService } from '../../src/core/outline';
+import { createOutlineService } from '@story-weaver/backend/core/outline';
 
 describe('createOutlineService', () => {
   it('calls the model in world -> master -> volume -> chapter order', async () => {

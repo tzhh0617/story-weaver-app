@@ -7,7 +7,7 @@ import {
   buildRevisionPrompt,
   buildTensionBudgetPrompt,
   parseJsonObject,
-} from '../../src/core/narrative/prompts';
+} from '@story-weaver/backend/core/narrative/prompts';
 
 const viralProtocol = {
   readerPromise: '压抑后翻盘。',

@@ -4,13 +4,13 @@ import {
   validateNarrativeBible,
   validateTensionBudgets,
   validateVolumePlans,
-} from '../../src/core/narrative/validation';
+} from '@story-weaver/backend/core/narrative/validation';
 import type {
   ChapterCard,
   ChapterTensionBudget,
   NarrativeBible,
   VolumePlan,
-} from '../../src/core/narrative/types';
+} from '@story-weaver/backend/core/narrative/types';
 
 function validBible(): NarrativeBible {
   return {

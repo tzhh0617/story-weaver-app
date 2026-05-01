@@ -5,6 +5,14 @@ export default defineConfig({
   resolve: {
     alias: [
       {
+        find: /^@story-weaver\/backend\/(.*)$/,
+        replacement: path.resolve(__dirname, 'packages/backend/src/$1'),
+      },
+      {
+        find: '@story-weaver/backend',
+        replacement: path.resolve(__dirname, 'packages/backend/src/index.ts'),
+      },
+      {
         find: '@story-weaver/shared/contracts',
         replacement: path.resolve(__dirname, 'packages/shared/src/contracts.ts'),
       },

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   formatStoryRoutePlanForPrompt,
   routeStoryTask,
-} from '../../src/core/story-router';
+} from '@story-weaver/backend/core/story-router';
 
 describe('story skill router', () => {
   it('routes chapter writing through structure, chapter goal, character, hook, and audit skills', () => {

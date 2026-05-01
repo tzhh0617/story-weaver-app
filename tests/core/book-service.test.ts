@@ -1,15 +1,15 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createDatabase } from '../../src/storage/database';
-import { createBookRepository } from '../../src/storage/books';
-import { createChapterAuditRepository } from '../../src/storage/chapter-audits';
-import { createChapterCardRepository } from '../../src/storage/chapter-cards';
-import { createChapterRepository } from '../../src/storage/chapters';
-import { createCharacterRepository } from '../../src/storage/characters';
-import { createPlotThreadRepository } from '../../src/storage/plot-threads';
-import { createProgressRepository } from '../../src/storage/progress';
-import { createSceneRecordRepository } from '../../src/storage/scene-records';
-import { createBookService } from '../../src/core/book-service';
-import { countStoryCharacters } from '../../src/core/story-constraints';
+import { createDatabase } from '@story-weaver/backend/storage/database';
+import { createBookRepository } from '@story-weaver/backend/storage/books';
+import { createChapterAuditRepository } from '@story-weaver/backend/storage/chapter-audits';
+import { createChapterCardRepository } from '@story-weaver/backend/storage/chapter-cards';
+import { createChapterRepository } from '@story-weaver/backend/storage/chapters';
+import { createCharacterRepository } from '@story-weaver/backend/storage/characters';
+import { createPlotThreadRepository } from '@story-weaver/backend/storage/plot-threads';
+import { createProgressRepository } from '@story-weaver/backend/storage/progress';
+import { createSceneRecordRepository } from '@story-weaver/backend/storage/scene-records';
+import { createBookService } from '@story-weaver/backend/core/book-service';
+import { countStoryCharacters } from '@story-weaver/backend/core/story-constraints';
 import type { BookGenerationEvent } from '@story-weaver/shared/contracts';
 
 describe('createBookService', () => {

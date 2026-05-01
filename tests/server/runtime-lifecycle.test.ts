@@ -2,8 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { buildServer, startServer } from '../../server/main';
-import { createRuntimeServices } from '../../src/runtime/create-runtime-services';
+import { buildServer, startServer } from '@story-weaver/backend';
+import { createRuntimeServices } from '@story-weaver/backend/runtime/create-runtime-services';
 
 const roots: string[] = [];
 

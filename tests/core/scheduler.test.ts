@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createScheduler } from '../../src/core/scheduler';
+import { createScheduler } from '@story-weaver/backend/core/scheduler';
 
 describe('createScheduler', () => {
   it('starts only up to the concurrency limit', async () => {

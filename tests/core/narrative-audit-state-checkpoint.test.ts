@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { decideAuditAction } from '../../src/core/narrative/audit';
-import { shouldRunCheckpoint } from '../../src/core/narrative/checkpoint';
-import { normalizeNarrativeStateDelta } from '../../src/core/narrative/state';
+import { decideAuditAction } from '@story-weaver/backend/core/narrative/audit';
+import { shouldRunCheckpoint } from '@story-weaver/backend/core/narrative/checkpoint';
+import { normalizeNarrativeStateDelta } from '@story-weaver/backend/core/narrative/state';
 
 describe('narrative audit helpers', () => {
   it('escalates blocker audits to rewrite', () => {

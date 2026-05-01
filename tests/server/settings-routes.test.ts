@@ -2,8 +2,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { SHORT_CHAPTER_REVIEW_ENABLED_KEY } from '../../src/core/chapter-review';
-import { buildServer } from '../../server/main';
+import { SHORT_CHAPTER_REVIEW_ENABLED_KEY } from '@story-weaver/backend/core/chapter-review';
+import { buildServer } from '@story-weaver/backend';
 
 const roots: string[] = [];
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { validateModelConfig } from '../../src/models/config';
-import { createRuntimeRegistry } from '../../src/models/registry';
+import { validateModelConfig } from '@story-weaver/backend/models/config';
+import { createRuntimeRegistry } from '@story-weaver/backend/models/registry';
 
 describe('validateModelConfig', () => {
   it('rejects unsupported model providers', () => {

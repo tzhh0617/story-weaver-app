@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildStoredChapterContext,
   selectOpenThreads,
-} from '../../src/core/consistency';
+} from '@story-weaver/backend/core/consistency';
 
 describe('selectOpenThreads', () => {
   it('returns unresolved threads ordered by nearest expected payoff', () => {

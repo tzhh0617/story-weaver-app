@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { readFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { createRuntimeServices } from '../../src/runtime/create-runtime-services';
+import { createRuntimeServices } from '@story-weaver/backend/runtime/create-runtime-services';
 
 describe('createRuntimeServices', () => {
   it('boots against an isolated root directory with real repositories', () => {
@@ -38,7 +38,7 @@ describe('createRuntimeServices', () => {
 
   it('keeps shared runtime composition independent from electron modules', () => {
     const runtimeSource = readFileSync(
-      path.resolve('src/runtime/create-runtime-services.ts'),
+      path.resolve('packages/backend/src/runtime/create-runtime-services.ts'),
       'utf8'
     );
 

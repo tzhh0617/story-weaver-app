@@ -1,9 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { DEFAULT_MOCK_MODEL_ID } from '../../src/models/runtime-mode';
-import { countStoryCharacters } from '../../src/core/story-constraints';
-import type { RuntimeServices } from '../../src/runtime/create-runtime-services';
+import { DEFAULT_MOCK_MODEL_ID } from '@story-weaver/backend/models/runtime-mode';
+import { countStoryCharacters } from '@story-weaver/backend/core/story-constraints';
+import type { RuntimeServices } from '@story-weaver/backend/runtime/create-runtime-services';
 
 const activeServices: RuntimeServices[] = [];
 
@@ -42,7 +42,7 @@ async function loadRuntimeServices(input: {
     };
   });
 
-  const runtimeModule = await import('../../src/runtime/create-runtime-services');
+  const runtimeModule = await import('@story-weaver/backend/runtime/create-runtime-services');
   const services = runtimeModule.createRuntimeServices({ rootDir: input.tempHome });
   activeServices.push(services);
   return services;

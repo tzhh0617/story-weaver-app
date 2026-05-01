@@ -6,7 +6,7 @@ import {
   exportBookToFile,
   renderMarkdownExport,
   renderTextExport,
-} from '../../src/storage/export';
+} from '@story-weaver/backend/storage/export';
 
 describe('renderMarkdownExport', () => {
   it('renders the title followed by chapter headings and bodies', () => {

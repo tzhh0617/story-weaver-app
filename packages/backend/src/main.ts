@@ -1,7 +1,7 @@
 import cors from '@fastify/cors';
 import Fastify from 'fastify';
 import type { AddressInfo } from 'node:net';
-import { createRuntimeServices } from '../src/runtime/create-runtime-services.js';
+import { createRuntimeServices } from './runtime/create-runtime-services.js';
 import { resolveServerConfig } from './config.js';
 import { createExportRegistry } from './export-registry.js';
 import { registerBookRoutes } from './routes/books.js';

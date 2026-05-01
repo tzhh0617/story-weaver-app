@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createExecutionLogStream } from '../../src/storage/logs';
+import { createExecutionLogStream } from '@story-weaver/backend/storage/logs';
 
 describe('execution log stream', () => {
   it('emits realtime logs to current subscribers without exposing history', () => {

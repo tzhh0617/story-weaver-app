@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createDevelopmentOutlineService } from '../../src/core/development-outline';
+import { createDevelopmentOutlineService } from '@story-weaver/backend/core/development-outline';
 
 describe('createDevelopmentOutlineService', () => {
   it('produces a Chinese mock outline bundle without external model calls', async () => {

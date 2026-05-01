@@ -5,7 +5,7 @@ import type {
   BookExportResponse,
   ViralTropeContractPayload,
 } from '@story-weaver/shared/contracts';
-import type { RuntimeServices } from '../../src/runtime/create-runtime-services.js';
+import type { RuntimeServices } from '.././runtime/create-runtime-services.js';
 import type { createExportRegistry } from '../export-registry.js';
 
 type ExportRegistry = ReturnType<typeof createExportRegistry>;

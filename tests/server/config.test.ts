@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import os from 'node:os';
 import path from 'node:path';
-import { resolveServerConfig } from '../../server/config';
+import { resolveServerConfig } from '@story-weaver/backend/config';
 
 describe('resolveServerConfig', () => {
   it('uses local defaults when no environment overrides are provided', () => {

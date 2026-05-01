@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createNovelEngine } from '../../src/core/engine';
+import { createNovelEngine } from '@story-weaver/backend/core/engine';
 
 describe('createNovelEngine', () => {
   it('runs the book through outline and writing phases when start is called', async () => {

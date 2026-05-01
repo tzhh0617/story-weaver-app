@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { createDatabase } from '../../src/storage/database';
-import { createModelConfigRepository } from '../../src/storage/model-configs';
+import { createDatabase } from '@story-weaver/backend/storage/database';
+import { createModelConfigRepository } from '@story-weaver/backend/storage/model-configs';
 
 describe('model config repository', () => {
   it('saves and lists the single persisted model config', () => {

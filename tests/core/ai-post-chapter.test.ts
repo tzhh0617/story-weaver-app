@@ -6,7 +6,7 @@ import {
   createAiPlotThreadExtractor,
   createAiSceneRecordExtractor,
   createAiSummaryGenerator,
-} from '../../src/core/ai-post-chapter';
+} from '@story-weaver/backend/core/ai-post-chapter';
 
 describe('AI post-chapter extractors', () => {
   it('summarizes a chapter with the selected model', async () => {

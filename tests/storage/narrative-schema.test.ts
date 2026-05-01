@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { createChapterTensionBudgetRepository } from '../../src/storage/chapter-tension-budgets';
-import { createDatabase } from '../../src/storage/database';
+import { createChapterTensionBudgetRepository } from '@story-weaver/backend/storage/chapter-tension-budgets';
+import { createDatabase } from '@story-weaver/backend/storage/database';
 
 describe('narrative schema', () => {
   it('creates structured narrative planning and audit tables', () => {

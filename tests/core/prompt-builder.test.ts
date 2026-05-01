@@ -5,7 +5,7 @@ import {
   buildMasterOutlinePrompt,
   buildVolumeOutlinePrompt,
   buildWorldPrompt,
-} from '../../src/core/prompt-builder';
+} from '@story-weaver/backend/core/prompt-builder';
 
 describe('buildWorldPrompt', () => {
   it('anchors prompts to target chapters and per-chapter word count', () => {

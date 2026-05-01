@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
-import { SHORT_CHAPTER_REVIEW_ENABLED_KEY } from '../../src/core/chapter-review.js';
-import type { RuntimeServices } from '../../src/runtime/create-runtime-services.js';
+import { SHORT_CHAPTER_REVIEW_ENABLED_KEY } from '../core/chapter-review.js';
+import type { RuntimeServices } from '.././runtime/create-runtime-services.js';
 
 function readValue(body: unknown) {
   if (

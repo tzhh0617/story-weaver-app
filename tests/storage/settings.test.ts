@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { createDatabase } from '../../src/storage/database';
-import { createSettingsRepository } from '../../src/storage/settings';
+import { createDatabase } from '@story-weaver/backend/storage/database';
+import { createSettingsRepository } from '@story-weaver/backend/storage/settings';
 
 describe('createSettingsRepository', () => {
   it('persists and reads back setting values', () => {

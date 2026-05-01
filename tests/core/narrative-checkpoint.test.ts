@@ -3,7 +3,7 @@ import {
   buildTensionCheckpoint,
   shouldRunCheckpoint,
   shouldRunNarrativeCheckpoint,
-} from '../../src/core/narrative/checkpoint';
+} from '@story-weaver/backend/core/narrative/checkpoint';
 
 describe('shouldRunNarrativeCheckpoint', () => {
   it('runs arc checkpoint every 10 chapters', () => {

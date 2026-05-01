@@ -3,7 +3,7 @@ import Database from 'better-sqlite3';
 import { mkdtempSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { createDatabase } from '../../src/storage/database';
+import { createDatabase } from '@story-weaver/backend/storage/database';
 
 describe('createDatabase', () => {
   it('creates the expected tables on first boot', () => {

@@ -19,6 +19,9 @@
     "types": ["vitest/globals"],
     "paths": {
       "@/*": ["renderer/*"],
+      "@story-weaver/backend": ["packages/backend/src/index.ts"],
+      "@story-weaver/backend/config": ["packages/backend/src/config.ts"],
+      "@story-weaver/backend/*": ["packages/backend/src/*"],
       "@story-weaver/shared": ["packages/shared/src/index.ts"],
       "@story-weaver/shared/contracts": ["packages/shared/src/contracts.ts"],
       "@story-weaver/shared/settings": ["packages/shared/src/settings.ts"],
@@ -28,6 +31,7 @@
   "include": [
     "renderer",
     "src",
+    "packages/backend/src",
     "packages/shared/src",
     "tests",
     "vite.config.ts",

@@ -82,7 +82,29 @@ export function runMigrations(
   migrateDatabase(db);
 }
 
-export function createDatabase(filename: string) {
+export type Repositories = {
+  books: ReturnType<typeof createBookRepository>;
+  chapters: ReturnType<typeof createChapterRepository>;
+  storyBibles: ReturnType<typeof createStoryBibleRepository>;
+  characterArcs: ReturnType<typeof createCharacterArcRepository>;
+  relationshipEdges: ReturnType<typeof createRelationshipEdgeRepository>;
+  worldRules: ReturnType<typeof createWorldRuleRepository>;
+  narrativeThreads: ReturnType<typeof createNarrativeThreadRepository>;
+  volumePlans: ReturnType<typeof createVolumePlanRepository>;
+  chapterCards: ReturnType<typeof createChapterCardRepository>;
+  chapterTensionBudgets: ReturnType<typeof createChapterTensionBudgetRepository>;
+  chapterAudits: ReturnType<typeof createChapterAuditRepository>;
+  relationshipStates: ReturnType<typeof createRelationshipStateRepository>;
+  narrativeCheckpoints: ReturnType<typeof createNarrativeCheckpointRepository>;
+  characters: ReturnType<typeof createCharacterRepository>;
+  plotThreads: ReturnType<typeof createPlotThreadRepository>;
+  sceneRecords: ReturnType<typeof createSceneRecordRepository>;
+  progress: ReturnType<typeof createProgressRepository>;
+  settings: ReturnType<typeof createSettingsRepository>;
+  modelConfigs: ReturnType<typeof createModelConfigRepository>;
+};
+
+export function createDatabase(filename: string): SqliteDatabase {
   const db = new Database(filename);
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
@@ -93,7 +115,7 @@ export function createDatabase(filename: string) {
   return db;
 }
 
-export function createRepositories(db: SqliteDatabase) {
+export function createRepositories(db: SqliteDatabase): Repositories {
   const characterArcs = createCharacterArcRepository(db);
   const relationshipEdges = createRelationshipEdgeRepository(db);
   const worldRules = createWorldRuleRepository(db);

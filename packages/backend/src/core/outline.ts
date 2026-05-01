@@ -4,17 +4,17 @@ import {
   buildMasterOutlinePrompt,
   buildVolumeOutlinePrompt,
   buildWorldPrompt,
-} from './prompt-builder';
+} from './prompt-builder.js';
 import type {
   ChapterOutline,
   OutlineBundle,
   OutlineGenerationInput,
-} from './types';
+} from './types.js';
 import {
   normalizeChapterOutlinesToTarget,
   renumberChapterOutlinesFrom,
   takeChapterOutlinesWithinTarget,
-} from './story-constraints';
+} from './story-constraints.js';
 
 type GenerateText = (input: { prompt: string }) => Promise<{ text: string }>;
 

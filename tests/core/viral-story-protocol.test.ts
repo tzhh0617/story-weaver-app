@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import type { NarrativeBible } from '../../src/core/narrative/types';
+import type { NarrativeBible } from '@story-weaver/backend/core/narrative/types';
 import {
   deriveViralStoryProtocol,
   formatViralProtocolForPrompt,
   getExpectedPayoffForChapter,
   validateViralStoryProtocol,
-} from '../../src/core/narrative/viral-story-protocol';
+} from '@story-weaver/backend/core/narrative/viral-story-protocol';
 
 function bible(overrides: Partial<NarrativeBible> = {}): NarrativeBible {
   return {

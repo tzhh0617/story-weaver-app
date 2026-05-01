@@ -1,6 +1,6 @@
 import { app, BrowserWindow, nativeImage } from 'electron';
 import path from 'node:path';
-import { startServer } from '../server/main.js';
+import { startServer } from '@story-weaver/backend';
 
 let server: Awaited<ReturnType<typeof startServer>> | null = null;
 

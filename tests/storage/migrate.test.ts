@@ -8,7 +8,7 @@ import {
   migrateDatabase,
   resolveDefaultMigrationsFolder,
   shouldBackupBeforeMigration,
-} from '../../src/storage/migrate';
+} from '@story-weaver/backend/storage/migrate';
 
 describe('migrateDatabase', () => {
   it('records drizzle migrations and can run repeatedly without changing existing data', () => {

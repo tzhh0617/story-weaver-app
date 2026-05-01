@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_MOCK_MODEL_ID } from '../../src/models/runtime-mode';
+import { DEFAULT_MOCK_MODEL_ID } from '@story-weaver/backend/models/runtime-mode';
 import {
   createMockStoryServices,
   createMockChapterWriter,
@@ -8,8 +8,8 @@ import {
   createMockPlotThreadExtractor,
   createMockSceneRecordExtractor,
   createMockSummaryGenerator,
-} from '../../src/mock/story-services';
-import { countStoryCharacters } from '../../src/core/story-constraints';
+} from '@story-weaver/backend/mock/story-services';
+import { countStoryCharacters } from '@story-weaver/backend/core/story-constraints';
 
 describe('mock story services', () => {
   it('exposes a complete mock service bundle', async () => {

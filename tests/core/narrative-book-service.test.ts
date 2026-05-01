@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createBookService } from '../../src/core/book-service';
-import { createDatabase, createRepositories } from '../../src/storage/database';
+import { createBookService } from '@story-weaver/backend/core/book-service';
+import { createDatabase, createRepositories } from '@story-weaver/backend/storage/database';
 import type {
   ChapterCard,
   ChapterTensionBudget,
   NarrativeBible,
   VolumePlan,
-} from '../../src/core/narrative/types';
+} from '@story-weaver/backend/core/narrative/types';
 
 function bible(): NarrativeBible {
   return {

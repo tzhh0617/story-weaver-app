@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { ModelSavePayload } from '@story-weaver/shared/contracts';
-import type { RuntimeServices } from '../../src/runtime/create-runtime-services.js';
+import type { RuntimeServices } from '.././runtime/create-runtime-services.js';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object';

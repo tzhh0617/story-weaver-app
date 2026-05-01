@@ -6,7 +6,7 @@ import {
 } from '@story-weaver/shared/settings';
 import {
   shouldRewriteShortChapter,
-} from '../../src/core/chapter-review';
+} from '@story-weaver/backend/core/chapter-review';
 
 describe('chapter review settings', () => {
   it('defaults the automatic short-chapter review toggle to enabled', () => {
