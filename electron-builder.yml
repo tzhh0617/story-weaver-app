@@ -1,0 +1,19 @@
+appId: com.storyweaver.desktop
+productName: Story Weaver
+files:
+  - packages/frontend/dist/**
+  - packages/frontend/package.json
+  - packages/backend/dist/**
+  - packages/backend/package.json
+  - packages/shared/dist/**
+  - packages/shared/package.json
+  - dist-electron/**
+  - drizzle/**
+  - build/icon.png
+mac:
+  category: public.app-category.productivity
+  icon: build/icon.icns
+win:
+  icon: build/icon.ico
+directories:
+  output: release

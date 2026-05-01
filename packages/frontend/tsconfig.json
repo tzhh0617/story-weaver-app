@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "allowJs": false,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "types": ["vitest/globals"],
+    "paths": {
+      "@/*": ["src/*"],
+      "@story-weaver/shared": ["../shared/src/index.ts"],
+      "@story-weaver/shared/contracts": ["../shared/src/contracts.ts"],
+      "@story-weaver/shared/settings": ["../shared/src/settings.ts"],
+      "@story-weaver/shared/*": ["../shared/src/*"]
+    }
+  },
+  "include": ["src", "vite.config.ts"]
+}

@@ -28,11 +28,31 @@ Electron Main Process
 │   ├── 写作流水线（世界观 → 大纲 → 章节）
 │   ├── ConsistencyChecker（写前构建上下文，写后提取更新）
 │   └── PromptBuilder（组装 prompt）
-├── ModelRegistry（Vercel AI SDK provider registry）
+├── Runtime Mode Selector（real / mock 模式判定）
+├── ModelRegistry（Vercel AI SDK provider registry，仅 real mode）
+├── Mock Story Services（无完整模型配置时的中文网文 mock 流水线）
 ├── Database（better-sqlite3）
 ├── Exporter（TXT / Markdown / EPUB）
 └── IPC handlers ←→ Renderer
 ```
+
+### 运行时模式
+
+当前主进程并不是“始终强依赖真实模型”。
+
+- 当存在至少一个完整可用模型配置时，运行时进入 `real mode`
+- 当不存在任何完整可用模型配置时，运行时进入 `mock mode`
+
+`mock mode` 下不会构建真实 provider registry，而是直接走内置的中文网文 mock services，完成：
+
+- 大纲生成
+- 章节正文生成
+- 章节摘要
+- 人物状态抽取
+- 伏笔抽取
+- 场景抽取
+
+这样可以保证产品在尚未配置模型时也能完整跑通，并且输出具备题材差异的中文网文风格内容；一旦进入 `real mode`，真实模型错误会直接暴露，不再静默回退。
 
 ## 项目结构
 
@@ -52,11 +72,15 @@ story-weaver-app/
 │   │   └── prompt-builder.ts  # Prompt 组装
 │   ├── models/
 │   │   ├── registry.ts        # createProviderRegistry 统一注册
+│   │   ├── runtime-mode.ts    # 运行时 real / mock 模式判定
 │   │   ├── providers/
 │   │   │   ├── openai.ts      # @ai-sdk/openai
 │   │   │   ├── anthropic.ts   # @ai-sdk/anthropic
 │   │   │   └── custom.ts      # @ai-sdk/openai-compatible（DeepSeek/Qwen/GLM）
 │   │   └── config.ts          # 模型配置管理
+│   ├── mock/
+│   │   ├── chinese-web-novel-pack.ts  # 中文网文风格数据包
+│   │   └── story-services.ts          # mock 大纲/正文/摘要/抽取服务
 │   ├── storage/
 │   │   ├── database.ts        # SQLite 初始化、迁移、连接
 │   │   ├── books.ts           # 书籍 CRUD
@@ -121,6 +145,29 @@ IDEA（用户输入，1-2 句话）
 ```
 
 `writing` 状态内部循环：取下一章节 → 构建上下文 → AI 写作 → 存储正文 → 提取更新 → 下一章。
+
+### Mock 写作流水线
+
+当运行时处于 `mock mode` 时，写作流水线的阶段顺序不变，但实现来源切换为内置 mock services：
+
+```
+IDEA
+  ↓
+中文网文风格包匹配（题材 / 势力 / 场景 / 冲突）
+  ↓
+mock 世界观与总纲
+  ↓
+mock 卷纲与章纲（按题材切换章节骨架）
+  ↓
+mock 章节正文
+  ↓
+mock 摘要 / 人物状态 / 伏笔 / 场景抽取
+```
+
+这条 mock 流水线不是演示文本拼接，而是基于内置题材素材生成可读内容。目前至少覆盖：
+
+- 仙侠 / 宗门旧案线
+- 都市异能 / 债务清算线
 
 ## 一致性保障
 

@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "outDir": "dist-electron",
+    "baseUrl": ".",
+    "types": ["node"],
+    "paths": {
+      "@story-weaver/backend": ["packages/backend/src/index.ts"],
+      "@story-weaver/backend/config": ["packages/backend/src/config.ts"],
+      "@story-weaver/backend/*": ["packages/backend/src/*"],
+      "@story-weaver/shared": ["packages/shared/src/index.ts"],
+      "@story-weaver/shared/contracts": ["packages/shared/src/contracts.ts"],
+      "@story-weaver/shared/settings": ["packages/shared/src/settings.ts"],
+      "@story-weaver/shared/*": ["packages/shared/src/*"]
+    }
+  },
+  "include": [
+    "electron/**/*.ts",
+    "packages/backend/src/**/*.ts",
+    "packages/frontend/vite.config.ts",
+    "vitest.config.ts"
+  ]
+}

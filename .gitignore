@@ -1,0 +1,9 @@
+node_modules
+dist
+dist-electron
+.DS_Store
+release
+coverage
+*.log
+__pycache__/
+.superpowers/

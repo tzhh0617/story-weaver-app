@@ -1,0 +1,19 @@
+{
+  "name": "@story-weaver/frontend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./App": "./src/App.tsx",
+    "./main": "./src/main.tsx",
+    "./*": "./src/*"
+  },
+  "scripts": {
+    "dev": "vite --config vite.config.ts --strictPort",
+    "build": "vite build --config vite.config.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@story-weaver/shared": "workspace:*"
+  }
+}

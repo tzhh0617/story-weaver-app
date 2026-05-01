@@ -1,0 +1,53 @@
+{
+  "name": "@story-weaver/backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./main": {
+      "types": "./dist/main.d.ts",
+      "import": "./dist/main.js"
+    },
+    "./config": {
+      "types": "./dist/config.d.ts",
+      "import": "./dist/config.js"
+    },
+    "./runtime/create-runtime-services": {
+      "types": "./dist/runtime/create-runtime-services.d.ts",
+      "import": "./dist/runtime/create-runtime-services.js"
+    },
+    "./core/*": {
+      "types": "./dist/core/*.d.ts",
+      "import": "./dist/core/*.js"
+    },
+    "./models/*": {
+      "types": "./dist/models/*.d.ts",
+      "import": "./dist/models/*.js"
+    },
+    "./mock/*": {
+      "types": "./dist/mock/*.d.ts",
+      "import": "./dist/mock/*.js"
+    },
+    "./storage/*": {
+      "types": "./dist/storage/*.d.ts",
+      "import": "./dist/storage/*.js"
+    },
+    "./shared/*": {
+      "types": "./dist/shared/*.d.ts",
+      "import": "./dist/shared/*.js"
+    }
+  },
+  "scripts": {
+    "dev": "pnpm rebuild better-sqlite3 && tsx src/main.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "pnpm rebuild better-sqlite3 && node dist/main.js",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@story-weaver/shared": "workspace:*"
+  }
+}

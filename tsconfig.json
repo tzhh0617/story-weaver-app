@@ -1,0 +1,42 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "allowJs": false,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "types": ["vitest/globals"],
+    "paths": {
+      "@/*": ["packages/frontend/src/*"],
+      "@story-weaver/frontend/*": ["packages/frontend/src/*"],
+      "@story-weaver/backend": ["packages/backend/src/index.ts"],
+      "@story-weaver/backend/config": ["packages/backend/src/config.ts"],
+      "@story-weaver/backend/*": ["packages/backend/src/*"],
+      "@story-weaver/shared": ["packages/shared/src/index.ts"],
+      "@story-weaver/shared/contracts": ["packages/shared/src/contracts.ts"],
+      "@story-weaver/shared/settings": ["packages/shared/src/settings.ts"],
+      "@story-weaver/shared/*": ["packages/shared/src/*"]
+    }
+  },
+  "include": [
+    "packages/frontend/src",
+    "src",
+    "packages/backend/src",
+    "packages/shared/src",
+    "tests",
+    "packages/frontend/vite.config.ts",
+    "vitest.config.ts",
+    "tailwind.config.ts"
+  ]
+}
