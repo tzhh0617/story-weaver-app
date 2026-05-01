@@ -4,6 +4,15 @@ import {
   validateModelConfig,
 } from '../models/config.js';
 
+function safeJsonParse<T>(value: string | null | undefined, fallback: T): T {
+  if (!value) return fallback;
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return fallback;
+  }
+}
+
 export function createModelConfigRepository(db: SqliteDatabase) {
   return {
     save(input: ModelConfigInput) {
@@ -79,7 +88,7 @@ export function createModelConfigRepository(db: SqliteDatabase) {
         modelName: row.modelName,
         apiKey: row.apiKey,
         baseUrl: row.baseUrl,
-        config: JSON.parse(row.configJson || '{}') as Record<string, unknown>,
+        config: safeJsonParse<Record<string, unknown>>(row.configJson, {}),
       }));
     },
 

@@ -69,6 +69,14 @@ function quoteSqlString(value: string) {
   return `'${value.replace(/'/g, "''")}'`;
 }
 
+function safeBackupPath(backupFile: string, rootDir: string): string {
+  const resolved = path.resolve(backupFile);
+  if (!resolved.startsWith(path.resolve(rootDir))) {
+    throw new Error('Backup path must be within the data directory');
+  }
+  return resolved;
+}
+
 export function backupDatabaseBeforeMigration(
   db: SqliteDatabase,
   input: {
@@ -89,7 +97,10 @@ export function backupDatabaseBeforeMigration(
 
   mkdirSync(input.backupDir, { recursive: true });
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const backupFile = path.join(input.backupDir, `data-before-migrate-${timestamp}.db`);
+  const backupFile = safeBackupPath(
+    path.join(input.backupDir, `data-before-migrate-${timestamp}.db`),
+    input.backupDir
+  );
 
   db.exec(`VACUUM INTO ${quoteSqlString(backupFile)}`);
 

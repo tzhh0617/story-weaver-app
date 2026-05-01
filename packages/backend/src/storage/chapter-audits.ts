@@ -1,6 +1,15 @@
 import type { Database as SqliteDatabase } from 'better-sqlite3';
 import type { NarrativeAudit } from '../core/narrative/types.js';
 
+function safeJsonParse<T>(value: string | null | undefined, fallback: T): T {
+  if (!value) return fallback;
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return fallback;
+  }
+}
+
 export function createChapterAuditRepository(db: SqliteDatabase) {
   return {
     save(input: {
@@ -70,9 +79,9 @@ export function createChapterAuditRepository(db: SqliteDatabase) {
         passed: Boolean(row.passed),
         score: row.score,
         decision: row.decision,
-        issues: JSON.parse(row.issuesJson) as NarrativeAudit['issues'],
-        scoring: JSON.parse(row.scoringJson) as NarrativeAudit['scoring'],
-        stateUpdates: JSON.parse(row.stateUpdatesJson) as NarrativeAudit['stateUpdates'],
+        issues: safeJsonParse<NarrativeAudit['issues']>(row.issuesJson, []),
+        scoring: safeJsonParse<NarrativeAudit['scoring']>(row.scoringJson, {} as NarrativeAudit['scoring']),
+        stateUpdates: safeJsonParse<NarrativeAudit['stateUpdates']>(row.stateUpdatesJson, {} as NarrativeAudit['stateUpdates']),
         createdAt: row.createdAt,
       }));
     },
@@ -122,9 +131,9 @@ export function createChapterAuditRepository(db: SqliteDatabase) {
         passed: Boolean(row.passed),
         score: row.score,
         decision: row.decision,
-        issues: JSON.parse(row.issuesJson) as NarrativeAudit['issues'],
-        scoring: JSON.parse(row.scoringJson) as NarrativeAudit['scoring'],
-        stateUpdates: JSON.parse(row.stateUpdatesJson) as NarrativeAudit['stateUpdates'],
+        issues: safeJsonParse<NarrativeAudit['issues']>(row.issuesJson, []),
+        scoring: safeJsonParse<NarrativeAudit['scoring']>(row.scoringJson, {} as NarrativeAudit['scoring']),
+        stateUpdates: safeJsonParse<NarrativeAudit['stateUpdates']>(row.stateUpdatesJson, {} as NarrativeAudit['stateUpdates']),
         createdAt: row.createdAt,
       }));
     },

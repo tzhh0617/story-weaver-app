@@ -5,6 +5,15 @@ import type { createNarrativeThreadRepository } from './narrative-threads.js';
 import type { createRelationshipEdgeRepository } from './relationship-edges.js';
 import type { createWorldRuleRepository } from './world-rules.js';
 
+function safeJsonParse<T>(value: string | null | undefined, fallback: T): T {
+  if (!value) return fallback;
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return fallback;
+  }
+}
+
 export function createStoryBibleRepository(
   db: SqliteDatabase,
   graphRepos: {
@@ -123,10 +132,10 @@ export function createStoryBibleRepository(
         themeQuestion: row.themeQuestion,
         themeAnswerDirection: row.themeAnswerDirection,
         centralDramaticQuestion: row.centralDramaticQuestion,
-        endingState: JSON.parse(row.endingStateJson) as NarrativeBible['endingState'],
+        endingState: safeJsonParse<NarrativeBible['endingState']>(row.endingStateJson, {} as NarrativeBible['endingState']),
         voiceGuide: row.voiceGuide,
         viralStoryProtocol: row.viralProtocolJson
-          ? (JSON.parse(row.viralProtocolJson) as NarrativeBible['viralStoryProtocol'])
+          ? safeJsonParse<NarrativeBible['viralStoryProtocol']>(row.viralProtocolJson, undefined)
           : undefined,
       };
     },

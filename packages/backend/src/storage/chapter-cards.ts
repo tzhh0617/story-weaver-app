@@ -6,10 +6,19 @@ import type {
   ChapterThreadAction,
 } from '../core/narrative/types.js';
 
+function safeJsonParse<T>(value: string | null | undefined, fallback: T): T {
+  if (!value) return fallback;
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return fallback;
+  }
+}
+
 function mapCard(row: Omit<ChapterCard, 'forbiddenMoves'> & { forbiddenMovesJson: string }) {
   return {
     ...row,
-    forbiddenMoves: JSON.parse(row.forbiddenMovesJson) as string[],
+    forbiddenMoves: safeJsonParse<string[]>(row.forbiddenMovesJson, []),
   };
 }
 
