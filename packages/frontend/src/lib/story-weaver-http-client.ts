@@ -59,10 +59,12 @@ async function requestJson<T>(
   baseUrl: string,
   method: HttpMethod,
   pathname: string,
-  body?: unknown
+  body?: unknown,
+  signal?: AbortSignal,
 ): Promise<T> {
   const requestInit: RequestInit = {
     method,
+    signal,
     ...(body === undefined
       ? {}
       : {
@@ -71,9 +73,7 @@ async function requestJson<T>(
         }),
   };
 
-  const response = await fetch(new URL(pathname, baseUrl), {
-    ...requestInit,
-  });
+  const response = await fetch(new URL(pathname, baseUrl), requestInit);
 
   let data: unknown = null;
   try {
@@ -83,14 +83,24 @@ async function requestJson<T>(
   }
 
   if (!response.ok) {
-    const error =
-      data &&
-      typeof data === 'object' &&
-      'error' in data &&
-      typeof data.error === 'string'
-        ? data.error
-        : `HTTP request failed with ${response.status}`;
-    throw new Error(error);
+    const errorObj =
+      data && typeof data === 'object' && 'error' in data
+        ? (data as { error: unknown }).error
+        : null;
+    const code =
+      errorObj && typeof errorObj === 'object' && 'code' in errorObj
+        ? String((errorObj as { code: unknown }).code)
+        : undefined;
+    const message =
+      errorObj && typeof errorObj === 'object' && 'message' in errorObj
+        ? String((errorObj as { message: unknown }).message)
+        : typeof errorObj === 'string'
+          ? errorObj
+          : `HTTP request failed with ${response.status}`;
+
+    const err = new Error(message);
+    if (code) (err as unknown as Record<string, unknown>).code = code;
+    throw err;
   }
 
   return data as T;
