@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { MemoryRouter } from 'react-router-dom';
 import App from '@story-weaver/frontend/App';
 
 describe('renderer entry styling', () => {
@@ -41,7 +42,7 @@ describe('renderer entry styling', () => {
       })
     );
 
-    const { container } = render(<App />);
+    const { container } = render(<MemoryRouter><App /></MemoryRouter>);
 
     expect(
       await screen.findByRole('heading', {

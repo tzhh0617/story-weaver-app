@@ -6,6 +6,7 @@ import {
   waitFor,
 } from '@testing-library/react';
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { MemoryRouter } from 'react-router-dom';
 import App from '@story-weaver/frontend/App';
 
 function copy<T>(value: T): T {
@@ -312,7 +313,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    render(<MemoryRouter><App /></MemoryRouter>);
 
     expect(await screen.findByText('暂无作品')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '作品' })).toHaveAttribute(
@@ -339,7 +340,7 @@ describe('App shell', () => {
   it('renders a safe empty preview in browser HTTP mode', async () => {
     installHttpMock();
 
-    render(<App />);
+    render(<MemoryRouter><App /></MemoryRouter>);
 
     expect(
       await screen.findByRole('group', { name: 'Story Weaver brand' })
@@ -371,7 +372,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    render(<MemoryRouter><App /></MemoryRouter>);
 
     await openLogsView();
 
@@ -456,7 +457,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    render(<MemoryRouter><App /></MemoryRouter>);
 
     await openLogsView();
     api.emitExecutionLog({
@@ -519,7 +520,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    render(<MemoryRouter><App /></MemoryRouter>);
 
     await openLogsView();
     api.emitExecutionLog({
@@ -571,7 +572,7 @@ describe('App shell', () => {
       }),
     });
 
-    render(<App />);
+    render(<MemoryRouter><App /></MemoryRouter>);
 
     fireEvent.click(await screen.findByRole('button', { name: '新建作品' }));
     fireEvent.change(screen.getByLabelText('故事设想'), {
@@ -600,7 +601,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    render(<MemoryRouter><App /></MemoryRouter>);
 
     fireEvent.click(
       await screen.findByRole('button', { name: '新建第一本作品' })
@@ -614,7 +615,7 @@ describe('App shell', () => {
   it('opens directly into the library workspace without the old hero card', async () => {
     installHttpMock();
 
-    render(<App />);
+    render(<MemoryRouter><App /></MemoryRouter>);
 
     expect(
       await screen.findByPlaceholderText('按标题搜索')
@@ -688,7 +689,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    render(<MemoryRouter><App /></MemoryRouter>);
 
     expect(
       await screen.findByRole('button', { name: 'First Book' })
@@ -741,7 +742,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    render(<MemoryRouter><App /></MemoryRouter>);
 
     fireEvent.click(await screen.findByRole('button', { name: 'Workbench Book' }));
 
@@ -803,7 +804,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    render(<MemoryRouter><App /></MemoryRouter>);
 
     expect(
       await screen.findByRole('button', { name: 'Second Book' })
@@ -901,7 +902,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    render(<MemoryRouter><App /></MemoryRouter>);
 
     expect(
       await screen.findByRole('button', { name: 'Existing Book' })
@@ -1000,7 +1001,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    render(<MemoryRouter><App /></MemoryRouter>);
 
     fireEvent.click(await screen.findByRole('button', { name: '新建作品' }));
     fireEvent.change(screen.getByLabelText('故事设想'), {
@@ -1103,7 +1104,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    render(<MemoryRouter><App /></MemoryRouter>);
 
     fireEvent.click(await screen.findByRole('button', { name: '新建作品' }));
     fireEvent.change(screen.getByLabelText('故事设想'), {
@@ -1177,7 +1178,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    render(<MemoryRouter><App /></MemoryRouter>);
 
     await openNewBookView();
 
@@ -1228,7 +1229,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    render(<MemoryRouter><App /></MemoryRouter>);
 
     emitProgress({
       runningBookIds: ['book-1'],
@@ -1286,7 +1287,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    render(<MemoryRouter><App /></MemoryRouter>);
 
     fireEvent.click(await screen.findByRole('button', { name: '新作品' }));
     expect(
@@ -1394,7 +1395,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    render(<MemoryRouter><App /></MemoryRouter>);
 
     const progressBars = await screen.findAllByRole('progressbar', {
       name: '章节进度',
@@ -1450,7 +1451,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    render(<MemoryRouter><App /></MemoryRouter>);
 
     const startAllButton = await screen.findByRole('button', { name: '全部开始' });
 
@@ -1511,7 +1512,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    render(<MemoryRouter><App /></MemoryRouter>);
 
     const pauseAllButton = await screen.findByRole('button', { name: '全部暂停' });
 
@@ -1672,7 +1673,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    render(<MemoryRouter><App /></MemoryRouter>);
 
     await selectBook('Existing Book');
     expect(
@@ -1776,7 +1777,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    render(<MemoryRouter><App /></MemoryRouter>);
 
     await selectBook('Existing Book');
     fireEvent.click(await screen.findByText('导出 TXT'));
@@ -1860,7 +1861,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    render(<MemoryRouter><App /></MemoryRouter>);
 
     await selectBook('Existing Book');
     fireEvent.click(await screen.findByText('删除作品'));
@@ -2010,7 +2011,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    render(<MemoryRouter><App /></MemoryRouter>);
 
     await selectBook('Existing Book');
     fireEvent.click(await screen.findByText('恢复写作'));
@@ -2159,7 +2160,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    render(<MemoryRouter><App /></MemoryRouter>);
 
     await selectBook('Existing Book');
     fireEvent.click(await screen.findByText('重新开始'));
@@ -2339,7 +2340,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    render(<MemoryRouter><App /></MemoryRouter>);
 
     await selectBook('Existing Book');
 
@@ -2524,7 +2525,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    render(<MemoryRouter><App /></MemoryRouter>);
 
     await selectBook('Existing Book');
 
@@ -2555,7 +2556,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    render(<MemoryRouter><App /></MemoryRouter>);
 
     await openSettingsView();
 
@@ -2594,7 +2595,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    render(<MemoryRouter><App /></MemoryRouter>);
 
     await openSettingsView();
 
@@ -2644,7 +2645,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    render(<MemoryRouter><App /></MemoryRouter>);
 
     await openSettingsView();
 
@@ -2698,7 +2699,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    render(<MemoryRouter><App /></MemoryRouter>);
 
     await openSettingsView();
 
@@ -2760,7 +2761,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    render(<MemoryRouter><App /></MemoryRouter>);
 
     await openSettingsView();
 
@@ -2805,7 +2806,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    render(<MemoryRouter><App /></MemoryRouter>);
 
     await openSettingsView();
 
@@ -2850,7 +2851,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    render(<MemoryRouter><App /></MemoryRouter>);
 
     await openNewBookView();
 
@@ -2884,7 +2885,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    render(<MemoryRouter><App /></MemoryRouter>);
 
     await openSettingsView();
 
@@ -2978,7 +2979,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    render(<MemoryRouter><App /></MemoryRouter>);
 
     await openNewBookView();
 
@@ -3060,7 +3061,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    render(<MemoryRouter><App /></MemoryRouter>);
     await selectBook('Stream Book');
     expect(
       await screen.findByRole('heading', { name: /^Stream Book（/ })
@@ -3168,7 +3169,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    render(<MemoryRouter><App /></MemoryRouter>);
     await selectBook('Stable Stream Book');
     expect(
       await screen.findByRole('heading', { name: /^Stable Stream Book（/ })
@@ -3258,7 +3259,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    render(<MemoryRouter><App /></MemoryRouter>);
     await selectBook('Rewrite Book');
     expect(
       await screen.findByRole('heading', { name: /^Rewrite Book（/ })

@@ -1,5 +1,6 @@
 import logoImage from '@/assets/story-weaver-logo-white.png';
 import { BookOpen, ScrollText, Settings2, type LucideIcon } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Sidebar,
   SidebarContent,
@@ -12,29 +13,20 @@ import {
 } from '@/components/ui/sidebar';
 import { cn } from '@/lib/utils';
 
-export type AppView = 'library' | 'book-detail' | 'new-book' | 'logs' | 'settings';
-
 const navigationItems: Array<{
   label: string;
-  view: Exclude<AppView, 'book-detail' | 'new-book'>;
+  path: string;
   Icon: LucideIcon;
+  matchPrefix?: boolean;
 }> = [
-  { label: '作品', view: 'library', Icon: BookOpen },
-  { label: '写作动态', view: 'logs', Icon: ScrollText },
-  { label: '设置', view: 'settings', Icon: Settings2 },
+  { label: '作品', path: '/', Icon: BookOpen, matchPrefix: true },
+  { label: '写作动态', path: '/logs', Icon: ScrollText },
+  { label: '设置', path: '/settings', Icon: Settings2 },
 ];
 
-export function AppSidebar({
-  currentView,
-  onSelectView,
-}: {
-  currentView: AppView;
-  onSelectView: (view: AppView) => void;
-}) {
-  const isLibraryView =
-    currentView === 'library' ||
-    currentView === 'book-detail' ||
-    currentView === 'new-book';
+export function AppSidebar() {
+  const location = useLocation();
+  const navigate = useNavigate();
 
   return (
     <Sidebar
@@ -85,13 +77,14 @@ export function AppSidebar({
           <SidebarGroupContent>
             <SidebarMenu className="gap-1">
               {navigationItems.map((item) => {
-                const isActive =
-                  item.view === 'library'
-                    ? isLibraryView
-                    : currentView === item.view;
+                const isActive = item.matchPrefix
+                  ? location.pathname === '/' ||
+                    location.pathname.startsWith('/books/') ||
+                    location.pathname === '/new-book'
+                  : location.pathname === item.path;
 
                 return (
-                  <SidebarMenuItem key={item.view}>
+                  <SidebarMenuItem key={item.path}>
                     <SidebarMenuButton
                       aria-label={item.label}
                       isActive={isActive}
@@ -99,7 +92,7 @@ export function AppSidebar({
                         'group/nav relative h-11 rounded-md border border-transparent px-2 text-sm font-medium text-sidebar-foreground/72 transition-all duration-200 hover:border-sidebar-foreground/12 hover:bg-sidebar-accent/45 hover:text-sidebar-foreground',
                         'data-[active=true]:border-sidebar-primary/40 data-[active=true]:bg-[linear-gradient(180deg,hsl(42_50%_86%),hsl(38_42%_77%))] data-[active=true]:text-sidebar-primary-foreground data-[active=true]:shadow-[0_10px_22px_hsl(28_30%_8%/0.18),inset_0_1px_0_hsl(42_52%_97%/0.46)]'
                       )}
-                      onClick={() => onSelectView(item.view)}
+                      onClick={() => navigate(item.path)}
                     >
                       {isActive ? (
                         <span

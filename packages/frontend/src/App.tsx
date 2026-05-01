@@ -7,6 +7,14 @@ import {
 } from 'react';
 import { flushSync } from 'react-dom';
 import {
+  Navigate,
+  Routes,
+  Route,
+  useParams,
+  useNavigate,
+  useLocation,
+} from 'react-router-dom';
+import {
   parseBooleanSetting,
   serializeBooleanSetting,
   SHORT_CHAPTER_REVIEW_ENABLED_KEY,
@@ -20,7 +28,7 @@ import { useStoryWeaverApi } from './hooks/useStoryWeaverApi';
 import { useProgress } from './hooks/useProgress';
 import { useBookGenerationEvents } from './hooks/useBookGenerationEvents';
 import { useBooksController } from './hooks/useBooksController';
-import { AppSidebar, type AppView } from './components/app-sidebar';
+import { AppSidebar } from './components/app-sidebar';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import BookDetail from './pages/BookDetail';
 import Library from './pages/Library';
@@ -50,9 +58,23 @@ type ModelConfigView = {
   config: Record<string, unknown>;
 };
 
+function BookDetailLoader({
+  onLoad,
+}: {
+  onLoad: (bookId: string) => void;
+}) {
+  const { bookId } = useParams<{ bookId: string }>();
+  useEffect(() => {
+    if (bookId) onLoad(bookId);
+  }, [bookId, onLoad]);
+  return null;
+}
+
 export default function App() {
   const api = useStoryWeaverApi();
   const progress = useProgress();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [modelConfigs, setModelConfigs] = useState<ModelConfigView[]>([]);
   const [toast, setToast] = useState<{
     id: number;
@@ -60,7 +82,6 @@ export default function App() {
     message: string;
   } | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [currentView, setCurrentView] = useState<AppView>('library');
   const [executionLogs, setExecutionLogs] = useState<ExecutionLogRecord[]>([]);
   const [shortChapterReviewEnabled, setShortChapterReviewEnabled] =
     useState(true);
@@ -75,20 +96,6 @@ export default function App() {
     clearSelectedBook,
   } = useBooksController(api);
 
-  const loadBookDetail = useCallback(
-    async (
-      bookId: string,
-      options?: { openView?: boolean; preserveExistingOnMissing?: boolean }
-    ) => {
-      const shouldOpenView = await loadBookDetailRecord(bookId, options);
-
-      if (shouldOpenView) {
-        setCurrentView('book-detail');
-      }
-    },
-    [loadBookDetailRecord]
-  );
-
   const liveOutput = useBookGenerationEvents({
     api,
     selectedBookId,
@@ -96,6 +103,13 @@ export default function App() {
     setSelectedBookDetail,
     loadBookDetail: loadBookDetailRecord,
   });
+
+  const handleLoadBookFromUrl = useCallback(
+    (bookId: string) => {
+      void loadBookDetailRecord(bookId);
+    },
+    [loadBookDetailRecord]
+  );
 
   async function loadModels() {
     const nextConfigs = await api.listModels();
@@ -129,12 +143,10 @@ export default function App() {
       await loadBooks();
 
       if (selectedBookId) {
-        await loadBookDetail(selectedBookId, {
-          openView: false,
+        await loadBookDetailRecord(selectedBookId, {
           preserveExistingOnMissing: true,
         });
       }
-
     })();
   }, [progress, selectedBookId]);
 
@@ -151,30 +163,17 @@ export default function App() {
 
   useEffect(() => {
     if (!books.length) {
-      if (currentView === 'book-detail' && selectedBookDetail) {
+      if (location.pathname.startsWith('/books/') && selectedBookDetail) {
         return;
       }
-
       clearSelectedBook();
-      if (currentView === 'book-detail') {
-        setCurrentView('library');
-      }
       return;
     }
 
-    if (selectedBookId && books.some((book) => book.id === selectedBookId)) {
-      return;
+    if (selectedBookId && !books.some((book) => book.id === selectedBookId)) {
+      clearSelectedBook();
     }
-
-    void loadBookDetail(books[0].id, { openView: false });
-  }, [
-    books,
-    clearSelectedBook,
-    currentView,
-    loadBookDetail,
-    selectedBookDetail,
-    selectedBookId,
-  ]);
+  }, [books, clearSelectedBook, selectedBookDetail, selectedBookId, location.pathname]);
 
   function showToast(tone: ToastTone, message: string) {
     if (toastTimerRef.current) {
@@ -257,7 +256,7 @@ export default function App() {
       await loadBooks();
 
       if (!clearSelection) {
-        await loadBookDetail(selectedBookId, {
+        await loadBookDetailRecord(selectedBookId, {
           preserveExistingOnMissing: true,
         });
       }
@@ -274,7 +273,7 @@ export default function App() {
   }
 
   const isBookDetailWorkbench =
-    currentView === 'book-detail' && Boolean(selectedBookDetail);
+    location.pathname.startsWith('/books/') && Boolean(selectedBookDetail);
 
   return (
     <SidebarProvider
@@ -283,7 +282,7 @@ export default function App() {
       className="app-paper-background relative h-svh overflow-hidden"
     >
       <div aria-hidden="true" className="app-titlebar-drag-region" />
-      <AppSidebar currentView={currentView} onSelectView={setCurrentView} />
+      <AppSidebar />
       {toast ? (
         <div
           role={toast.tone === 'error' ? 'alert' : 'status'}
@@ -308,264 +307,271 @@ export default function App() {
                 : 'grid content-start'
             }`}
           >
-          {currentView === 'library' ? (
-            <Library
-              books={books}
-              scheduler={progress ?? defaultScheduler}
-              onSelectBook={(bookId) => {
-                void loadBookDetail(bookId, { openView: true });
-              }}
-              onCreateBook={() => setCurrentView('new-book')}
-              onStartAll={async () => {
-                try {
-                  showToast('info', '正在批量推进书籍写作...');
-                  await api.startScheduler();
-                  await loadBooks();
-                  showToast('success', '批量写作已开始');
-                } catch (error) {
-                  showToast(
-                    'error',
-                    error instanceof Error
-                      ? error.message
-                      : 'Failed to start all books'
-                  );
-                }
-              }}
-              onPauseAll={async () => {
-                try {
-                  showToast('info', '正在暂停所有书籍...');
-                  await api.pauseScheduler();
-                  await loadBooks();
-                  if (selectedBookId) {
-                    await loadBookDetail(selectedBookId, { openView: false });
+          <Routes>
+            <Route path="/" element={
+              <Library
+                books={books}
+                scheduler={progress ?? defaultScheduler}
+                onSelectBook={(bookId) => {
+                  navigate(`/books/${bookId}`);
+                }}
+                onCreateBook={() => navigate('/new-book')}
+                onStartAll={async () => {
+                  try {
+                    showToast('info', '正在批量推进书籍写作...');
+                    await api.startScheduler();
+                    await loadBooks();
+                    showToast('success', '批量写作已开始');
+                  } catch (error) {
+                    showToast(
+                      'error',
+                      error instanceof Error
+                        ? error.message
+                        : 'Failed to start all books'
+                    );
                   }
-                  showToast('success', '全部书籍已暂停');
-                } catch (error) {
-                  showToast(
-                    'error',
-                    error instanceof Error
-                      ? error.message
-                      : 'Failed to pause all books'
-                  );
-                }
-              }}
-            />
-          ) : null}
-          {currentView === 'book-detail' && selectedBookDetail ? (
-            <BookDetail
-              book={{
-                title: selectedBookDetail.book?.title ?? 'Unknown Book',
-                status: selectedBookDetail.book?.status ?? 'error',
-                wordCount: selectedBookDetail.chapters.reduce(
-                  (sum, chapter) => sum + chapter.wordCount,
-                  0
-                ),
-              }}
-              context={selectedBookDetail.context}
-              latestScene={selectedBookDetail.latestScene}
-              narrative={selectedBookDetail.narrative}
-              characterStates={selectedBookDetail.characterStates}
-              plotThreads={selectedBookDetail.plotThreads}
-              progress={selectedBookDetail.progress}
-              isActive={
-                selectedBookId
-                  ? progress.runningBookIds.includes(selectedBookId) ||
-                    progress.queuedBookIds.includes(selectedBookId)
-                  : false
-              }
-              liveOutput={
-                liveOutput && liveOutput.bookId === selectedBookDetail.book.id
-                  ? liveOutput
-                  : null
-              }
-              executionLogs={executionLogs.filter(
-                (log) => log.bookId === selectedBookDetail.book.id
-              )}
-              onBackToLibrary={() => setCurrentView('library')}
-              onResume={async () => {
-                await runSelectedBookAction({
-                  startMessage: '正在恢复写作...',
-                  errorMessage: 'Failed to resume book',
-                  run: (bookId) => api.resumeBook(bookId),
-                  successMessage: '作品已恢复写作',
-                });
-              }}
-              onRestart={async () => {
-                await runSelectedBookAction({
-                  startMessage: '正在重新开始写作...',
-                  errorMessage: 'Failed to restart book',
-                  run: (bookId) => api.restartBook(bookId),
-                  successMessage: '作品已重新开始',
-                });
-              }}
-              chapters={selectedBookDetail.chapters.map((chapter) => ({
-                id: `${chapter.volumeIndex}-${chapter.chapterIndex}`,
-                volumeIndex: chapter.volumeIndex,
-                chapterIndex: chapter.chapterIndex,
-                title:
-                  chapter.title ??
-                  `Chapter ${chapter.volumeIndex}.${chapter.chapterIndex}`,
-                wordCount: chapter.wordCount,
-                status: getRenderedChapterStatus(chapter),
-                content: chapter.content,
-                summary: chapter.summary,
-                outline: chapter.outline,
-                auditScore: chapter.auditScore,
-                auditFlatnessScore: chapter.auditFlatnessScore,
-                auditFlatnessIssues: chapter.auditFlatnessIssues,
-                draftAttempts: chapter.draftAttempts,
-              }))}
-              onPause={async () => {
-                await runSelectedBookAction({
-                  startMessage: '正在暂停作品...',
-                  errorMessage: 'Failed to pause book',
-                  run: (bookId) => api.pauseBook(bookId),
-                  successMessage: '作品已暂停',
-                });
-              }}
-              onExport={async (format: BookExportFormat) => {
-                if (!selectedBookId) {
-                  return;
-                }
-
-                try {
-                  showToast('info', `正在导出 ${format.toUpperCase()}...`);
-                  const filePath = await api.exportBook(selectedBookId, format);
-                  showToast('success', `导出完成：${filePath}`);
-                } catch (error) {
-                  showToast(
-                    'error',
-                    error instanceof Error ? error.message : 'Failed to export book'
-                  );
-                }
-              }}
-              onDelete={async () => {
-                await runSelectedBookAction({
-                  startMessage: '正在删除作品...',
-                  errorMessage: 'Failed to delete book',
-                  run: (bookId) => api.deleteBook(bookId),
-                  successMessage: '作品已删除',
-                  clearSelection: true,
-                });
-                setCurrentView('library');
-              }}
-            />
-          ) : null}
-          {currentView === 'logs' ? (
-            <Logs
-              logs={executionLogs}
-              books={books}
-            />
-          ) : null}
-          {currentView === 'new-book' ? (
-            <NewBook
-              onCreate={async (input) => {
-                try {
-                  showToast('info', '正在创建作品...');
-                  const bookId = await api.createBook(input);
-                  await loadBooks();
-                  await loadBookDetail(bookId, { openView: true });
-                  showToast('info', '书本已创建，正在生成书名...');
-
-                  void (async () => {
-                    try {
-                      await api.startBook(bookId);
-                      await loadBooks();
-                      await loadBookDetail(bookId, {
-                        openView: false,
-                        preserveExistingOnMissing: true,
-                      });
-                    } catch (error) {
-                      showToast(
-                        'error',
-                        error instanceof Error
-                          ? error.message
-                          : 'Failed to start book'
-                      );
+                }}
+                onPauseAll={async () => {
+                  try {
+                    showToast('info', '正在暂停所有书籍...');
+                    await api.pauseScheduler();
+                    await loadBooks();
+                    if (selectedBookId) {
+                      await loadBookDetailRecord(selectedBookId);
                     }
-                  })();
-                } catch (error) {
-                  showToast(
-                    'error',
-                    error instanceof Error
-                      ? error.message
-                      : 'Failed to start book'
-                  );
-                }
-              }}
-            />
-          ) : null}
-          {currentView === 'settings' ? (
-            <Settings
-              onSaveModel={async (input) => {
-                try {
-                  showToast('info', '正在保存模型...');
-                  await api.saveModel(input);
-                  await loadModels();
-                  showToast('success', '模型已保存');
-                } catch (error) {
-                  showToast(
-                    'error',
-                    error instanceof Error ? error.message : 'Failed to save model'
-                  );
-                  throw error;
-                }
-              }}
-              onTestModel={async (input) => {
-                try {
-                  showToast('info', '正在测试模型连接...');
-                  await api.saveModel(input);
-                  const result = await api.testModel(input.id);
-
-                  if (!result.ok) {
-                    showToast('error', result.error ?? 'Model test failed');
-                  } else {
-                    showToast('success', `连接成功（${result.latency}ms）`);
+                    showToast('success', '全部书籍已暂停');
+                  } catch (error) {
+                    showToast(
+                      'error',
+                      error instanceof Error
+                        ? error.message
+                        : 'Failed to pause all books'
+                    );
                   }
-                } catch (error) {
-                  showToast(
-                    'error',
-                    error instanceof Error ? error.message : 'Model test failed'
-                  );
-                }
-                await loadModels();
-              }}
-              models={modelConfigs.map((config) => ({
-                id: config.id,
-                modelName: config.modelName,
-                provider: config.provider,
-                apiKey: config.apiKey,
-                baseUrl: config.baseUrl,
-                config: config.config,
-              }))}
-              concurrencyLimit={progress?.concurrencyLimit ?? null}
-              shortChapterReviewEnabled={shortChapterReviewEnabled}
-              onSaveSetting={async (input) => {
-                try {
-                  showToast('info', '正在保存设置...');
-                  await api.setSetting(
-                    'scheduler.concurrencyLimit',
-                    input.concurrencyLimit === null
-                      ? ''
-                      : String(input.concurrencyLimit)
-                  );
-                  await api.setSetting(
-                    SHORT_CHAPTER_REVIEW_ENABLED_KEY,
-                    serializeBooleanSetting(input.shortChapterReviewEnabled)
-                  );
-                  setShortChapterReviewEnabled(
-                    input.shortChapterReviewEnabled
-                  );
-                  showToast('success', '设置已保存');
-                } catch (error) {
-                  showToast(
-                    'error',
-                    error instanceof Error ? error.message : 'Failed to save settings'
-                  );
-                }
-              }}
-            />
-          ) : null}
+                }}
+              />
+            } />
+            <Route path="/books/:bookId" element={
+              <>
+                <BookDetailLoader onLoad={handleLoadBookFromUrl} />
+                {selectedBookDetail ? (
+                  <BookDetail
+                    book={{
+                      title: selectedBookDetail.book?.title ?? 'Unknown Book',
+                      status: selectedBookDetail.book?.status ?? 'error',
+                      wordCount: selectedBookDetail.chapters.reduce(
+                        (sum, chapter) => sum + chapter.wordCount,
+                        0
+                      ),
+                    }}
+                    context={selectedBookDetail.context}
+                    latestScene={selectedBookDetail.latestScene}
+                    narrative={selectedBookDetail.narrative}
+                    characterStates={selectedBookDetail.characterStates}
+                    plotThreads={selectedBookDetail.plotThreads}
+                    progress={selectedBookDetail.progress}
+                    isActive={
+                      selectedBookId
+                        ? progress.runningBookIds.includes(selectedBookId) ||
+                          progress.queuedBookIds.includes(selectedBookId)
+                        : false
+                    }
+                    liveOutput={
+                      liveOutput && liveOutput.bookId === selectedBookDetail.book.id
+                        ? liveOutput
+                        : null
+                    }
+                    executionLogs={executionLogs.filter(
+                      (log) => log.bookId === selectedBookDetail.book.id
+                    )}
+                    onBackToLibrary={() => navigate('/')}
+                    onResume={async () => {
+                      await runSelectedBookAction({
+                        startMessage: '正在恢复写作...',
+                        errorMessage: 'Failed to resume book',
+                        run: (bookId) => api.resumeBook(bookId),
+                        successMessage: '作品已恢复写作',
+                      });
+                    }}
+                    onRestart={async () => {
+                      await runSelectedBookAction({
+                        startMessage: '正在重新开始写作...',
+                        errorMessage: 'Failed to restart book',
+                        run: (bookId) => api.restartBook(bookId),
+                        successMessage: '作品已重新开始',
+                      });
+                    }}
+                    chapters={selectedBookDetail.chapters.map((chapter) => ({
+                      id: `${chapter.volumeIndex}-${chapter.chapterIndex}`,
+                      volumeIndex: chapter.volumeIndex,
+                      chapterIndex: chapter.chapterIndex,
+                      title:
+                        chapter.title ??
+                        `Chapter ${chapter.volumeIndex}.${chapter.chapterIndex}`,
+                      wordCount: chapter.wordCount,
+                      status: getRenderedChapterStatus(chapter),
+                      content: chapter.content,
+                      summary: chapter.summary,
+                      outline: chapter.outline,
+                      auditScore: chapter.auditScore,
+                      auditFlatnessScore: chapter.auditFlatnessScore,
+                      auditFlatnessIssues: chapter.auditFlatnessIssues,
+                      draftAttempts: chapter.draftAttempts,
+                    }))}
+                    onPause={async () => {
+                      await runSelectedBookAction({
+                        startMessage: '正在暂停作品...',
+                        errorMessage: 'Failed to pause book',
+                        run: (bookId) => api.pauseBook(bookId),
+                        successMessage: '作品已暂停',
+                      });
+                    }}
+                    onExport={async (format: BookExportFormat) => {
+                      if (!selectedBookId) {
+                        return;
+                      }
+
+                      try {
+                        showToast('info', `正在导出 ${format.toUpperCase()}...`);
+                        const filePath = await api.exportBook(selectedBookId, format);
+                        showToast('success', `导出完成：${filePath}`);
+                      } catch (error) {
+                        showToast(
+                          'error',
+                          error instanceof Error ? error.message : 'Failed to export book'
+                        );
+                      }
+                    }}
+                    onDelete={async () => {
+                      await runSelectedBookAction({
+                        startMessage: '正在删除作品...',
+                        errorMessage: 'Failed to delete book',
+                        run: (bookId) => api.deleteBook(bookId),
+                        successMessage: '作品已删除',
+                        clearSelection: true,
+                      });
+                      navigate('/');
+                    }}
+                  />
+                ) : null}
+              </>
+            } />
+            <Route path="/new-book" element={
+              <NewBook
+                onCreate={async (input) => {
+                  try {
+                    showToast('info', '正在创建作品...');
+                    const bookId = await api.createBook(input);
+                    await loadBooks();
+                    navigate(`/books/${bookId}`);
+                    showToast('info', '书本已创建，正在生成书名...');
+
+                    void (async () => {
+                      try {
+                        await api.startBook(bookId);
+                        await loadBooks();
+                        await loadBookDetailRecord(bookId, {
+                          preserveExistingOnMissing: true,
+                        });
+                      } catch (error) {
+                        showToast(
+                          'error',
+                          error instanceof Error
+                            ? error.message
+                            : 'Failed to start book'
+                        );
+                      }
+                    })();
+                  } catch (error) {
+                    showToast(
+                      'error',
+                      error instanceof Error
+                        ? error.message
+                        : 'Failed to start book'
+                    );
+                  }
+                }}
+              />
+            } />
+            <Route path="/logs" element={
+              <Logs
+                logs={executionLogs}
+                books={books}
+              />
+            } />
+            <Route path="/settings" element={
+              <Settings
+                onSaveModel={async (input) => {
+                  try {
+                    showToast('info', '正在保存模型...');
+                    await api.saveModel(input);
+                    await loadModels();
+                    showToast('success', '模型已保存');
+                  } catch (error) {
+                    showToast(
+                      'error',
+                      error instanceof Error ? error.message : 'Failed to save model'
+                    );
+                    throw error;
+                  }
+                }}
+                onTestModel={async (input) => {
+                  try {
+                    showToast('info', '正在测试模型连接...');
+                    await api.saveModel(input);
+                    const result = await api.testModel(input.id);
+
+                    if (!result.ok) {
+                      showToast('error', result.error ?? 'Model test failed');
+                    } else {
+                      showToast('success', `连接成功（${result.latency}ms）`);
+                    }
+                  } catch (error) {
+                    showToast(
+                      'error',
+                      error instanceof Error ? error.message : 'Model test failed'
+                    );
+                  }
+                  await loadModels();
+                }}
+                models={modelConfigs.map((config) => ({
+                  id: config.id,
+                  modelName: config.modelName,
+                  provider: config.provider,
+                  apiKey: config.apiKey,
+                  baseUrl: config.baseUrl,
+                  config: config.config,
+                }))}
+                concurrencyLimit={progress?.concurrencyLimit ?? null}
+                shortChapterReviewEnabled={shortChapterReviewEnabled}
+                onSaveSetting={async (input) => {
+                  try {
+                    showToast('info', '正在保存设置...');
+                    await api.setSetting(
+                      'scheduler.concurrencyLimit',
+                      input.concurrencyLimit === null
+                        ? ''
+                        : String(input.concurrencyLimit)
+                    );
+                    await api.setSetting(
+                      SHORT_CHAPTER_REVIEW_ENABLED_KEY,
+                      serializeBooleanSetting(input.shortChapterReviewEnabled)
+                    );
+                    setShortChapterReviewEnabled(
+                      input.shortChapterReviewEnabled
+                    );
+                    showToast('success', '设置已保存');
+                  } catch (error) {
+                    showToast(
+                      'error',
+                      error instanceof Error ? error.message : 'Failed to save settings'
+                    );
+                  }
+                }}
+              />
+            } />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
           </div>
         </main>
       </SidebarInset>
