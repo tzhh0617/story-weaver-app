@@ -8,3 +8,5 @@ export { createNarrativeWorldAggregate } from './narrative-world/index.js';
 export type { NarrativeWorldDeps } from './narrative-world/index.js';
 export { createStoryPlanAggregate } from './story-plan/index.js';
 export type { StoryPlanDeps } from './story-plan/index.js';
+export { createContinuityAggregate } from './continuity/index.js';
+export type { ContinuityAggregateDeps, ChapterContinuityUpdate } from './continuity/index.js';
