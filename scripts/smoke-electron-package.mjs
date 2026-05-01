@@ -2,6 +2,8 @@ import { execFileSync } from 'node:child_process';
 
 const outputDir = '/tmp/story-weaver-package-smoke';
 
+execFileSync('pnpm', ['run', 'build'], { stdio: 'inherit' });
+
 execFileSync(
   'pnpm',
   [
