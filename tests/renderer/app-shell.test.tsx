@@ -12,6 +12,19 @@ function copy<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
+async function expectToast(
+  message: string,
+  role: 'status' | 'alert' = 'status'
+) {
+  const messageNode = await screen.findByText(message);
+  const toast = messageNode.closest(`[role="${role}"]`);
+
+  expect(toast).not.toBeNull();
+  expect(toast).toHaveClass('fixed');
+
+  return toast;
+}
+
 function installIpcMock(
   handler: (channel: string, payload?: unknown) => Promise<unknown>
 ) {
@@ -1438,13 +1451,15 @@ describe('App shell', () => {
 
     fireEvent.click(startAllButton);
 
-    expect(await screen.findByText('正在批量推进书籍写作...')).toBeInTheDocument();
+    await expectToast('正在批量推进书籍写作...');
+    expect(screen.queryByRole('alert')).toBeNull();
 
     await waitFor(() => {
       expect(invoke).toHaveBeenCalledWith('scheduler:startAll', undefined);
     });
 
-    expect(await screen.findByText('批量写作已开始')).toBeInTheDocument();
+    await expectToast('批量写作已开始');
+    expect(screen.queryByRole('alert')).toBeNull();
     expect(await screen.findByText('已完成')).toBeInTheDocument();
   });
 
@@ -1497,13 +1512,15 @@ describe('App shell', () => {
 
     fireEvent.click(pauseAllButton);
 
-    expect(await screen.findByText('正在暂停所有书籍...')).toBeInTheDocument();
+    await expectToast('正在暂停所有书籍...');
+    expect(screen.queryByRole('alert')).toBeNull();
 
     await waitFor(() => {
       expect(invoke).toHaveBeenCalledWith('scheduler:pauseAll', undefined);
     });
 
-    expect(await screen.findByText('全部书籍已暂停')).toBeInTheDocument();
+    await expectToast('全部书籍已暂停');
+    expect(screen.queryByRole('alert')).toBeNull();
     expect(await screen.findByRole('button', { name: '作品' })).toHaveAttribute(
       'data-active',
       'true'
@@ -1658,7 +1675,8 @@ describe('App shell', () => {
 
     fireEvent.click(screen.getByText('暂停'));
 
-    expect(await screen.findByText('正在暂停作品...')).toBeInTheDocument();
+    await expectToast('正在暂停作品...');
+    expect(screen.queryByRole('alert')).toBeNull();
 
     await waitFor(() => {
       expect(invoke).toHaveBeenCalledWith('book:pause', {
@@ -1666,7 +1684,8 @@ describe('App shell', () => {
       });
     });
 
-    expect(await screen.findByText('作品已暂停')).toBeInTheDocument();
+    await expectToast('作品已暂停');
+    expect(screen.queryByRole('alert')).toBeNull();
     expect(
       await screen.findByRole('heading', {
         name: /^Existing Book（已暂停 · 0 万字）/,
@@ -1753,7 +1772,8 @@ describe('App shell', () => {
     await selectBook('Existing Book');
     fireEvent.click(await screen.findByText('导出 TXT'));
 
-    expect(await screen.findByText('正在导出 TXT...')).toBeInTheDocument();
+    await expectToast('正在导出 TXT...');
+    expect(screen.queryByRole('alert')).toBeNull();
 
     await waitFor(() => {
       expect(invoke).toHaveBeenCalledWith('book:export', {
@@ -1764,11 +1784,10 @@ describe('App shell', () => {
 
     exportDeferred.resolve?.('/tmp/story-weaver/exports/Existing Book.txt');
 
-    expect(
-      await screen.findByText(
-        '导出完成：/tmp/story-weaver/exports/Existing Book.txt（下载：/api/exports/export-1）'
-      )
-    ).toBeInTheDocument();
+    await expectToast(
+      '导出完成：/tmp/story-weaver/exports/Existing Book.txt（下载：/api/exports/export-1）'
+    );
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 
   it('deletes the selected writing book from book detail', async () => {
@@ -1837,7 +1856,8 @@ describe('App shell', () => {
     await selectBook('Existing Book');
     fireEvent.click(await screen.findByText('删除作品'));
 
-    expect(await screen.findByText('正在删除作品...')).toBeInTheDocument();
+    await expectToast('正在删除作品...');
+    expect(screen.queryByRole('alert')).toBeNull();
 
     await waitFor(() => {
       expect(invoke).toHaveBeenCalledWith('book:delete', {
@@ -1845,7 +1865,8 @@ describe('App shell', () => {
       });
     });
 
-    expect(await screen.findByText('作品已删除')).toBeInTheDocument();
+    await expectToast('作品已删除');
+    expect(screen.queryByRole('alert')).toBeNull();
     expect(screen.queryByText('Existing Book')).not.toBeInTheDocument();
     expect(screen.queryByText('World rules')).not.toBeInTheDocument();
   });
@@ -1985,7 +2006,8 @@ describe('App shell', () => {
     await selectBook('Existing Book');
     fireEvent.click(await screen.findByText('恢复写作'));
 
-    expect(await screen.findByText('正在恢复写作...')).toBeInTheDocument();
+    await expectToast('正在恢复写作...');
+    expect(screen.queryByRole('alert')).toBeNull();
 
     await waitFor(() => {
       expect(invoke).toHaveBeenCalledWith('book:resume', {
@@ -1993,7 +2015,8 @@ describe('App shell', () => {
       });
     });
 
-    expect(await screen.findByText('作品已恢复写作')).toBeInTheDocument();
+    await expectToast('作品已恢复写作');
+    expect(screen.queryByRole('alert')).toBeNull();
     expect(
       await screen.findByRole('heading', {
         name: /^Existing Book（已完成 · 0.1 万字）/,
@@ -2132,7 +2155,8 @@ describe('App shell', () => {
     await selectBook('Existing Book');
     fireEvent.click(await screen.findByText('重新开始'));
 
-    expect(await screen.findByText('正在重新开始写作...')).toBeInTheDocument();
+    await expectToast('正在重新开始写作...');
+    expect(screen.queryByRole('alert')).toBeNull();
 
     await waitFor(() => {
       expect(invoke).toHaveBeenCalledWith('book:restart', {
@@ -2140,7 +2164,8 @@ describe('App shell', () => {
       });
     });
 
-    expect(await screen.findByText('作品已重新开始')).toBeInTheDocument();
+    await expectToast('作品已重新开始');
+    expect(screen.queryByRole('alert')).toBeNull();
     expect(await screen.findByText('Restarted content')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('tab', { name: '人物' }));
     expect((await screen.findAllByText(/Debt Court/)).length).toBeGreaterThan(0);
@@ -2787,10 +2812,11 @@ describe('App shell', () => {
       });
     });
 
-    expect(await screen.findByText('设置已保存')).toBeInTheDocument();
+    await expectToast('设置已保存');
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 
-  it('shows an error banner when starting a newly created book fails', async () => {
+  it('shows an error toast when starting a newly created book fails', async () => {
     installIpcMock(async (channel, payload) => {
       switch (channel) {
         case 'book:list':
@@ -2824,7 +2850,7 @@ describe('App shell', () => {
     });
     fireEvent.click(screen.getByText('开始写作'));
 
-    expect(await screen.findByText('API key invalid')).toBeInTheDocument();
+    await expectToast('API key invalid', 'alert');
   });
 
   it('shows model testing feedback in toasts instead of the page banner', async () => {
@@ -2874,7 +2900,7 @@ describe('App shell', () => {
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
-  it('shows a progress banner while starting a new book', async () => {
+  it('shows a progress toast while starting a new book', async () => {
     let resolveStart: (() => void) | null = null;
     const books: Array<{
       id: string;
@@ -2952,9 +2978,8 @@ describe('App shell', () => {
     });
     fireEvent.click(screen.getByText('开始写作'));
 
-    expect(
-      await screen.findByText('书本已创建，正在生成书名...')
-    ).toBeInTheDocument();
+    await expectToast('书本已创建，正在生成书名...');
+    expect(screen.queryByRole('alert')).toBeNull();
     expect(
       screen.queryByText('书本已创建，正在生成书名和大纲...')
     ).not.toBeInTheDocument();

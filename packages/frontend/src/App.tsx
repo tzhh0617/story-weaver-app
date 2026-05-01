@@ -21,7 +21,6 @@ import { useProgress } from './hooks/useProgress';
 import { useBookGenerationEvents } from './hooks/useBookGenerationEvents';
 import { useBooksController } from './hooks/useBooksController';
 import { AppSidebar, type AppView } from './components/app-sidebar';
-import { Alert } from './components/ui/alert';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import BookDetail from './pages/BookDetail';
 import Library from './pages/Library';
@@ -41,8 +40,7 @@ const sidebarProviderStyle = {
   '--sidebar-width': '12.75rem',
 } as CSSProperties;
 
-type BannerTone = 'error' | 'success' | 'info';
-type ToastTone = BannerTone;
+type ToastTone = 'error' | 'success' | 'info';
 type ModelConfigView = {
   id: string;
   provider: string;
@@ -56,10 +54,6 @@ export default function App() {
   const api = useStoryWeaverApi();
   const progress = useProgress();
   const [modelConfigs, setModelConfigs] = useState<ModelConfigView[]>([]);
-  const [banner, setBanner] = useState<{
-    tone: BannerTone;
-    message: string;
-  } | null>(null);
   const [toast, setToast] = useState<{
     id: number;
     tone: ToastTone;
@@ -182,18 +176,6 @@ export default function App() {
     selectedBookId,
   ]);
 
-  function showBanner(tone: BannerTone, message: string) {
-    flushSync(() => {
-      setBanner({ tone, message });
-    });
-  }
-
-  function clearBanner() {
-    flushSync(() => {
-      setBanner(null);
-    });
-  }
-
   function showToast(tone: ToastTone, message: string) {
     if (toastTimerRef.current) {
       clearTimeout(toastTimerRef.current);
@@ -263,9 +245,7 @@ export default function App() {
 
     try {
       if (startMessage) {
-        showBanner('info', startMessage);
-      } else {
-        clearBanner();
+        showToast('info', startMessage);
       }
 
       await run(selectedBookId);
@@ -283,12 +263,10 @@ export default function App() {
       }
 
       if (typeof successMessage === 'string') {
-        showBanner('success', successMessage);
-      } else {
-        clearBanner();
+        showToast('success', successMessage);
       }
     } catch (error) {
-      showBanner(
+      showToast(
         'error',
         error instanceof Error ? error.message : errorMessage
       );
@@ -330,7 +308,6 @@ export default function App() {
                 : 'grid content-start'
             }`}
           >
-          {banner ? <Alert tone={banner.tone}>{banner.message}</Alert> : null}
           {currentView === 'library' ? (
             <Library
               books={books}
@@ -341,61 +318,35 @@ export default function App() {
               onCreateBook={() => setCurrentView('new-book')}
               onStartAll={async () => {
                 try {
-                  flushSync(() => {
-                    setBanner({
-                      tone: 'info',
-                      message: '正在批量推进书籍写作...',
-                    });
-                  });
+                  showToast('info', '正在批量推进书籍写作...');
                   await api.startScheduler();
                   await loadBooks();
-                  flushSync(() => {
-                    setBanner({
-                      tone: 'success',
-                      message: '批量写作已开始',
-                    });
-                  });
+                  showToast('success', '批量写作已开始');
                 } catch (error) {
-                  flushSync(() => {
-                    setBanner({
-                      tone: 'error',
-                      message:
-                        error instanceof Error
-                          ? error.message
-                          : 'Failed to start all books',
-                    });
-                  });
+                  showToast(
+                    'error',
+                    error instanceof Error
+                      ? error.message
+                      : 'Failed to start all books'
+                  );
                 }
               }}
               onPauseAll={async () => {
                 try {
-                  flushSync(() => {
-                    setBanner({
-                      tone: 'info',
-                      message: '正在暂停所有书籍...',
-                    });
-                  });
+                  showToast('info', '正在暂停所有书籍...');
                   await api.pauseScheduler();
                   await loadBooks();
                   if (selectedBookId) {
                     await loadBookDetail(selectedBookId, { openView: false });
                   }
-                  flushSync(() => {
-                    setBanner({
-                      tone: 'success',
-                      message: '全部书籍已暂停',
-                    });
-                  });
+                  showToast('success', '全部书籍已暂停');
                 } catch (error) {
-                  flushSync(() => {
-                    setBanner({
-                      tone: 'error',
-                      message:
-                        error instanceof Error
-                          ? error.message
-                          : 'Failed to pause all books',
-                    });
-                  });
+                  showToast(
+                    'error',
+                    error instanceof Error
+                      ? error.message
+                      : 'Failed to pause all books'
+                  );
                 }
               }}
             />
@@ -472,11 +423,11 @@ export default function App() {
                 }
 
                 try {
-                  showBanner('info', `正在导出 ${format.toUpperCase()}...`);
+                  showToast('info', `正在导出 ${format.toUpperCase()}...`);
                   const filePath = await api.exportBook(selectedBookId, format);
-                  showBanner('success', `导出完成：${filePath}`);
+                  showToast('success', `导出完成：${filePath}`);
                 } catch (error) {
-                  showBanner(
+                  showToast(
                     'error',
                     error instanceof Error ? error.message : 'Failed to export book'
                   );
@@ -504,21 +455,11 @@ export default function App() {
             <NewBook
               onCreate={async (input) => {
                 try {
-                  flushSync(() => {
-                    setBanner({
-                      tone: 'info',
-                      message: '正在创建作品...',
-                    });
-                  });
+                  showToast('info', '正在创建作品...');
                   const bookId = await api.createBook(input);
                   await loadBooks();
                   await loadBookDetail(bookId, { openView: true });
-                  flushSync(() => {
-                    setBanner({
-                      tone: 'info',
-                      message: '书本已创建，正在生成书名...',
-                    });
-                  });
+                  showToast('info', '书本已创建，正在生成书名...');
 
                   void (async () => {
                     try {
@@ -528,31 +469,22 @@ export default function App() {
                         openView: false,
                         preserveExistingOnMissing: true,
                       });
-                      flushSync(() => {
-                        setBanner(null);
-                      });
                     } catch (error) {
-                      flushSync(() => {
-                        setBanner({
-                          tone: 'error',
-                          message:
-                            error instanceof Error
-                              ? error.message
-                              : 'Failed to start book',
-                        });
-                      });
+                      showToast(
+                        'error',
+                        error instanceof Error
+                          ? error.message
+                          : 'Failed to start book'
+                      );
                     }
                   })();
                 } catch (error) {
-                  flushSync(() => {
-                    setBanner({
-                      tone: 'error',
-                      message:
-                        error instanceof Error
-                          ? error.message
-                          : 'Failed to start book',
-                    });
-                  });
+                  showToast(
+                    'error',
+                    error instanceof Error
+                      ? error.message
+                      : 'Failed to start book'
+                  );
                 }
               }}
             />
@@ -561,7 +493,6 @@ export default function App() {
             <Settings
               onSaveModel={async (input) => {
                 try {
-                  clearBanner();
                   showToast('info', '正在保存模型...');
                   await api.saveModel(input);
                   await loadModels();
@@ -576,7 +507,6 @@ export default function App() {
               }}
               onTestModel={async (input) => {
                 try {
-                  clearBanner();
                   showToast('info', '正在测试模型连接...');
                   await api.saveModel(input);
                   const result = await api.testModel(input.id);
@@ -606,12 +536,7 @@ export default function App() {
               shortChapterReviewEnabled={shortChapterReviewEnabled}
               onSaveSetting={async (input) => {
                 try {
-                  flushSync(() => {
-                    setBanner({
-                      tone: 'info',
-                      message: '正在保存设置...',
-                    });
-                  });
+                  showToast('info', '正在保存设置...');
                   await api.setSetting(
                     'scheduler.concurrencyLimit',
                     input.concurrencyLimit === null
@@ -625,20 +550,12 @@ export default function App() {
                   setShortChapterReviewEnabled(
                     input.shortChapterReviewEnabled
                   );
-                  flushSync(() => {
-                    setBanner({
-                      tone: 'success',
-                      message: '设置已保存',
-                    });
-                  });
+                  showToast('success', '设置已保存');
                 } catch (error) {
-                  flushSync(() => {
-                    setBanner({
-                      tone: 'error',
-                      message:
-                        error instanceof Error ? error.message : 'Failed to save settings',
-                    });
-                  });
+                  showToast(
+                    'error',
+                    error instanceof Error ? error.message : 'Failed to save settings'
+                  );
                 }
               }}
             />
