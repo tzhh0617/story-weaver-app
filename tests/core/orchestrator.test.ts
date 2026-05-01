@@ -1,8 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createDatabase } from '@story-weaver/backend/storage/database';
 import { createBookRepository } from '@story-weaver/backend/storage/books';
-import { createChapterAuditRepository } from '@story-weaver/backend/storage/chapter-audits';
-import { createChapterCardRepository } from '@story-weaver/backend/storage/chapter-cards';
 import { createChapterRepository } from '@story-weaver/backend/storage/chapters';
 import { createCharacterRepository } from '@story-weaver/backend/storage/characters';
 import { createPlotThreadRepository } from '@story-weaver/backend/storage/plot-threads';
