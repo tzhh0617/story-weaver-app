@@ -84,4 +84,30 @@ describe('server settings routes', () => {
       await server.close();
     }
   });
+
+  it('allows browser preflight requests for mutating API methods', async () => {
+    const server = await buildServer({ rootDir: makeRootDir() });
+
+    try {
+      const preflight = await server.inject({
+        method: 'OPTIONS',
+        url: '/api/settings/scheduler.concurrencyLimit',
+        headers: {
+          origin: 'http://localhost:5173',
+          'access-control-request-method': 'PUT',
+          'access-control-request-headers': 'content-type',
+        },
+      });
+
+      expect(preflight.statusCode).toBe(204);
+      expect(preflight.headers['access-control-allow-methods']).toContain(
+        'PUT'
+      );
+      expect(preflight.headers['access-control-allow-methods']).toContain(
+        'DELETE'
+      );
+    } finally {
+      await server.close();
+    }
+  });
 });

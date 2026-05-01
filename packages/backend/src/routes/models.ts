@@ -22,7 +22,7 @@ export async function registerModelRoutes(
   app: FastifyInstance,
   services: RuntimeServices
 ) {
-  app.get('/api/models', async () => services.modelConfigs.list());
+  app.get('/api/models', async () => services.listModelConfigs());
 
   app.put<{ Params: { modelId: string } }>(
     '/api/models/:modelId',

@@ -34,6 +34,7 @@ async function loadRuntimeServices(input: {
       input.mockStreamTokensPerSecond ?? 300_000
     );
   }
+  process.env.STORY_WEAVER_DISABLE_LOCAL_ENV = '1';
   vi.doMock('ai', async (importOriginal) => {
     const actual = await importOriginal<typeof import('ai')>();
     return {
@@ -82,6 +83,7 @@ describe('runtime mock fallback', () => {
     vi.doUnmock('ai');
     delete process.env.STORY_WEAVER_MOCK_DELAY_MS;
     delete process.env.STORY_WEAVER_MOCK_STREAM_TOKENS_PER_SECOND;
+    delete process.env.STORY_WEAVER_DISABLE_LOCAL_ENV;
     vi.useRealTimers();
     fs.rmSync(tempHome, { recursive: true, force: true });
   });

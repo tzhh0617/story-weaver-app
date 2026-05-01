@@ -90,4 +90,27 @@ describe('resolveEnvironmentModelConfigs', () => {
     expect(result.preferEnvironmentConfigs).toBe(true);
     expect(result.configs).toEqual([]);
   });
+
+  it('can ignore local .env.local files for hermetic runtimes', () => {
+    const cwd = createTempDir();
+    writeFileSync(
+      path.join(cwd, '.env.local'),
+      [
+        'STORY_WEAVER_MODEL_PROVIDER=openai',
+        'STORY_WEAVER_MODEL_NAME=gpt-5.5',
+        'STORY_WEAVER_API_KEY=sk-local',
+        '',
+      ].join('\n')
+    );
+
+    const result = resolveEnvironmentModelConfigs({
+      cwd,
+      env: {
+        STORY_WEAVER_DISABLE_LOCAL_ENV: '1',
+      },
+    });
+
+    expect(result.preferEnvironmentConfigs).toBe(false);
+    expect(result.configs).toEqual([]);
+  });
 });

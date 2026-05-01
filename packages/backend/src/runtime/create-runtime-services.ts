@@ -17,12 +17,19 @@ import type {
   BookGenerationEvent,
   ExecutionLogRecord,
 } from '@story-weaver/shared/contracts';
+import type { ModelConfigInput } from '../models/config.js';
+import { resolveEnvironmentModelConfigs } from '../models/environment-config.js';
+import {
+  createRuntimeMode,
+  DEFAULT_MOCK_MODEL_ID,
+} from '../models/runtime-mode.js';
 import { createSettingsRepository } from '../storage/settings.js';
 import { createRuntimeAiServices } from './runtime-ai-services.js';
 
 export type RuntimeServices = {
   bookService: ReturnType<typeof createBookService>;
   modelConfigs: ReturnType<typeof createModelConfigRepository>;
+  listModelConfigs: () => ModelConfigInput[];
   settings: ReturnType<typeof createSettingsRepository>;
   startBook: (bookId: string) => Promise<void>;
   pauseBook: (bookId: string) => void;
@@ -115,6 +122,18 @@ export function createRuntimeServices(input: {
   const runningBookIds = new Set<string>();
   let bookService!: ReturnType<typeof createBookService>;
   let closed = false;
+
+  function listModelConfigs() {
+    const environmentConfigs = resolveEnvironmentModelConfigs();
+    const runtimeMode = createRuntimeMode({
+      persistedConfigs: modelConfigs.list(),
+      environmentConfigs: environmentConfigs.configs,
+      fallbackModelId: DEFAULT_MOCK_MODEL_ID,
+      preferEnvironmentConfigs: environmentConfigs.preferEnvironmentConfigs,
+    });
+
+    return runtimeMode.availableConfigs;
+  }
 
   function getBookSnapshot(bookId: string) {
     const book = books.getById(bookId);
@@ -377,6 +396,7 @@ export function createRuntimeServices(input: {
   return {
     bookService,
     modelConfigs,
+    listModelConfigs,
     settings,
     startBook: async (bookId: string) => {
       logExecution({

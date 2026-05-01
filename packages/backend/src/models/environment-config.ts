@@ -86,6 +86,10 @@ function loadLocalEnv(cwd: string) {
   return parseLocalEnvFile(fs.readFileSync(envFilePath, 'utf8'));
 }
 
+function shouldDisableLocalEnv(env: Partial<NodeJS.ProcessEnv>) {
+  return env.STORY_WEAVER_DISABLE_LOCAL_ENV === '1';
+}
+
 function createProviderConfig(
   provider: ModelProvider,
   env: Partial<NodeJS.ProcessEnv>,
@@ -114,9 +118,12 @@ function createProviderConfig(
 export function resolveEnvironmentModelConfigs(
   input: EnvironmentModelConfigInput = {}
 ) {
-  const localEnv = loadLocalEnv(input.cwd ?? process.cwd());
+  const inputEnv = input.env ?? process.env;
+  const localEnv = shouldDisableLocalEnv(inputEnv)
+    ? {}
+    : loadLocalEnv(input.cwd ?? process.cwd());
   const mergedEnv = {
-    ...(input.env ?? process.env),
+    ...inputEnv,
     ...localEnv,
   };
   const localProvider = parseProvider(localEnv.STORY_WEAVER_MODEL_PROVIDER);

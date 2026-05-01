@@ -30,6 +30,7 @@ export async function buildServer(options?: {
   });
 
   await app.register(cors, {
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     origin: true,
   });
   await registerHealthRoutes(app);

@@ -17,7 +17,7 @@
     "dev:web": "concurrently -k \"pnpm run dev:frontend\" \"pnpm run dev:backend\"",
     "dev:frontend": "pnpm --filter @story-weaver/frontend dev",
     "dev:backend": "pnpm --filter @story-weaver/backend dev",
-    "dev:electron": "pnpm run build:electron && electron-rebuild -f -w better-sqlite3 && wait-on tcp:5173 && VITE_DEV_SERVER_URL=http://localhost:5173 electron .",
+    "dev:electron": "pnpm run build:shared && pnpm run build:backend && pnpm run build:electron && electron-rebuild -f -w better-sqlite3 && wait-on tcp:5173 && VITE_DEV_SERVER_URL=http://localhost:5173 electron .",
     "start:server": "pnpm --filter @story-weaver/backend start",
     "start:web": "pnpm run build && pnpm run start:server",
     "build": "pnpm run build:shared && pnpm run build:backend && pnpm run build:frontend && pnpm run build:electron",
