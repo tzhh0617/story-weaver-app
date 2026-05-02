@@ -19,7 +19,7 @@ export const ViralStrategySchema = z.object({
   tropeContracts: z.array(ViralTropeContractSchema).optional(),
   cadenceMode: z.enum(['fast', 'steady', 'slow_burn', 'suppressed_then_burst']).optional(),
   antiClicheDirection: z.string().optional(),
-}).optional();
+}).nullish();
 
 export const BookCreateSchema = z.object({
   idea: z.string(),
