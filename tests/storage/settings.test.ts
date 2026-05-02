@@ -13,4 +13,17 @@ describe('createSettingsRepository', () => {
 
     expect(repo.get('scheduler.concurrencyLimit')).toBe('2');
   });
+
+  it('lists settings as a key-value object ordered by key', () => {
+    const db = createDatabase(':memory:');
+    const repo = createSettingsRepository(db);
+
+    repo.set('b.key', '2');
+    repo.set('a.key', '1');
+
+    expect(repo.list()).toEqual({
+      'a.key': '1',
+      'b.key': '2',
+    });
+  });
 });

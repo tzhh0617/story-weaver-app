@@ -1,34 +1,33 @@
+import { and, asc, eq } from 'drizzle-orm';
 import type { Database as SqliteDatabase } from 'better-sqlite3';
+import { createDrizzleDb } from '../db/client.js';
+import { narrativeThreads } from '../db/schema/index.js';
 import type { NarrativeThread } from '../core/narrative/types.js';
 
 export function createNarrativeThreadRepository(db: SqliteDatabase) {
+  const drizzleDb = createDrizzleDb(db);
+
   function upsertThread(bookId: string, thread: NarrativeThread) {
-    db.prepare(
-      `
-        INSERT INTO narrative_threads (
-          id, book_id, type, promise, planted_at, expected_payoff, resolved_at,
-          current_state, importance, payoff_must_change, owner_character_id,
-          related_relationship_id, notes
-        )
-        VALUES (
-          @id, @bookId, @type, @promise, @plantedAt, @expectedPayoff, @resolvedAt,
-          @currentState, @importance, @payoffMustChange, @ownerCharacterId,
-          @relatedRelationshipId, @notes
-        )
-        ON CONFLICT(id) DO UPDATE SET
-          type = excluded.type,
-          promise = excluded.promise,
-          planted_at = excluded.planted_at,
-          expected_payoff = excluded.expected_payoff,
-          resolved_at = excluded.resolved_at,
-          current_state = excluded.current_state,
-          importance = excluded.importance,
-          payoff_must_change = excluded.payoff_must_change,
-          owner_character_id = excluded.owner_character_id,
-          related_relationship_id = excluded.related_relationship_id,
-          notes = excluded.notes
-      `
-    ).run({ ...thread, bookId });
+    drizzleDb
+      .insert(narrativeThreads)
+      .values({ ...thread, bookId })
+      .onConflictDoUpdate({
+        target: narrativeThreads.id,
+        set: {
+          type: thread.type,
+          promise: thread.promise,
+          plantedAt: thread.plantedAt,
+          expectedPayoff: thread.expectedPayoff ?? null,
+          resolvedAt: thread.resolvedAt ?? null,
+          currentState: thread.currentState,
+          importance: thread.importance,
+          payoffMustChange: thread.payoffMustChange,
+          ownerCharacterId: thread.ownerCharacterId ?? null,
+          relatedRelationshipId: thread.relatedRelationshipId ?? null,
+          notes: thread.notes ?? null,
+        },
+      })
+      .run();
   }
 
   return {
@@ -39,38 +38,38 @@ export function createNarrativeThreadRepository(db: SqliteDatabase) {
     upsertThread,
 
     resolveThread(bookId: string, threadId: string, resolvedAt: number) {
-      db.prepare(
-        `
-          UPDATE narrative_threads
-          SET resolved_at = ?, current_state = 'paid_off'
-          WHERE book_id = ? AND id = ?
-        `
-      ).run(resolvedAt, bookId, threadId);
+      drizzleDb
+        .update(narrativeThreads)
+        .set({ resolvedAt, currentState: 'paid_off' })
+        .where(
+          and(
+            eq(narrativeThreads.bookId, bookId),
+            eq(narrativeThreads.id, threadId)
+          )
+        )
+        .run();
     },
 
     listByBook(bookId: string): NarrativeThread[] {
-      return db
-        .prepare(
-          `
-            SELECT
-              id,
-              type,
-              promise,
-              planted_at AS plantedAt,
-              expected_payoff AS expectedPayoff,
-              resolved_at AS resolvedAt,
-              current_state AS currentState,
-              importance,
-              payoff_must_change AS payoffMustChange,
-              owner_character_id AS ownerCharacterId,
-              related_relationship_id AS relatedRelationshipId,
-              notes
-            FROM narrative_threads
-            WHERE book_id = ?
-            ORDER BY planted_at ASC, id ASC
-          `
-        )
-        .all(bookId) as NarrativeThread[];
+      return drizzleDb
+        .select({
+          id: narrativeThreads.id,
+          type: narrativeThreads.type,
+          promise: narrativeThreads.promise,
+          plantedAt: narrativeThreads.plantedAt,
+          expectedPayoff: narrativeThreads.expectedPayoff,
+          resolvedAt: narrativeThreads.resolvedAt,
+          currentState: narrativeThreads.currentState,
+          importance: narrativeThreads.importance,
+          payoffMustChange: narrativeThreads.payoffMustChange,
+          ownerCharacterId: narrativeThreads.ownerCharacterId,
+          relatedRelationshipId: narrativeThreads.relatedRelationshipId,
+          notes: narrativeThreads.notes,
+        })
+        .from(narrativeThreads)
+        .where(eq(narrativeThreads.bookId, bookId))
+        .orderBy(asc(narrativeThreads.plantedAt), asc(narrativeThreads.id))
+        .all() as NarrativeThread[];
     },
   };
 }

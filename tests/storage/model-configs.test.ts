@@ -60,4 +60,11 @@ describe('model config repository', () => {
     ]);
     expect(repo.getById('openai:gpt-4o-mini')).toBeNull();
   });
+
+  it('returns null when the requested model config does not exist', () => {
+    const db = createDatabase(':memory:');
+    const repo = createModelConfigRepository(db);
+
+    expect(repo.getById('missing')).toBeNull();
+  });
 });

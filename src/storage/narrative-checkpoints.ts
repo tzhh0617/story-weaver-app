@@ -1,6 +1,11 @@
+import { asc, eq } from 'drizzle-orm';
 import type { Database as SqliteDatabase } from 'better-sqlite3';
+import { createDrizzleDb } from '../db/client.js';
+import { narrativeCheckpoints } from '../db/schema/index.js';
 
 export function createNarrativeCheckpointRepository(db: SqliteDatabase) {
+  const drizzleDb = createDrizzleDb(db);
+
   return {
     save(input: {
       bookId: string;
@@ -21,40 +26,34 @@ export function createNarrativeCheckpointRepository(db: SqliteDatabase) {
           pacingReport: input.pacingReport,
           replanningNotes: input.replanningNotes ?? null,
         };
-      db.prepare(
-        `
-          INSERT INTO narrative_checkpoints (
-            book_id, chapter_index, report_json, future_card_revisions_json, created_at
-          )
-          VALUES (
-            @bookId, @chapterIndex, @reportJson, @futureCardRevisionsJson, @createdAt
-          )
-        `
-      ).run({
-        bookId: input.bookId,
-        chapterIndex: input.chapterIndex,
-        reportJson: JSON.stringify(report),
-        futureCardRevisionsJson: JSON.stringify(input.futureCardRevisions ?? []),
-        createdAt: new Date().toISOString(),
-      });
+      drizzleDb
+        .insert(narrativeCheckpoints)
+        .values({
+          bookId: input.bookId,
+          chapterIndex: input.chapterIndex,
+          reportJson: JSON.stringify(report),
+          futureCardRevisionsJson: JSON.stringify(input.futureCardRevisions ?? []),
+          createdAt: new Date().toISOString(),
+        })
+        .run();
     },
 
     listByBook(bookId: string) {
-      return db
-        .prepare(
-          `
-            SELECT
-              book_id AS bookId,
-              chapter_index AS chapterIndex,
-              report_json AS reportJson,
-              future_card_revisions_json AS futureCardRevisionsJson,
-              created_at AS createdAt
-            FROM narrative_checkpoints
-            WHERE book_id = ?
-            ORDER BY chapter_index ASC, id ASC
-          `
+      return drizzleDb
+        .select({
+          bookId: narrativeCheckpoints.bookId,
+          chapterIndex: narrativeCheckpoints.chapterIndex,
+          reportJson: narrativeCheckpoints.reportJson,
+          futureCardRevisionsJson: narrativeCheckpoints.futureCardRevisionsJson,
+          createdAt: narrativeCheckpoints.createdAt,
+        })
+        .from(narrativeCheckpoints)
+        .where(eq(narrativeCheckpoints.bookId, bookId))
+        .orderBy(
+          asc(narrativeCheckpoints.chapterIndex),
+          asc(narrativeCheckpoints.id)
         )
-        .all(bookId)
+        .all()
         .map((row) => {
           const typed = row as {
             bookId: string;

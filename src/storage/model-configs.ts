@@ -1,75 +1,68 @@
+import { asc, eq, ne } from 'drizzle-orm';
 import type { Database as SqliteDatabase } from 'better-sqlite3';
+import { createDrizzleDb } from '../db/client.js';
+import { modelConfigs } from '../db/schema/index.js';
 import {
   type ModelConfigInput,
   validateModelConfig,
 } from '../models/config.js';
 
 export function createModelConfigRepository(db: SqliteDatabase) {
+  const drizzleDb = createDrizzleDb(db);
+
   return {
     save(input: ModelConfigInput) {
       const config = validateModelConfig(input);
 
-      db.prepare('DELETE FROM model_configs WHERE id <> ?').run(config.id);
+      drizzleDb.delete(modelConfigs).where(ne(modelConfigs.id, config.id)).run();
 
-      db.prepare(
-        `
-          INSERT INTO model_configs (
-            id,
-            provider,
-            model_name,
-            api_key,
-            base_url,
-            is_active,
-            config_json
-          )
-          VALUES (
-            @id,
-            @provider,
-            @modelName,
-            @apiKey,
-            @baseUrl,
-            1,
-            @configJson
-          )
-          ON CONFLICT(id) DO UPDATE SET
-            provider = excluded.provider,
-            model_name = excluded.model_name,
-            api_key = excluded.api_key,
-            base_url = excluded.base_url,
-            is_active = excluded.is_active,
-            config_json = excluded.config_json
-        `
-      ).run({
-        ...config,
-        configJson: JSON.stringify(config.config),
-      });
+      drizzleDb
+        .insert(modelConfigs)
+        .values({
+          id: config.id,
+          provider: config.provider,
+          modelName: config.modelName,
+          apiKey: config.apiKey,
+          baseUrl: config.baseUrl,
+          isActive: 1,
+          configJson: JSON.stringify(config.config),
+        })
+        .onConflictDoUpdate({
+          target: modelConfigs.id,
+          set: {
+            provider: config.provider,
+            modelName: config.modelName,
+            apiKey: config.apiKey,
+            baseUrl: config.baseUrl,
+            isActive: 1,
+            configJson: JSON.stringify(config.config),
+          },
+        })
+        .run();
 
       return config;
     },
 
     list(): ModelConfigInput[] {
-      const rows = db
-        .prepare(
-          `
-            SELECT
-              id,
-              provider,
-              model_name AS modelName,
-              api_key AS apiKey,
-              base_url AS baseUrl,
-              config_json AS configJson
-            FROM model_configs
-            WHERE is_active = 1
-            ORDER BY id ASC
-            LIMIT 1
-          `
-        )
+      const rows = drizzleDb
+        .select({
+          id: modelConfigs.id,
+          provider: modelConfigs.provider,
+          modelName: modelConfigs.modelName,
+          apiKey: modelConfigs.apiKey,
+          baseUrl: modelConfigs.baseUrl,
+          configJson: modelConfigs.configJson,
+        })
+        .from(modelConfigs)
+        .where(eq(modelConfigs.isActive, 1))
+        .orderBy(asc(modelConfigs.id))
+        .limit(1)
         .all() as Array<{
         id: string;
         provider: ModelConfigInput['provider'];
         modelName: string;
-        apiKey: string;
-        baseUrl: string;
+        apiKey: string | null;
+        baseUrl: string | null;
         configJson: string;
       }>;
 
@@ -77,14 +70,38 @@ export function createModelConfigRepository(db: SqliteDatabase) {
         id: row.id,
         provider: row.provider,
         modelName: row.modelName,
-        apiKey: row.apiKey,
-        baseUrl: row.baseUrl,
+        apiKey: row.apiKey ?? '',
+        baseUrl: row.baseUrl ?? '',
         config: JSON.parse(row.configJson || '{}') as Record<string, unknown>,
       }));
     },
 
     getById(id: string) {
-      return this.list().find((config) => config.id === id) ?? null;
+      const row = drizzleDb
+        .select({
+          id: modelConfigs.id,
+          provider: modelConfigs.provider,
+          modelName: modelConfigs.modelName,
+          apiKey: modelConfigs.apiKey,
+          baseUrl: modelConfigs.baseUrl,
+          configJson: modelConfigs.configJson,
+        })
+        .from(modelConfigs)
+        .where(eq(modelConfigs.id, id))
+        .get();
+
+      if (!row) {
+        return null;
+      }
+
+      return {
+        id: row.id,
+        provider: row.provider,
+        modelName: row.modelName,
+        apiKey: row.apiKey ?? '',
+        baseUrl: row.baseUrl ?? '',
+        config: JSON.parse(row.configJson || '{}') as Record<string, unknown>,
+      };
     },
   };
 }

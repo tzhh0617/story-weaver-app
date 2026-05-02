@@ -1,6 +1,11 @@
+import { desc, eq } from 'drizzle-orm';
 import type { Database as SqliteDatabase } from 'better-sqlite3';
+import { createDrizzleDb } from '../db/client.js';
+import { sceneRecords } from '../db/schema/index.js';
 
 export function createSceneRecordRepository(db: SqliteDatabase) {
+  const drizzleDb = createDrizzleDb(db);
+
   return {
     save(input: {
       bookId: string;
@@ -11,53 +16,36 @@ export function createSceneRecordRepository(db: SqliteDatabase) {
       charactersPresent: string[];
       events?: string | null;
     }) {
-      db.prepare(
-        `
-          INSERT INTO scene_records (
-            book_id,
-            volume_index,
-            chapter_index,
-            location,
-            time_in_story,
-            characters_present,
-            events
-          )
-          VALUES (
-            @bookId,
-            @volumeIndex,
-            @chapterIndex,
-            @location,
-            @timeInStory,
-            @charactersPresent,
-            @events
-          )
-        `
-      ).run({
-        ...input,
-        charactersPresent: JSON.stringify(input.charactersPresent),
-        events: input.events ?? null,
-      });
+      drizzleDb
+        .insert(sceneRecords)
+        .values({
+          ...input,
+          charactersPresent: JSON.stringify(input.charactersPresent),
+          events: input.events ?? null,
+        })
+        .run();
     },
 
     getLatestByBook(bookId: string) {
-      const row = db
-        .prepare(
-          `
-            SELECT
-              book_id AS bookId,
-              volume_index AS volumeIndex,
-              chapter_index AS chapterIndex,
-              location,
-              time_in_story AS timeInStory,
-              characters_present AS charactersPresentJson,
-              events
-            FROM scene_records
-            WHERE book_id = ?
-            ORDER BY volume_index DESC, chapter_index DESC, id DESC
-            LIMIT 1
-          `
+      const row = drizzleDb
+        .select({
+          bookId: sceneRecords.bookId,
+          volumeIndex: sceneRecords.volumeIndex,
+          chapterIndex: sceneRecords.chapterIndex,
+          location: sceneRecords.location,
+          timeInStory: sceneRecords.timeInStory,
+          charactersPresentJson: sceneRecords.charactersPresent,
+          events: sceneRecords.events,
+        })
+        .from(sceneRecords)
+        .where(eq(sceneRecords.bookId, bookId))
+        .orderBy(
+          desc(sceneRecords.volumeIndex),
+          desc(sceneRecords.chapterIndex),
+          desc(sceneRecords.id)
         )
-        .get(bookId) as
+        .limit(1)
+        .get() as
         | {
             bookId: string;
             volumeIndex: number;
@@ -85,7 +73,7 @@ export function createSceneRecordRepository(db: SqliteDatabase) {
     },
 
     clearByBook(bookId: string) {
-      db.prepare('DELETE FROM scene_records WHERE book_id = ?').run(bookId);
+      drizzleDb.delete(sceneRecords).where(eq(sceneRecords.bookId, bookId)).run();
     },
   };
 }

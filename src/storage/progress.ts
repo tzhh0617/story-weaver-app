@@ -1,17 +1,10 @@
+import { eq } from 'drizzle-orm';
 import type { Database as SqliteDatabase } from 'better-sqlite3';
-
-function ensureProgressColumns(db: SqliteDatabase) {
-  const columns = db
-    .prepare('PRAGMA table_info(writing_progress)')
-    .all() as Array<{ name: string }>;
-
-  if (!columns.some((column) => column.name === 'step_label')) {
-    db.prepare('ALTER TABLE writing_progress ADD COLUMN step_label TEXT').run();
-  }
-}
+import { createDrizzleDb } from '../db/client.js';
+import { writingProgress } from '../db/schema/index.js';
 
 export function createProgressRepository(db: SqliteDatabase) {
-  ensureProgressColumns(db);
+  const drizzleDb = createDrizzleDb(db);
 
   return {
     updatePhase(
@@ -24,51 +17,43 @@ export function createProgressRepository(db: SqliteDatabase) {
         errorMsg?: string | null;
       }
     ) {
-      db.prepare(
-        `
-          INSERT INTO writing_progress (
-            book_id,
-            current_volume,
-            current_chapter,
+      drizzleDb
+        .insert(writingProgress)
+        .values({
+          bookId,
+          currentVolume: metadata?.currentVolume ?? null,
+          currentChapter: metadata?.currentChapter ?? null,
+          phase,
+          stepLabel: metadata?.stepLabel ?? null,
+          errorMsg: metadata?.errorMsg ?? null,
+        })
+        .onConflictDoUpdate({
+          target: writingProgress.bookId,
+          set: {
+            currentVolume: metadata?.currentVolume ?? null,
+            currentChapter: metadata?.currentChapter ?? null,
             phase,
-            step_label,
-            error_msg
-          )
-          VALUES (?, ?, ?, ?, ?, ?)
-          ON CONFLICT(book_id) DO UPDATE SET
-            current_volume = excluded.current_volume,
-            current_chapter = excluded.current_chapter,
-            phase = excluded.phase,
-            step_label = excluded.step_label,
-            error_msg = excluded.error_msg
-        `
-      ).run(
-        bookId,
-        metadata?.currentVolume ?? null,
-        metadata?.currentChapter ?? null,
-        phase,
-        metadata?.stepLabel ?? null,
-        metadata?.errorMsg ?? null
-      );
+            stepLabel: metadata?.stepLabel ?? null,
+            errorMsg: metadata?.errorMsg ?? null,
+          },
+        })
+        .run();
     },
 
     getByBookId(bookId: string) {
-      return db
-        .prepare(
-          `
-            SELECT
-              book_id AS bookId,
-              current_volume AS currentVolume,
-              current_chapter AS currentChapter,
-              phase,
-              step_label AS stepLabel,
-              retry_count AS retryCount,
-              error_msg AS errorMsg
-            FROM writing_progress
-            WHERE book_id = ?
-          `
-        )
-        .get(bookId) as
+      return drizzleDb
+        .select({
+          bookId: writingProgress.bookId,
+          currentVolume: writingProgress.currentVolume,
+          currentChapter: writingProgress.currentChapter,
+          phase: writingProgress.phase,
+          stepLabel: writingProgress.stepLabel,
+          retryCount: writingProgress.retryCount,
+          errorMsg: writingProgress.errorMsg,
+        })
+        .from(writingProgress)
+        .where(eq(writingProgress.bookId, bookId))
+        .get() as
         | {
             bookId: string;
             currentVolume: number | null;
@@ -82,31 +67,33 @@ export function createProgressRepository(db: SqliteDatabase) {
     },
 
     reset(bookId: string, phase: string) {
-      db.prepare(
-        `
-          INSERT INTO writing_progress (
-            book_id,
-            current_volume,
-            current_chapter,
+      drizzleDb
+        .insert(writingProgress)
+        .values({
+          bookId,
+          currentVolume: null,
+          currentChapter: null,
+          phase,
+          stepLabel: null,
+          retryCount: 0,
+          errorMsg: null,
+        })
+        .onConflictDoUpdate({
+          target: writingProgress.bookId,
+          set: {
+            currentVolume: null,
+            currentChapter: null,
             phase,
-            step_label,
-            retry_count,
-            error_msg
-          )
-          VALUES (?, NULL, NULL, ?, NULL, 0, NULL)
-          ON CONFLICT(book_id) DO UPDATE SET
-            current_volume = NULL,
-            current_chapter = NULL,
-            phase = excluded.phase,
-            step_label = NULL,
-            retry_count = 0,
-            error_msg = NULL
-        `
-      ).run(bookId, phase);
+            stepLabel: null,
+            retryCount: 0,
+            errorMsg: null,
+          },
+        })
+        .run();
     },
 
     deleteByBook(bookId: string) {
-      db.prepare('DELETE FROM writing_progress WHERE book_id = ?').run(bookId);
+      drizzleDb.delete(writingProgress).where(eq(writingProgress.bookId, bookId)).run();
     },
   };
 }

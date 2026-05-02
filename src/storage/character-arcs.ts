@@ -1,4 +1,10 @@
+import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import type { Database as SqliteDatabase } from 'better-sqlite3';
+import { createDrizzleDb } from '../db/client.js';
+import {
+  characterArcs,
+  characterStates,
+} from '../db/schema/index.js';
 import type {
   CharacterArc,
   CharacterStateInput,
@@ -6,130 +12,121 @@ import type {
 } from '../core/narrative/types.js';
 
 export function createCharacterArcRepository(db: SqliteDatabase) {
+  const drizzleDb = createDrizzleDb(db);
+
   return {
     upsertMany(bookId: string, arcs: CharacterArc[]) {
-      const statement = db.prepare(
-        `
-          INSERT INTO character_arcs (
-            id, book_id, name, role_type, desire, fear, flaw, misbelief, wound,
-            external_goal, internal_need, arc_direction, decision_logic,
-            line_will_not_cross, line_may_eventually_cross, current_arc_phase
-          )
-          VALUES (
-            @id, @bookId, @name, @roleType, @desire, @fear, @flaw, @misbelief, @wound,
-            @externalGoal, @internalNeed, @arcDirection, @decisionLogic,
-            @lineWillNotCross, @lineMayEventuallyCross, @currentArcPhase
-          )
-          ON CONFLICT(id) DO UPDATE SET
-            name = excluded.name,
-            role_type = excluded.role_type,
-            desire = excluded.desire,
-            fear = excluded.fear,
-            flaw = excluded.flaw,
-            misbelief = excluded.misbelief,
-            wound = excluded.wound,
-            external_goal = excluded.external_goal,
-            internal_need = excluded.internal_need,
-            arc_direction = excluded.arc_direction,
-            decision_logic = excluded.decision_logic,
-            line_will_not_cross = excluded.line_will_not_cross,
-            line_may_eventually_cross = excluded.line_may_eventually_cross,
-            current_arc_phase = excluded.current_arc_phase
-        `
-      );
-
-      for (const arc of arcs) statement.run({ ...arc, bookId });
+      for (const arc of arcs) {
+        drizzleDb
+          .insert(characterArcs)
+          .values({ ...arc, bookId })
+          .onConflictDoUpdate({
+            target: characterArcs.id,
+            set: {
+              name: arc.name,
+              roleType: arc.roleType,
+              desire: arc.desire,
+              fear: arc.fear,
+              flaw: arc.flaw,
+              misbelief: arc.misbelief,
+              wound: arc.wound ?? null,
+              externalGoal: arc.externalGoal,
+              internalNeed: arc.internalNeed,
+              arcDirection: arc.arcDirection,
+              decisionLogic: arc.decisionLogic,
+              lineWillNotCross: arc.lineWillNotCross ?? null,
+              lineMayEventuallyCross: arc.lineMayEventuallyCross ?? null,
+              currentArcPhase: arc.currentArcPhase,
+            },
+          })
+          .run();
+      }
     },
 
     listByBook(bookId: string): CharacterArc[] {
-      return db
-        .prepare(
-          `
-            SELECT
-              id,
-              name,
-              role_type AS roleType,
-              desire,
-              fear,
-              flaw,
-              misbelief,
-              wound,
-              external_goal AS externalGoal,
-              internal_need AS internalNeed,
-              arc_direction AS arcDirection,
-              decision_logic AS decisionLogic,
-              line_will_not_cross AS lineWillNotCross,
-              line_may_eventually_cross AS lineMayEventuallyCross,
-              current_arc_phase AS currentArcPhase
-            FROM character_arcs
-            WHERE book_id = ?
-            ORDER BY id ASC
-          `
-        )
-        .all(bookId) as CharacterArc[];
+      return drizzleDb
+        .select({
+          id: characterArcs.id,
+          name: characterArcs.name,
+          roleType: characterArcs.roleType,
+          desire: characterArcs.desire,
+          fear: characterArcs.fear,
+          flaw: characterArcs.flaw,
+          misbelief: characterArcs.misbelief,
+          wound: characterArcs.wound,
+          externalGoal: characterArcs.externalGoal,
+          internalNeed: characterArcs.internalNeed,
+          arcDirection: characterArcs.arcDirection,
+          decisionLogic: characterArcs.decisionLogic,
+          lineWillNotCross: characterArcs.lineWillNotCross,
+          lineMayEventuallyCross: characterArcs.lineMayEventuallyCross,
+          currentArcPhase: characterArcs.currentArcPhase,
+        })
+        .from(characterArcs)
+        .where(eq(characterArcs.bookId, bookId))
+        .orderBy(asc(characterArcs.id))
+        .all() as CharacterArc[];
     },
 
     saveState(input: CharacterStateInput) {
-      db.prepare(
-        `
-          INSERT INTO character_states (
-            book_id, character_id, character_name, volume_index, chapter_index,
-            location, status, knowledge, emotion, power_level, arc_phase
-          )
-          VALUES (
-            @bookId, @characterId, @characterName, @volumeIndex, @chapterIndex,
-            @location, @status, @knowledge, @emotion, @powerLevel, @arcPhase
-          )
-          ON CONFLICT(book_id, character_id, volume_index, chapter_index) DO UPDATE SET
-            character_name = excluded.character_name,
-            location = excluded.location,
-            status = excluded.status,
-            knowledge = excluded.knowledge,
-            emotion = excluded.emotion,
-            power_level = excluded.power_level,
-            arc_phase = excluded.arc_phase
-        `
-      ).run({
-        ...input,
-        location: input.location ?? null,
-        status: input.status ?? null,
-        knowledge: input.knowledge ?? null,
-        emotion: input.emotion ?? null,
-        powerLevel: input.powerLevel ?? null,
-        arcPhase: input.arcPhase ?? null,
-      });
+      drizzleDb
+        .insert(characterStates)
+        .values({
+          ...input,
+          location: input.location ?? null,
+          status: input.status ?? null,
+          knowledge: input.knowledge ?? null,
+          emotion: input.emotion ?? null,
+          powerLevel: input.powerLevel ?? null,
+          arcPhase: input.arcPhase ?? null,
+        })
+        .onConflictDoUpdate({
+          target: [
+            characterStates.bookId,
+            characterStates.characterId,
+            characterStates.volumeIndex,
+            characterStates.chapterIndex,
+          ],
+          set: {
+            characterName: input.characterName,
+            location: input.location ?? null,
+            status: input.status ?? null,
+            knowledge: input.knowledge ?? null,
+            emotion: input.emotion ?? null,
+            powerLevel: input.powerLevel ?? null,
+            arcPhase: input.arcPhase ?? null,
+          },
+        })
+        .run();
     },
 
     listLatestStatesByBook(bookId: string): CharacterStateOutput[] {
-      return db
-        .prepare(
-          `
-            SELECT
-              latest.book_id AS bookId,
-              latest.character_id AS characterId,
-              latest.character_name AS characterName,
-              latest.volume_index AS volumeIndex,
-              latest.chapter_index AS chapterIndex,
-              latest.location,
-              latest.status,
-              latest.knowledge,
-              latest.emotion,
-              latest.power_level AS powerLevel,
-              latest.arc_phase AS arcPhase
-            FROM character_states latest
-            INNER JOIN (
-              SELECT character_id, MAX(volume_index * 100000 + chapter_index) AS latestMarker
-              FROM character_states
-              WHERE book_id = ?
-              GROUP BY character_id
-            ) grouped
-              ON grouped.character_id = latest.character_id
-             AND grouped.latestMarker = (latest.volume_index * 100000 + latest.chapter_index)
-            WHERE latest.book_id = ?
-            ORDER BY latest.character_id ASC
-          `
+      return drizzleDb
+        .select({
+          bookId: characterStates.bookId,
+          characterId: characterStates.characterId,
+          characterName: characterStates.characterName,
+          volumeIndex: characterStates.volumeIndex,
+          chapterIndex: characterStates.chapterIndex,
+          location: characterStates.location,
+          status: characterStates.status,
+          knowledge: characterStates.knowledge,
+          emotion: characterStates.emotion,
+          powerLevel: characterStates.powerLevel,
+          arcPhase: characterStates.arcPhase,
+        })
+        .from(characterStates)
+        .where(eq(characterStates.bookId, bookId))
+        .orderBy(
+          asc(characterStates.characterId),
+          desc(characterStates.volumeIndex),
+          desc(characterStates.chapterIndex)
         )
-        .all(bookId, bookId) as CharacterStateOutput[];
+        .all()
+        .filter(
+          (row, index, rows) =>
+            index === 0 || rows[index - 1]?.characterId !== row.characterId
+        ) as CharacterStateOutput[];
     },
   };
 }

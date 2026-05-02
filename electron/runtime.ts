@@ -550,7 +550,7 @@ export function getRuntimeServices() {
     startAllBooks: async () => {
       const runnableBooks = bookService
         .listBooks()
-        .filter((book) => book.status !== 'completed' && book.status !== 'paused');
+        .filter((book) => book.status !== 'completed');
 
       logExecution({
         level: 'info',

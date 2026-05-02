@@ -1,4 +1,7 @@
+import { eq } from 'drizzle-orm';
 import type { Database as SqliteDatabase } from 'better-sqlite3';
+import { createDrizzleDb } from '../db/client.js';
+import { storyBibles } from '../db/schema/index.js';
 import type { NarrativeBible } from '../core/narrative/types.js';
 import type { createCharacterArcRepository } from './character-arcs.js';
 import type { createNarrativeThreadRepository } from './narrative-threads.js';
@@ -14,67 +17,47 @@ export function createStoryBibleRepository(
     narrativeThreads: ReturnType<typeof createNarrativeThreadRepository>;
   }
 ) {
+  const drizzleDb = createDrizzleDb(db);
+
   return {
     saveGraph(bookId: string, bible: NarrativeBible) {
       const now = new Date().toISOString();
-      db.prepare(
-        `
-          INSERT INTO story_bibles (
-            book_id,
-            premise,
-            genre_contract,
-            target_reader_experience,
-            theme_question,
-            theme_answer_direction,
-            central_dramatic_question,
-            ending_state_json,
-            voice_guide,
-            viral_protocol_json,
-            created_at,
-            updated_at
-          )
-          VALUES (
-            @bookId,
-            @premise,
-            @genreContract,
-            @targetReaderExperience,
-            @themeQuestion,
-            @themeAnswerDirection,
-            @centralDramaticQuestion,
-            @endingStateJson,
-            @voiceGuide,
-            @viralProtocolJson,
-            @createdAt,
-            @updatedAt
-          )
-          ON CONFLICT(book_id) DO UPDATE SET
-            premise = excluded.premise,
-            genre_contract = excluded.genre_contract,
-            target_reader_experience = excluded.target_reader_experience,
-            theme_question = excluded.theme_question,
-            theme_answer_direction = excluded.theme_answer_direction,
-            central_dramatic_question = excluded.central_dramatic_question,
-            ending_state_json = excluded.ending_state_json,
-            voice_guide = excluded.voice_guide,
-            viral_protocol_json = excluded.viral_protocol_json,
-            updated_at = excluded.updated_at
-        `
-      ).run({
-        bookId,
-        premise: bible.premise,
-        genreContract: bible.genreContract,
-        targetReaderExperience: bible.targetReaderExperience,
-        themeQuestion: bible.themeQuestion,
-        themeAnswerDirection: bible.themeAnswerDirection,
-        centralDramaticQuestion: bible.centralDramaticQuestion,
-        endingStateJson: JSON.stringify(bible.endingState),
-        voiceGuide: bible.voiceGuide,
-        viralProtocolJson: bible.viralStoryProtocol
-          ? JSON.stringify(bible.viralStoryProtocol)
-          : null,
-        createdAt: now,
-        updatedAt: now,
-      });
+      drizzleDb
+        .insert(storyBibles)
+        .values({
+          bookId,
+          premise: bible.premise,
+          genreContract: bible.genreContract,
+          targetReaderExperience: bible.targetReaderExperience,
+          themeQuestion: bible.themeQuestion,
+          themeAnswerDirection: bible.themeAnswerDirection,
+          centralDramaticQuestion: bible.centralDramaticQuestion,
+          endingStateJson: JSON.stringify(bible.endingState),
+          voiceGuide: bible.voiceGuide,
+          viralProtocolJson: bible.viralStoryProtocol
+            ? JSON.stringify(bible.viralStoryProtocol)
+            : null,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .onConflictDoUpdate({
+          target: storyBibles.bookId,
+          set: {
+            premise: bible.premise,
+            genreContract: bible.genreContract,
+            targetReaderExperience: bible.targetReaderExperience,
+            themeQuestion: bible.themeQuestion,
+            themeAnswerDirection: bible.themeAnswerDirection,
+            centralDramaticQuestion: bible.centralDramaticQuestion,
+            endingStateJson: JSON.stringify(bible.endingState),
+            voiceGuide: bible.voiceGuide,
+            viralProtocolJson: bible.viralStoryProtocol
+              ? JSON.stringify(bible.viralStoryProtocol)
+              : null,
+            updatedAt: now,
+          },
+        })
+        .run();
 
       graphRepos.characterArcs.upsertMany(bookId, bible.characterArcs);
       graphRepos.relationshipEdges.upsertMany(bookId, bible.relationshipEdges);
@@ -83,24 +66,21 @@ export function createStoryBibleRepository(
     },
 
     getByBook(bookId: string) {
-      const row = db
-        .prepare(
-          `
-            SELECT
-              premise,
-              genre_contract AS genreContract,
-              target_reader_experience AS targetReaderExperience,
-              theme_question AS themeQuestion,
-              theme_answer_direction AS themeAnswerDirection,
-              central_dramatic_question AS centralDramaticQuestion,
-              ending_state_json AS endingStateJson,
-              voice_guide AS voiceGuide,
-              viral_protocol_json AS viralProtocolJson
-            FROM story_bibles
-            WHERE book_id = ?
-          `
-        )
-        .get(bookId) as
+      const row = drizzleDb
+        .select({
+          premise: storyBibles.premise,
+          genreContract: storyBibles.genreContract,
+          targetReaderExperience: storyBibles.targetReaderExperience,
+          themeQuestion: storyBibles.themeQuestion,
+          themeAnswerDirection: storyBibles.themeAnswerDirection,
+          centralDramaticQuestion: storyBibles.centralDramaticQuestion,
+          endingStateJson: storyBibles.endingStateJson,
+          voiceGuide: storyBibles.voiceGuide,
+          viralProtocolJson: storyBibles.viralProtocolJson,
+        })
+        .from(storyBibles)
+        .where(eq(storyBibles.bookId, bookId))
+        .get() as
         | {
             premise: string;
             genreContract: string;

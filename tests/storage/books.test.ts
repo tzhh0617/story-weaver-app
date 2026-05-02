@@ -121,4 +121,11 @@ describe('book repository', () => {
       ])
     );
   });
+
+  it('returns an empty progress map when no book ids are provided', () => {
+    const db = createDatabase(':memory:');
+    const chapters = createChapterRepository(db);
+
+    expect(chapters.listProgressByBookIds([])).toEqual(new Map());
+  });
 });

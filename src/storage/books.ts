@@ -1,4 +1,7 @@
+import { desc, eq } from 'drizzle-orm';
 import type { Database as SqliteDatabase } from 'better-sqlite3';
+import { createDrizzleDb } from '../db/client.js';
+import { apiLogs, bookContext, books, worldSettings } from '../db/schema/index.js';
 import type { BookRecord } from '../shared/contracts.js';
 import { deleteBookPlanningData } from './book-graph.js';
 
@@ -25,112 +28,82 @@ function mapBookRow(row: BookRow): BookRecord {
 }
 
 export function createBookRepository(db: SqliteDatabase) {
+  const drizzleDb = createDrizzleDb(db);
+
   return {
     create(input: NewBookInput) {
       const now = new Date().toISOString();
 
-      db.prepare(
-        `
-          INSERT INTO books (
-            id,
-            title,
-            idea,
-            status,
-            model_id,
-            target_chapters,
-            words_per_chapter,
-            viral_strategy_json,
-            created_at,
-            updated_at
-          )
-          VALUES (
-            @id,
-            @title,
-            @idea,
-            'creating',
-            '',
-            @targetChapters,
-            @wordsPerChapter,
-            @viralStrategyJson,
-            @createdAt,
-            @updatedAt
-          )
-        `
-      ).run({
-        ...input,
+      drizzleDb.insert(books).values({
+        id: input.id,
+        title: input.title,
+        idea: input.idea,
+        status: 'creating',
         modelId: '',
+        targetChapters: input.targetChapters,
+        wordsPerChapter: input.wordsPerChapter,
         viralStrategyJson: input.viralStrategy
           ? JSON.stringify(input.viralStrategy)
           : null,
         createdAt: now,
         updatedAt: now,
-      });
+      }).run();
     },
 
     list(): BookRecord[] {
-      const rows = db
-        .prepare(
-          `
-            SELECT
-              id,
-              title,
-              idea,
-              status,
-              target_chapters AS targetChapters,
-              words_per_chapter AS wordsPerChapter,
-              viral_strategy_json AS viralStrategyJson,
-              created_at AS createdAt,
-              updated_at AS updatedAt
-            FROM books
-            ORDER BY created_at DESC
-          `
-        )
+      const rows = drizzleDb
+        .select({
+          id: books.id,
+          title: books.title,
+          idea: books.idea,
+          status: books.status,
+          targetChapters: books.targetChapters,
+          wordsPerChapter: books.wordsPerChapter,
+          viralStrategyJson: books.viralStrategyJson,
+          createdAt: books.createdAt,
+          updatedAt: books.updatedAt,
+        })
+        .from(books)
+        .orderBy(desc(books.createdAt))
         .all() as BookRow[];
 
       return rows.map(mapBookRow);
     },
 
     getById(bookId: string) {
-      const row = db
-        .prepare(
-          `
-            SELECT
-              id,
-              title,
-              idea,
-              status,
-              target_chapters AS targetChapters,
-              words_per_chapter AS wordsPerChapter,
-              viral_strategy_json AS viralStrategyJson,
-              created_at AS createdAt,
-              updated_at AS updatedAt
-            FROM books
-            WHERE id = ?
-          `
-        )
-        .get(bookId) as BookRow | undefined;
+      const row = drizzleDb
+        .select({
+          id: books.id,
+          title: books.title,
+          idea: books.idea,
+          status: books.status,
+          targetChapters: books.targetChapters,
+          wordsPerChapter: books.wordsPerChapter,
+          viralStrategyJson: books.viralStrategyJson,
+          createdAt: books.createdAt,
+          updatedAt: books.updatedAt,
+        })
+        .from(books)
+        .where(eq(books.id, bookId))
+        .get() as BookRow | undefined;
 
       return row ? mapBookRow(row) : undefined;
     },
 
     updateStatus(bookId: string, status: BookRecord['status']) {
-      db.prepare(
-        `
-          UPDATE books
-          SET status = ?, updated_at = ?
-          WHERE id = ?
-        `
-      ).run(status, new Date().toISOString(), bookId);
+      drizzleDb
+        .update(books)
+        .set({ status, updatedAt: new Date().toISOString() })
+        .where(eq(books.id, bookId))
+        .run();
     },
 
     updateTitle(bookId: string, title: string) {
-      db.prepare(
-        `
-          UPDATE books
-          SET title = ?, updated_at = ?
-          WHERE id = ?
-        `
-      ).run(title, new Date().toISOString(), bookId);
+      drizzleDb
+        .update(books)
+        .set({ title, updatedAt: new Date().toISOString() })
+        .where(eq(books.id, bookId))
+        .run();
     },
 
     saveContext(input: {
@@ -139,59 +112,69 @@ export function createBookRepository(db: SqliteDatabase) {
       outline: string;
       styleGuide?: string | null;
     }) {
-      db.prepare(
-        `
-          INSERT INTO book_context (book_id, world_setting, outline, style_guide)
-          VALUES (@bookId, @worldSetting, @outline, @styleGuide)
-          ON CONFLICT(book_id) DO UPDATE SET
-            world_setting = excluded.world_setting,
-            outline = excluded.outline,
-            style_guide = excluded.style_guide
-        `
-      ).run({
-        bookId: input.bookId,
-        worldSetting: input.worldSetting,
-        outline: input.outline,
-        styleGuide: input.styleGuide ?? null,
-      });
+      drizzleDb
+        .insert(bookContext)
+        .values({
+          bookId: input.bookId,
+          worldSetting: input.worldSetting,
+          outline: input.outline,
+          styleGuide: input.styleGuide ?? null,
+        })
+        .onConflictDoUpdate({
+          target: bookContext.bookId,
+          set: {
+            worldSetting: input.worldSetting,
+            outline: input.outline,
+            styleGuide: input.styleGuide ?? null,
+          },
+        })
+        .run();
     },
 
     getContext(bookId: string) {
-      return db
-        .prepare(
-          `
-            SELECT
-              book_id AS bookId,
-              world_setting AS worldSetting,
-              outline,
-              style_guide AS styleGuide
-            FROM book_context
-            WHERE book_id = ?
-          `
-        )
-        .get(bookId) as
+      const row = drizzleDb
+        .select({
+          bookId: bookContext.bookId,
+          worldSetting: bookContext.worldSetting,
+          outline: bookContext.outline,
+          styleGuide: bookContext.styleGuide,
+        })
+        .from(bookContext)
+        .where(eq(bookContext.bookId, bookId))
+        .get() as
         | {
             bookId: string;
-            worldSetting: string;
-            outline: string;
+            worldSetting: string | null;
+            outline: string | null;
             styleGuide: string | null;
           }
         | undefined;
+
+      if (!row) {
+        return undefined;
+      }
+
+      return {
+        bookId: row.bookId,
+        worldSetting: row.worldSetting ?? '',
+        outline: row.outline ?? '',
+        styleGuide: row.styleGuide,
+      };
     },
 
     clearGeneratedState(bookId: string) {
       deleteBookPlanningData(db, bookId);
-      db.prepare('DELETE FROM book_context WHERE book_id = ?').run(bookId);
-      db.prepare('DELETE FROM world_settings WHERE book_id = ?').run(bookId);
-      db.prepare('DELETE FROM api_logs WHERE book_id = ?').run(bookId);
+      drizzleDb.delete(bookContext).where(eq(bookContext.bookId, bookId)).run();
+      drizzleDb.delete(worldSettings).where(eq(worldSettings.bookId, bookId)).run();
+      drizzleDb.delete(apiLogs).where(eq(apiLogs.bookId, bookId)).run();
     },
 
     delete(bookId: string) {
       deleteBookPlanningData(db, bookId);
-      db.prepare('DELETE FROM book_context WHERE book_id = ?').run(bookId);
-      db.prepare('DELETE FROM world_settings WHERE book_id = ?').run(bookId);
-      db.prepare('DELETE FROM api_logs WHERE book_id = ?').run(bookId);
-      db.prepare('DELETE FROM books WHERE id = ?').run(bookId);
+      drizzleDb.delete(bookContext).where(eq(bookContext.bookId, bookId)).run();
+      drizzleDb.delete(worldSettings).where(eq(worldSettings.bookId, bookId)).run();
+      drizzleDb.delete(apiLogs).where(eq(apiLogs.bookId, bookId)).run();
+      drizzleDb.delete(books).where(eq(books.id, bookId)).run();
     },
   };
 }

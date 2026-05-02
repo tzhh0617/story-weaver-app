@@ -14,4 +14,13 @@ describe('createDatabase', () => {
     expect(tableNames).not.toContain('execution_logs');
     expect(tableNames).toContain('model_configs');
   });
+
+  it('tracks applied schema through drizzle migration metadata', () => {
+    const db = createDatabase(':memory:');
+    const row = db
+      .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = '__drizzle_migrations'")
+      .get() as { name: string } | undefined;
+
+    expect(row?.name).toBe('__drizzle_migrations');
+  });
 });

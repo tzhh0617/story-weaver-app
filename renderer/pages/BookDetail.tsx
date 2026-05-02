@@ -698,6 +698,7 @@ function DetailEmpty({
 
 export default function BookDetail({
   book,
+  bookListSummary,
   context,
   latestScene,
   narrative,
@@ -715,6 +716,10 @@ export default function BookDetail({
   onDelete,
 }: {
   book: { title: string; status: string; wordCount: number };
+  bookListSummary?: {
+    completedChapters?: number;
+    totalChapters?: number;
+  } | null;
   context?: {
     worldSetting?: string | null;
     outline?: string | null;
@@ -829,10 +834,18 @@ export default function BookDetail({
   const hasOutlineContent = Boolean(context?.worldSetting || context?.outline);
   const currentPhase = progress?.phase ?? book.status;
   const totalWordCountText = formatTotalWordCount(book.wordCount);
-  const completedChapters = renderedChapters.filter(
+  const renderedCompletedChapters = renderedChapters.filter(
     (chapter) => chapter.status === 'done'
   ).length;
-  const totalChapters = renderedChapters.length;
+  const renderedTotalChapters = renderedChapters.length;
+  const completedChapters =
+    renderedTotalChapters > 0
+      ? renderedCompletedChapters
+      : bookListSummary?.completedChapters ?? 0;
+  const totalChapters =
+    renderedTotalChapters > 0
+      ? renderedTotalChapters
+      : bookListSummary?.totalChapters ?? 0;
   const hasGeneratedContent = Boolean(
     chapters?.some((chapter) => chapter.content && chapter.content.trim().length > 0)
   );

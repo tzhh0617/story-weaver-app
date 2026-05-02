@@ -308,6 +308,9 @@ export default function App() {
 
   const isBookDetailWorkbench =
     currentView === 'book-detail' && Boolean(selectedBookDetail);
+  const selectedBookListItem = selectedBookId
+    ? books.find((book) => book.id === selectedBookId) ?? null
+    : null;
 
   return (
     <SidebarProvider
@@ -421,6 +424,7 @@ export default function App() {
                   0
                 ),
               }}
+              bookListSummary={selectedBookListItem}
               context={selectedBookDetail.context}
               latestScene={selectedBookDetail.latestScene}
               narrative={selectedBookDetail.narrative}

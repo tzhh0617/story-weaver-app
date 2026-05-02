@@ -1,6 +1,11 @@
+import { asc, eq } from 'drizzle-orm';
 import type { Database as SqliteDatabase } from 'better-sqlite3';
+import { createDrizzleDb } from '../db/client.js';
+import { plotThreads } from '../db/schema/index.js';
 
 export function createPlotThreadRepository(db: SqliteDatabase) {
+  const drizzleDb = createDrizzleDb(db);
+
   return {
     upsertThread(input: {
       id: string;
@@ -11,69 +16,50 @@ export function createPlotThreadRepository(db: SqliteDatabase) {
       resolvedAt?: number | null;
       importance?: string | null;
     }) {
-      db.prepare(
-        `
-          INSERT INTO plot_threads (
-            id,
-            book_id,
-            description,
-            planted_at,
-            expected_payoff,
-            resolved_at,
-            importance
-          )
-          VALUES (
-            @id,
-            @bookId,
-            @description,
-            @plantedAt,
-            @expectedPayoff,
-            @resolvedAt,
-            @importance
-          )
-          ON CONFLICT(id) DO UPDATE SET
-            description = excluded.description,
-            planted_at = excluded.planted_at,
-            expected_payoff = excluded.expected_payoff,
-            resolved_at = excluded.resolved_at,
-            importance = excluded.importance
-        `
-      ).run({
-        ...input,
-        expectedPayoff: input.expectedPayoff ?? null,
-        resolvedAt: input.resolvedAt ?? null,
-        importance: input.importance ?? 'normal',
-      });
+      drizzleDb
+        .insert(plotThreads)
+        .values({
+          ...input,
+          expectedPayoff: input.expectedPayoff ?? null,
+          resolvedAt: input.resolvedAt ?? null,
+          importance: input.importance ?? 'normal',
+        })
+        .onConflictDoUpdate({
+          target: plotThreads.id,
+          set: {
+            description: input.description,
+            plantedAt: input.plantedAt,
+            expectedPayoff: input.expectedPayoff ?? null,
+            resolvedAt: input.resolvedAt ?? null,
+            importance: input.importance ?? 'normal',
+          },
+        })
+        .run();
     },
 
     resolveThread(id: string, resolvedAt: number) {
-      db.prepare(
-        `
-          UPDATE plot_threads
-          SET resolved_at = ?
-          WHERE id = ?
-        `
-      ).run(resolvedAt, id);
+      drizzleDb
+        .update(plotThreads)
+        .set({ resolvedAt })
+        .where(eq(plotThreads.id, id))
+        .run();
     },
 
     listByBook(bookId: string) {
-      return db
-        .prepare(
-          `
-            SELECT
-              id,
-              book_id AS bookId,
-              description,
-              planted_at AS plantedAt,
-              expected_payoff AS expectedPayoff,
-              resolved_at AS resolvedAt,
-              importance
-            FROM plot_threads
-            WHERE book_id = ?
-            ORDER BY planted_at ASC, id ASC
-          `
-        )
-        .all(bookId) as Array<{
+      return drizzleDb
+        .select({
+          id: plotThreads.id,
+          bookId: plotThreads.bookId,
+          description: plotThreads.description,
+          plantedAt: plotThreads.plantedAt,
+          expectedPayoff: plotThreads.expectedPayoff,
+          resolvedAt: plotThreads.resolvedAt,
+          importance: plotThreads.importance,
+        })
+        .from(plotThreads)
+        .where(eq(plotThreads.bookId, bookId))
+        .orderBy(asc(plotThreads.plantedAt), asc(plotThreads.id))
+        .all() as Array<{
         id: string;
         bookId: string;
         description: string;
@@ -85,7 +71,7 @@ export function createPlotThreadRepository(db: SqliteDatabase) {
     },
 
     clearByBook(bookId: string) {
-      db.prepare('DELETE FROM plot_threads WHERE book_id = ?').run(bookId);
+      drizzleDb.delete(plotThreads).where(eq(plotThreads.bookId, bookId)).run();
     },
   };
 }

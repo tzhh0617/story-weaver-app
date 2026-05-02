@@ -1,7 +1,12 @@
+import { and, asc, eq } from 'drizzle-orm';
 import type { Database as SqliteDatabase } from 'better-sqlite3';
+import { createDrizzleDb } from '../db/client.js';
+import { chapterGenerationAudits } from '../db/schema/index.js';
 import type { NarrativeAudit } from '../core/narrative/types.js';
 
 export function createChapterAuditRepository(db: SqliteDatabase) {
+  const drizzleDb = createDrizzleDb(db);
+
   return {
     save(input: {
       bookId: string;
@@ -10,51 +15,49 @@ export function createChapterAuditRepository(db: SqliteDatabase) {
       attempt: number;
       audit: NarrativeAudit;
     }) {
-      db.prepare(
-        `
-          INSERT INTO chapter_generation_audits (
-            book_id, volume_index, chapter_index, attempt, passed, score,
-            decision, issues_json, scoring_json, state_updates_json, created_at
-          )
-          VALUES (
-            @bookId, @volumeIndex, @chapterIndex, @attempt, @passed, @score,
-            @decision, @issuesJson, @scoringJson, @stateUpdatesJson, @createdAt
-          )
-        `
-      ).run({
-        bookId: input.bookId,
-        volumeIndex: input.volumeIndex,
-        chapterIndex: input.chapterIndex,
-        attempt: input.attempt,
-        passed: input.audit.passed ? 1 : 0,
-        score: input.audit.score,
-        decision: input.audit.decision,
-        issuesJson: JSON.stringify(input.audit.issues),
-        scoringJson: JSON.stringify(input.audit.scoring),
-        stateUpdatesJson: JSON.stringify(input.audit.stateUpdates),
-        createdAt: new Date().toISOString(),
-      });
+      drizzleDb
+        .insert(chapterGenerationAudits)
+        .values({
+          bookId: input.bookId,
+          volumeIndex: input.volumeIndex,
+          chapterIndex: input.chapterIndex,
+          attempt: input.attempt,
+          passed: input.audit.passed ? 1 : 0,
+          score: input.audit.score,
+          decision: input.audit.decision,
+          issuesJson: JSON.stringify(input.audit.issues),
+          scoringJson: JSON.stringify(input.audit.scoring),
+          stateUpdatesJson: JSON.stringify(input.audit.stateUpdates),
+          createdAt: new Date().toISOString(),
+        })
+        .run();
     },
 
     listByChapter(bookId: string, volumeIndex: number, chapterIndex: number) {
-      const rows = db
-        .prepare(
-          `
-            SELECT
-              attempt,
-              passed,
-              score,
-              decision,
-              issues_json AS issuesJson,
-              scoring_json AS scoringJson,
-              state_updates_json AS stateUpdatesJson,
-              created_at AS createdAt
-            FROM chapter_generation_audits
-            WHERE book_id = ? AND volume_index = ? AND chapter_index = ?
-            ORDER BY attempt ASC, id ASC
-          `
+      const rows = drizzleDb
+        .select({
+          attempt: chapterGenerationAudits.attempt,
+          passed: chapterGenerationAudits.passed,
+          score: chapterGenerationAudits.score,
+          decision: chapterGenerationAudits.decision,
+          issuesJson: chapterGenerationAudits.issuesJson,
+          scoringJson: chapterGenerationAudits.scoringJson,
+          stateUpdatesJson: chapterGenerationAudits.stateUpdatesJson,
+          createdAt: chapterGenerationAudits.createdAt,
+        })
+        .from(chapterGenerationAudits)
+        .where(
+          and(
+            eq(chapterGenerationAudits.bookId, bookId),
+            eq(chapterGenerationAudits.volumeIndex, volumeIndex),
+            eq(chapterGenerationAudits.chapterIndex, chapterIndex)
+          )
         )
-        .all(bookId, volumeIndex, chapterIndex) as Array<{
+        .orderBy(
+          asc(chapterGenerationAudits.attempt),
+          asc(chapterGenerationAudits.id)
+        )
+        .all() as Array<{
         attempt: number;
         passed: number;
         score: number;
@@ -78,26 +81,27 @@ export function createChapterAuditRepository(db: SqliteDatabase) {
     },
 
     listLatestByBook(bookId: string) {
-      const rows = db
-        .prepare(
-          `
-            SELECT
-              volume_index AS volumeIndex,
-              chapter_index AS chapterIndex,
-              attempt,
-              passed,
-              score,
-              decision,
-              issues_json AS issuesJson,
-              scoring_json AS scoringJson,
-              state_updates_json AS stateUpdatesJson,
-              created_at AS createdAt
-            FROM chapter_generation_audits
-            WHERE book_id = ?
-            ORDER BY chapter_index ASC, attempt ASC, id ASC
-          `
+      const rows = drizzleDb
+        .select({
+          volumeIndex: chapterGenerationAudits.volumeIndex,
+          chapterIndex: chapterGenerationAudits.chapterIndex,
+          attempt: chapterGenerationAudits.attempt,
+          passed: chapterGenerationAudits.passed,
+          score: chapterGenerationAudits.score,
+          decision: chapterGenerationAudits.decision,
+          issuesJson: chapterGenerationAudits.issuesJson,
+          scoringJson: chapterGenerationAudits.scoringJson,
+          stateUpdatesJson: chapterGenerationAudits.stateUpdatesJson,
+          createdAt: chapterGenerationAudits.createdAt,
+        })
+        .from(chapterGenerationAudits)
+        .where(eq(chapterGenerationAudits.bookId, bookId))
+        .orderBy(
+          asc(chapterGenerationAudits.chapterIndex),
+          asc(chapterGenerationAudits.attempt),
+          asc(chapterGenerationAudits.id)
         )
-        .all(bookId) as Array<{
+        .all() as Array<{
         volumeIndex: number;
         chapterIndex: number;
         attempt: number;

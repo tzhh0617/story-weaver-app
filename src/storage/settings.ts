@@ -1,34 +1,42 @@
+import { asc, eq } from 'drizzle-orm';
 import type { Database as SqliteDatabase } from 'better-sqlite3';
+import { createDrizzleDb } from '../db/client.js';
+import { settings } from '../db/schema/index.js';
 
 export function createSettingsRepository(db: SqliteDatabase) {
+  const drizzleDb = createDrizzleDb(db);
+
   return {
     list() {
       return Object.fromEntries(
-        (
-          db.prepare('SELECT key, value FROM settings ORDER BY key').all() as Array<{
-            key: string;
-            value: string;
-          }>
-        ).map((row) => [row.key, row.value])
+        drizzleDb
+          .select()
+          .from(settings)
+          .orderBy(asc(settings.key))
+          .all()
+          .map((row) => [row.key, row.value])
       );
     },
 
     get(key: string) {
-      const row = db
-        .prepare('SELECT value FROM settings WHERE key = ?')
-        .get(key) as { value: string } | undefined;
+      const row = drizzleDb
+        .select({ value: settings.value })
+        .from(settings)
+        .where(eq(settings.key, key))
+        .get();
 
       return row?.value ?? null;
     },
 
     set(key: string, value: string) {
-      db.prepare(
-        `
-          INSERT INTO settings (key, value)
-          VALUES (?, ?)
-          ON CONFLICT(key) DO UPDATE SET value = excluded.value
-        `
-      ).run(key, value);
+      drizzleDb
+        .insert(settings)
+        .values({ key, value })
+        .onConflictDoUpdate({
+          target: settings.key,
+          set: { value },
+        })
+        .run();
     },
   };
 }

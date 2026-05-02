@@ -189,6 +189,40 @@ describe('Library', () => {
     expect(screen.getByRole('button', { name: '全部暂停' })).toBeEnabled();
   });
 
+  it('keeps start-all available when the shelf only has paused books to resume', () => {
+    render(
+      <Library
+        books={[
+          {
+            id: 'book-1',
+            title: 'Book 1',
+            idea: 'A buried archive wakes up.',
+            status: 'paused',
+            targetChapters: 500,
+            wordsPerChapter: 2500,
+            updatedAt: '2026-04-28T12:00:00.000Z',
+            createdAt: '2026-04-28T10:00:00.000Z',
+            progress: 50,
+            completedChapters: 1,
+            totalChapters: 2,
+          },
+        ]}
+        scheduler={{
+          runningBookIds: [],
+          queuedBookIds: [],
+          pausedBookIds: ['book-1'],
+          concurrencyLimit: 3,
+        }}
+        onSelectBook={vi.fn()}
+        onStartAll={vi.fn()}
+        onPauseAll={vi.fn()}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: '全部开始' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: '全部暂停' })).toBeDisabled();
+  });
+
   it('searches by title only with a compact input', () => {
     render(
       <Library

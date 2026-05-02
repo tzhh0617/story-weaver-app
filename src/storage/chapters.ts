@@ -1,6 +1,14 @@
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import type { Database as SqliteDatabase } from 'better-sqlite3';
+import { createDrizzleDb } from '../db/client.js';
+import {
+  chapterCards,
+  chapters,
+} from '../db/schema/index.js';
 
 export function createChapterRepository(db: SqliteDatabase) {
+  const drizzleDb = createDrizzleDb(db);
+
   return {
     upsertOutline(input: {
       bookId: string;
@@ -11,75 +19,51 @@ export function createChapterRepository(db: SqliteDatabase) {
     }) {
       const now = new Date().toISOString();
 
-      db.prepare(
-        `
-          INSERT INTO chapters (
-            book_id,
-            volume_index,
-            chapter_index,
-            title,
-            created_at
-          )
-          VALUES (
-            @bookId,
-            @volumeIndex,
-            @chapterIndex,
-            @title,
-            @createdAt
-          )
-          ON CONFLICT(book_id, volume_index, chapter_index) DO UPDATE SET
-            title = excluded.title,
-            updated_at = excluded.created_at
-        `
-      ).run({
-        bookId: input.bookId,
-        volumeIndex: input.volumeIndex,
-        chapterIndex: input.chapterIndex,
-        title: input.title,
-        createdAt: now,
-      });
+      drizzleDb
+        .insert(chapters)
+        .values({
+          bookId: input.bookId,
+          volumeIndex: input.volumeIndex,
+          chapterIndex: input.chapterIndex,
+          title: input.title,
+          createdAt: now,
+        })
+        .onConflictDoUpdate({
+          target: [chapters.bookId, chapters.volumeIndex, chapters.chapterIndex],
+          set: {
+            title: input.title,
+            updatedAt: now,
+          },
+        })
+        .run();
 
-      db.prepare(
-        `
-          INSERT INTO chapter_cards (
-            book_id,
-            volume_index,
-            chapter_index,
-            title,
-            plot_function,
-            pov_character_id,
-            external_conflict,
-            internal_conflict,
-            relationship_change,
-            world_rule_used_or_tested,
-            information_reveal,
-            reader_reward,
-            ending_hook,
-            must_change,
-            forbidden_moves_json
-          )
-          VALUES (
-            @bookId,
-            @volumeIndex,
-            @chapterIndex,
-            @title,
-            @outline,
-            NULL,
-            @outline,
-            @outline,
-            '',
-            '',
-            '',
-            'truth',
-            '',
-            @outline,
-            '[]'
-          )
-          ON CONFLICT(book_id, volume_index, chapter_index) DO UPDATE SET
-            title = excluded.title,
-            plot_function = excluded.plot_function
-        `
-      ).run(input);
+      drizzleDb
+        .insert(chapterCards)
+        .values({
+          bookId: input.bookId,
+          volumeIndex: input.volumeIndex,
+          chapterIndex: input.chapterIndex,
+          title: input.title,
+          plotFunction: input.outline,
+          povCharacterId: null,
+          externalConflict: input.outline,
+          internalConflict: input.outline,
+          relationshipChange: '',
+          worldRuleUsedOrTested: '',
+          informationReveal: '',
+          readerReward: 'truth',
+          endingHook: '',
+          mustChange: input.outline,
+          forbiddenMovesJson: '[]',
+        })
+        .onConflictDoUpdate({
+          target: [chapterCards.bookId, chapterCards.volumeIndex, chapterCards.chapterIndex],
+          set: {
+            title: input.title,
+            plotFunction: input.outline,
+          },
+        })
+        .run();
     },
 
     upsertPlanned(input: {
@@ -93,32 +77,29 @@ export function createChapterRepository(db: SqliteDatabase) {
     },
 
     listByBook(bookId: string) {
-      return db
-        .prepare(
-          `
-            SELECT
-              book_id AS bookId,
-              volume_index AS volumeIndex,
-              chapter_index AS chapterIndex,
-              title,
-              (
-                SELECT plot_function
-                FROM chapter_cards
-                WHERE chapter_cards.book_id = chapters.book_id
-                  AND chapter_cards.volume_index = chapters.volume_index
-                  AND chapter_cards.chapter_index = chapters.chapter_index
-              ) AS outline,
-              content,
-              summary,
-              word_count AS wordCount,
-              audit_score AS auditScore,
-              draft_attempts AS draftAttempts
-            FROM chapters
-            WHERE book_id = ?
-            ORDER BY volume_index ASC, chapter_index ASC
-          `
-        )
-        .all(bookId) as Array<{
+      return drizzleDb
+        .select({
+          bookId: chapters.bookId,
+          volumeIndex: chapters.volumeIndex,
+          chapterIndex: chapters.chapterIndex,
+          title: chapters.title,
+          outline: sql<string | null>`(
+            SELECT ${chapterCards.plotFunction}
+            FROM ${chapterCards}
+            WHERE ${chapterCards.bookId} = ${chapters.bookId}
+              AND ${chapterCards.volumeIndex} = ${chapters.volumeIndex}
+              AND ${chapterCards.chapterIndex} = ${chapters.chapterIndex}
+          )`,
+          content: chapters.content,
+          summary: chapters.summary,
+          wordCount: chapters.wordCount,
+          auditScore: chapters.auditScore,
+          draftAttempts: chapters.draftAttempts,
+        })
+        .from(chapters)
+        .where(eq(chapters.bookId, bookId))
+        .orderBy(chapters.volumeIndex, chapters.chapterIndex)
+        .all() as Array<{
         bookId: string;
         volumeIndex: number;
         chapterIndex: number;
@@ -140,21 +121,17 @@ export function createChapterRepository(db: SqliteDatabase) {
         >();
       }
 
-      const placeholders = bookIds.map(() => '?').join(', ');
-      const rows = db
-        .prepare(
-          `
-            SELECT
-              book_id AS bookId,
-              COUNT(*) AS totalChapters,
-              SUM(CASE WHEN content IS NOT NULL AND content != '' THEN 1 ELSE 0 END)
-                AS completedChapters
-            FROM chapters
-            WHERE book_id IN (${placeholders})
-            GROUP BY book_id
-          `
-        )
-        .all(...bookIds) as Array<{
+      const rows = drizzleDb
+        .select({
+          bookId: chapters.bookId,
+          totalChapters: sql<number>`COUNT(*)`,
+          completedChapters:
+            sql<number | null>`SUM(CASE WHEN ${chapters.content} IS NOT NULL AND ${chapters.content} != '' THEN 1 ELSE 0 END)`,
+        })
+        .from(chapters)
+        .where(inArray(chapters.bookId, bookIds))
+        .groupBy(chapters.bookId)
+        .all() as Array<{
         bookId: string;
         completedChapters: number | null;
         totalChapters: number;
@@ -181,48 +158,58 @@ export function createChapterRepository(db: SqliteDatabase) {
       auditScore?: number | null;
       draftAttempts?: number;
     }) {
-      db.prepare(
-        `
-          UPDATE chapters
-          SET
-            content = @content,
-            summary = @summary,
-            word_count = @wordCount,
-            audit_score = COALESCE(@auditScore, audit_score),
-            draft_attempts = COALESCE(@draftAttempts, draft_attempts),
-            updated_at = @updatedAt
-          WHERE
-            book_id = @bookId
-            AND volume_index = @volumeIndex
-            AND chapter_index = @chapterIndex
-        `
-      ).run({
-        ...input,
-        summary: input.summary ?? null,
-        auditScore: input.auditScore ?? null,
-        draftAttempts: input.draftAttempts ?? null,
-        updatedAt: new Date().toISOString(),
-      });
+      const existing = drizzleDb
+        .select({
+          auditScore: chapters.auditScore,
+          draftAttempts: chapters.draftAttempts,
+        })
+        .from(chapters)
+        .where(
+          and(
+            eq(chapters.bookId, input.bookId),
+            eq(chapters.volumeIndex, input.volumeIndex),
+            eq(chapters.chapterIndex, input.chapterIndex)
+          )
+        )
+        .get();
+
+      drizzleDb
+        .update(chapters)
+        .set({
+          content: input.content,
+          summary: input.summary ?? null,
+          wordCount: input.wordCount,
+          auditScore: input.auditScore ?? existing?.auditScore ?? null,
+          draftAttempts: input.draftAttempts ?? existing?.draftAttempts ?? 0,
+          updatedAt: new Date().toISOString(),
+        })
+        .where(
+          and(
+            eq(chapters.bookId, input.bookId),
+            eq(chapters.volumeIndex, input.volumeIndex),
+            eq(chapters.chapterIndex, input.chapterIndex)
+          )
+        )
+        .run();
     },
 
     clearGeneratedContent(bookId: string) {
-      db.prepare(
-        `
-          UPDATE chapters
-          SET
-            content = NULL,
-            summary = NULL,
-            word_count = 0,
-            audit_score = NULL,
-            draft_attempts = 0,
-            updated_at = ?
-          WHERE book_id = ?
-        `
-      ).run(new Date().toISOString(), bookId);
+      drizzleDb
+        .update(chapters)
+        .set({
+          content: null,
+          summary: null,
+          wordCount: 0,
+          auditScore: null,
+          draftAttempts: 0,
+          updatedAt: new Date().toISOString(),
+        })
+        .where(eq(chapters.bookId, bookId))
+        .run();
     },
 
     deleteByBook(bookId: string) {
-      db.prepare('DELETE FROM chapters WHERE book_id = ?').run(bookId);
+      drizzleDb.delete(chapters).where(eq(chapters.bookId, bookId)).run();
     },
   };
 }

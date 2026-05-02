@@ -44,9 +44,7 @@ export default function Library({
 }) {
   const [searchQuery, setSearchQuery] = useState('');
   const completedCount = books.filter((book) => book.status === 'completed').length;
-  const hasRunnableBooks = books.some(
-    (book) => book.status !== 'completed' && book.status !== 'paused'
-  );
+  const hasRunnableBooks = books.some((book) => book.status !== 'completed');
   const hasPausableBooks = books.some(
     (book) => book.status !== 'completed' && book.status !== 'paused'
   );

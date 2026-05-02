@@ -1,6 +1,11 @@
+import { and, asc, desc, eq } from 'drizzle-orm';
 import type { Database as SqliteDatabase } from 'better-sqlite3';
+import { createDrizzleDb } from '../db/client.js';
+import { characterStates, characters } from '../db/schema/index.js';
 
 export function createCharacterRepository(db: SqliteDatabase) {
+  const drizzleDb = createDrizzleDb(db);
+
   return {
     saveState(input: {
       bookId: string;
@@ -14,128 +19,107 @@ export function createCharacterRepository(db: SqliteDatabase) {
       emotion?: string | null;
       powerLevel?: string | null;
     }) {
-      db.prepare(
-        `
-          INSERT INTO characters (
-            id,
-            book_id,
-            name,
-            role_type,
-            personality,
-            is_active
-          )
-          VALUES (
-            @characterId,
-            @bookId,
-            @characterName,
-            'supporting',
-            '',
-            1
-          )
-          ON CONFLICT(id) DO UPDATE SET
-            name = excluded.name,
-            book_id = excluded.book_id
-        `
-      ).run({
-        characterId: input.characterId,
-        bookId: input.bookId,
-        characterName: input.characterName,
-      });
+      drizzleDb
+        .insert(characters)
+        .values({
+          id: input.characterId,
+          bookId: input.bookId,
+          name: input.characterName,
+          roleType: 'supporting',
+          personality: '',
+          isActive: 1,
+        })
+        .onConflictDoUpdate({
+          target: characters.id,
+          set: {
+            name: input.characterName,
+            bookId: input.bookId,
+          },
+        })
+        .run();
 
-      db.prepare(
-        `
-          INSERT INTO character_states (
-            book_id,
-            character_id,
-            character_name,
-            volume_index,
-            chapter_index,
-            location,
-            status,
-            knowledge,
-            emotion,
-            power_level
-          )
-          VALUES (
-            @bookId,
-            @characterId,
-            @characterName,
-            @volumeIndex,
-            @chapterIndex,
-            @location,
-            @status,
-            @knowledge,
-            @emotion,
-            @powerLevel
-          )
-          ON CONFLICT(book_id, character_id, volume_index, chapter_index) DO UPDATE SET
-            location = excluded.location,
-            status = excluded.status,
-            knowledge = excluded.knowledge,
-            emotion = excluded.emotion,
-            power_level = excluded.power_level
-        `
-      ).run({
-        ...input,
-        location: input.location ?? null,
-        status: input.status ?? null,
-        knowledge: input.knowledge ?? null,
-        emotion: input.emotion ?? null,
-        powerLevel: input.powerLevel ?? null,
-      });
+      drizzleDb
+        .insert(characterStates)
+        .values({
+          bookId: input.bookId,
+          characterId: input.characterId,
+          characterName: input.characterName,
+          volumeIndex: input.volumeIndex,
+          chapterIndex: input.chapterIndex,
+          location: input.location ?? null,
+          status: input.status ?? null,
+          knowledge: input.knowledge ?? null,
+          emotion: input.emotion ?? null,
+          powerLevel: input.powerLevel ?? null,
+        })
+        .onConflictDoUpdate({
+          target: [
+            characterStates.bookId,
+            characterStates.characterId,
+            characterStates.volumeIndex,
+            characterStates.chapterIndex,
+          ],
+          set: {
+            location: input.location ?? null,
+            status: input.status ?? null,
+            knowledge: input.knowledge ?? null,
+            emotion: input.emotion ?? null,
+            powerLevel: input.powerLevel ?? null,
+          },
+        })
+        .run();
     },
 
     listLatestStatesByBook(bookId: string) {
-      return db
-        .prepare(
-          `
-            SELECT
-              latest.character_id AS characterId,
-              COALESCE(characters.name, latest.character_name, latest.character_id) AS characterName,
-              latest.volume_index AS volumeIndex,
-              latest.chapter_index AS chapterIndex,
-              latest.location,
-              latest.status,
-              latest.knowledge,
-              latest.emotion,
-              latest.power_level AS powerLevel
-            FROM character_states latest
-            INNER JOIN (
-              SELECT
-                character_id,
-                MAX(volume_index * 100000 + chapter_index) AS latestMarker
-              FROM character_states
-              WHERE book_id = ?
-              GROUP BY character_id
-            ) grouped
-              ON grouped.character_id = latest.character_id
-             AND grouped.latestMarker = (latest.volume_index * 100000 + latest.chapter_index)
-            LEFT JOIN characters
-              ON characters.id = latest.character_id
-            WHERE latest.book_id = ?
-            ORDER BY latest.character_id ASC
-          `
+      const rows = drizzleDb
+        .select({
+          characterId: characterStates.characterId,
+          fallbackCharacterName: characterStates.characterName,
+          volumeIndex: characterStates.volumeIndex,
+          chapterIndex: characterStates.chapterIndex,
+          location: characterStates.location,
+          status: characterStates.status,
+          knowledge: characterStates.knowledge,
+          emotion: characterStates.emotion,
+          powerLevel: characterStates.powerLevel,
+          characterName: characters.name,
+        })
+        .from(characterStates)
+        .leftJoin(characters, eq(characters.id, characterStates.characterId))
+        .where(eq(characterStates.bookId, bookId))
+        .orderBy(
+          asc(characterStates.characterId),
+          desc(characterStates.volumeIndex),
+          desc(characterStates.chapterIndex)
         )
-        .all(bookId, bookId) as Array<{
-        characterId: string;
-        characterName: string;
-        volumeIndex: number;
-        chapterIndex: number;
-        location: string | null;
-        status: string | null;
-        knowledge: string | null;
-        emotion: string | null;
-        powerLevel: string | null;
-      }>;
+        .all();
+
+      return rows
+        .filter(
+          (row, index, allRows) =>
+            index === 0 || allRows[index - 1]?.characterId !== row.characterId
+        )
+        .map((row) => ({
+          characterId: row.characterId,
+          characterName:
+            row.characterName ?? row.fallbackCharacterName ?? row.characterId,
+          volumeIndex: row.volumeIndex,
+          chapterIndex: row.chapterIndex,
+          location: row.location,
+          status: row.status,
+          knowledge: row.knowledge,
+          emotion: row.emotion,
+          powerLevel: row.powerLevel,
+        }));
     },
 
     clearStatesByBook(bookId: string) {
-      db.prepare('DELETE FROM character_states WHERE book_id = ?').run(bookId);
+      drizzleDb.delete(characterStates).where(eq(characterStates.bookId, bookId)).run();
     },
 
     deleteByBook(bookId: string) {
-      db.prepare('DELETE FROM character_states WHERE book_id = ?').run(bookId);
-      db.prepare('DELETE FROM characters WHERE book_id = ?').run(bookId);
+      drizzleDb.delete(characterStates).where(eq(characterStates.bookId, bookId)).run();
+      drizzleDb.delete(characters).where(eq(characters.bookId, bookId)).run();
     },
   };
 }

@@ -1255,6 +1255,71 @@ describe('App shell', () => {
     expect(await screen.findByText('已完成')).toBeInTheDocument();
   });
 
+  it('starts all paused books from the library as resumable work', async () => {
+    const books = [
+      {
+        id: 'book-1',
+        title: 'Existing Book',
+        idea: 'An old archive wakes up.',
+        status: 'paused',
+        modelId: 'openai:gpt-4o-mini',
+        targetChapters: 500,
+        wordsPerChapter: 2500,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        progress: 50,
+        completedChapters: 1,
+        totalChapters: 2,
+      },
+    ];
+    const models = [
+      {
+        id: 'openai:gpt-4o-mini',
+        provider: 'openai',
+        modelName: 'gpt-4o-mini',
+        apiKey: 'sk-test',
+        baseUrl: '',
+        config: {},
+      },
+    ];
+
+    const { invoke } = installIpcMock(async (channel) => {
+      switch (channel) {
+        case 'book:list':
+          return copy(books);
+        case 'model:list':
+          return copy(models);
+        case 'scheduler:startAll':
+          books[0] = { ...books[0], status: 'writing' };
+          return undefined;
+        default:
+          return null;
+      }
+    });
+
+    render(<App />);
+
+    const startAllButton = await screen.findByRole('button', { name: '全部开始' });
+
+    await waitFor(() => {
+      expect(startAllButton).toBeEnabled();
+    });
+    expect(screen.getByRole('button', { name: '全部暂停' })).toBeDisabled();
+
+    fireEvent.click(startAllButton);
+
+    expect(await screen.findByText('正在批量推进书籍写作...')).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith('scheduler:startAll', undefined);
+    });
+
+    expect(await screen.findByText('批量写作已开始')).toBeInTheDocument();
+    expect(
+      await screen.findByRole('button', { name: 'Existing Book' })
+    ).toHaveTextContent('写作中');
+  });
+
   it('pauses all books from the library', async () => {
     const books = [
       {
@@ -1479,6 +1544,55 @@ describe('App shell', () => {
         name: /^Existing Book（已暂停 · 0 万字）/,
       })
     ).toBeInTheDocument();
+  });
+
+  it('uses the library chapter counts in detail when the selected book has not loaded chapter rows yet', async () => {
+    const books = [
+      {
+        id: 'book-1',
+        title: 'Existing Book',
+        idea: 'An old archive wakes up.',
+        status: 'paused',
+        modelId: 'openai:gpt-4o-mini',
+        targetChapters: 500,
+        wordsPerChapter: 2500,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        progress: 50,
+        completedChapters: 1,
+        totalChapters: 2,
+      },
+    ];
+
+    installIpcMock(async (channel) => {
+      switch (channel) {
+        case 'book:list':
+          return copy(books);
+        case 'model:list':
+          return [];
+        case 'book:detail':
+          return {
+            book: books[0],
+            context: null,
+            latestScene: null,
+            characterStates: [],
+            plotThreads: [],
+            chapters: [],
+            progress: {
+              phase: 'paused',
+            },
+          };
+        default:
+          return null;
+      }
+    });
+
+    render(<App />);
+
+    await selectBook('Existing Book');
+
+    expect(await screen.findByLabelText('章节列表标题')).toHaveTextContent('1 / 2');
+    expect(screen.getByRole('heading', { name: /^Existing Book（已暂停 · 0 万字）/ })).toBeInTheDocument();
   });
 
   it('exports the selected book as txt from book detail', async () => {
