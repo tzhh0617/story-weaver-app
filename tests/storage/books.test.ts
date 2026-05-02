@@ -151,6 +151,11 @@ describe('book repository', () => {
       forbiddenDrift: ['cheap amnesia'],
     };
     repos.titleIdeaContracts.save(titleIdeaContract);
+    repos.titleIdeaContracts.save({
+      ...titleIdeaContract,
+      corePromise: 'Every bargain leaves a visible scar.',
+      titleHooks: ['promise', 'archive', 'scar'],
+    });
 
     const endgamePlan = {
       bookId: 'book-planning',
@@ -166,6 +171,46 @@ describe('book repository', () => {
       majorPayoffs: ['The missing vow is restored', 'The registrar is unmasked'],
     };
     repos.endgamePlans.save(endgamePlan);
+
+    const stagePlan = {
+      stageIndex: 1,
+      chapterStart: 1,
+      chapterEnd: 8,
+      chapterBudget: 8,
+      objective: 'Break the archive seal',
+      primaryResistance: 'The city audits every vow',
+      pressureCurve: 'rising pressure',
+      escalation: 'Her brother gets implicated',
+      climax: 'She opens the forbidden vault',
+      payoff: 'The ledger reveals the first lie',
+      irreversibleChange: 'The city marks her as oathless',
+      nextQuestion: 'Who profited from the erased promise?',
+      titleIdeaFocus: 'Promises have weight',
+      compressionTrigger: 'Compress if the vault trial runs long',
+      status: 'planned',
+    };
+    repos.stagePlans.upsertMany('book-planning', [stagePlan]);
+
+    const arcPlan = {
+      arcIndex: 1,
+      stageIndex: 1,
+      chapterStart: 1,
+      chapterEnd: 4,
+      chapterBudget: 4,
+      primaryThreads: ['ledger mystery'],
+      characterTurns: [{ characterId: 'hero', turn: 'admits her first lie' }],
+      threadActions: [{ threadId: 'ledger', action: 'plant' }],
+      targetOutcome: 'She commits to opening the archive.',
+      escalationMode: 'tightening',
+      turningPoint: 'Her brother is named in the record.',
+      requiredPayoff: 'The key answers to blood vows.',
+      resultingInstability: 'The family is exposed.',
+      titleIdeaFocus: 'Inherited promises',
+      minChapterCount: 3,
+      maxChapterCount: 5,
+      status: 'planned',
+    };
+    repos.arcPlans.upsertMany('book-planning', [arcPlan]);
 
     const chapterPlan = {
       batchIndex: 1,
@@ -186,6 +231,13 @@ describe('book repository', () => {
       status: 'planned',
     };
     repos.chapterPlans.upsertMany('book-planning', [chapterPlan]);
+    repos.chapterPlans.upsertMany('book-planning', [
+      {
+        ...chapterPlan,
+        reveal: 'The key responds only after she confesses a broken vow.',
+        requiredPayoffs: ['ledger clue', 'confession cost'],
+      },
+    ]);
 
     const snapshot = {
       bookId: 'book-planning',
@@ -205,6 +257,8 @@ describe('book repository', () => {
 
     expect(repos.titleIdeaContracts.getByBook('book-planning')).toEqual({
       ...titleIdeaContract,
+      corePromise: 'Every bargain leaves a visible scar.',
+      titleHooks: ['promise', 'archive', 'scar'],
       createdAt: expect.any(String),
       updatedAt: expect.any(String),
     });
@@ -213,11 +267,54 @@ describe('book repository', () => {
       createdAt: expect.any(String),
       updatedAt: expect.any(String),
     });
-    expect(repos.chapterPlans.listByBook('book-planning')).toEqual([chapterPlan]);
+    expect(repos.stagePlans.listByBook('book-planning')).toEqual([stagePlan]);
+    expect(repos.arcPlans.listByBook('book-planning')).toEqual([arcPlan]);
+    expect(repos.chapterPlans.listByBook('book-planning')).toEqual([
+      {
+        ...chapterPlan,
+        reveal: 'The key responds only after she confesses a broken vow.',
+        requiredPayoffs: ['ledger clue', 'confession cost'],
+      },
+    ]);
     expect(repos.storyStateSnapshots.getLatestByBook('book-planning')).toEqual({
       ...snapshot,
       createdAt: expect.any(String),
     });
+
+    expect(repos.storyBibles.getByBook('book-planning')).toMatchObject({
+      premise: 'A city remembers every promise.',
+      centralDramaticQuestion: 'The Promise Archive',
+      endingState: {
+        protagonistWins: 'She tells the truth publicly.',
+        protagonistLoses: 'Expose the archive or save her brother.',
+        worldChange: 'Public memory becomes shared property.',
+        relationshipOutcome: 'The city registrar',
+      },
+    });
+    expect(repos.volumePlans.listByBook('book-planning')).toEqual([
+      {
+        volumeIndex: 1,
+        title: 'Break the archive seal',
+        chapterStart: 1,
+        chapterEnd: 8,
+        roleInStory: 'rising pressure',
+        mainPressure: 'The city audits every vow',
+        promisedPayoff: 'The ledger reveals the first lie',
+        characterArcMovement: 'Her brother gets implicated',
+        relationshipMovement: 'The city marks her as oathless',
+        worldExpansion: 'Who profited from the erased promise?',
+        endingTurn: 'She opens the forbidden vault',
+      },
+    ]);
+    expect(repos.chapterCards.listByBook('book-planning')).toEqual([
+      expect.objectContaining({
+        bookId: 'book-planning',
+        volumeIndex: 1,
+        chapterIndex: 3,
+        title: 'Break into the archive',
+        readerReward: 'ledger clue',
+      }),
+    ]);
   });
 
   it('deletes legacy narrative tables before removing the book row', () => {

@@ -32,6 +32,52 @@ type EndgameRow = {
   majorPayoffsJson: string;
 };
 
+type CompatibleStoryBibleBridgePayload = StoryBibleBridgePayload & {
+  plannerCorePromise?: string;
+};
+
+function parseContractPayload(row: {
+  title: string;
+  idea: string;
+  corePromise: string;
+  titleHooksJson: string;
+  forbiddenDriftJson: string;
+}) {
+  try {
+    const payload = JSON.parse(row.corePromise) as Partial<CompatibleStoryBibleBridgePayload>;
+
+    return {
+      premise: payload.premise ?? row.idea,
+      genreContract: payload.genreContract ?? row.title,
+      targetReaderExperience:
+        payload.targetReaderExperience ??
+        (JSON.parse(row.titleHooksJson) as string[]).join(' / '),
+      themeQuestion:
+        payload.themeQuestion ?? (JSON.parse(row.forbiddenDriftJson) as string[])[0] ?? row.title,
+      themeAnswerDirection:
+        payload.themeAnswerDirection ?? payload.plannerCorePromise ?? row.corePromise,
+      centralDramaticQuestion: payload.centralDramaticQuestion ?? row.title,
+      voiceGuide:
+        payload.voiceGuide ?? (JSON.parse(row.forbiddenDriftJson) as string[]).join(' / '),
+      viralStoryProtocol: payload.viralStoryProtocol,
+    } satisfies StoryBibleBridgePayload;
+  } catch {
+    const titleHooks = JSON.parse(row.titleHooksJson) as string[];
+    const forbiddenDrift = JSON.parse(row.forbiddenDriftJson) as string[];
+
+    return {
+      premise: row.idea,
+      genreContract: titleHooks[0] ?? row.title,
+      targetReaderExperience: titleHooks.join(' / '),
+      themeQuestion: forbiddenDrift[0] ?? row.title,
+      themeAnswerDirection: row.corePromise,
+      centralDramaticQuestion: row.title,
+      voiceGuide: forbiddenDrift.join(' / '),
+      viralStoryProtocol: undefined,
+    } satisfies StoryBibleBridgePayload;
+  }
+}
+
 function encodeContractPayload(bible: NarrativeBible) {
   const payload: StoryBibleBridgePayload = {
     premise: bible.premise,
@@ -76,7 +122,7 @@ function decodeContractPayload(
     return null;
   }
 
-  const payload = JSON.parse(row.corePromise) as StoryBibleBridgePayload;
+  const payload = parseContractPayload(row);
   const coreCharacterOutcomes = JSON.parse(endgameRow.coreCharacterOutcomesJson) as {
     protagonistLoses?: string;
     relationshipOutcome?: string;

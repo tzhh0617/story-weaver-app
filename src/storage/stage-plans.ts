@@ -3,6 +3,53 @@ import type { Database as SqliteDatabase } from 'better-sqlite3';
 import { createDrizzleDb } from '../db/client.js';
 import { stagePlans } from '../db/schema/index.js';
 
+type CompatibleCompressionTriggerPayload = {
+  title: string;
+  roleInStory: string;
+  mainPressure: string;
+  promisedPayoff: string;
+  characterArcMovement: string;
+  relationshipMovement: string;
+  worldExpansion: string;
+  endingTurn: string;
+  plannerCompressionTrigger: string;
+};
+
+function encodeCompressionTrigger(plan: {
+  objective: string;
+  pressureCurve: string;
+  primaryResistance: string;
+  payoff: string;
+  escalation: string;
+  irreversibleChange: string;
+  nextQuestion: string;
+  climax: string;
+  compressionTrigger: string;
+}) {
+  const payload: CompatibleCompressionTriggerPayload = {
+    title: plan.objective,
+    roleInStory: plan.pressureCurve,
+    mainPressure: plan.primaryResistance,
+    promisedPayoff: plan.payoff,
+    characterArcMovement: plan.escalation,
+    relationshipMovement: plan.irreversibleChange,
+    worldExpansion: plan.nextQuestion,
+    endingTurn: plan.climax,
+    plannerCompressionTrigger: plan.compressionTrigger,
+  };
+
+  return JSON.stringify(payload);
+}
+
+function decodeCompressionTrigger(value: string) {
+  try {
+    const payload = JSON.parse(value) as Partial<CompatibleCompressionTriggerPayload>;
+    return payload.plannerCompressionTrigger ?? value;
+  } catch {
+    return value;
+  }
+}
+
 export function createStagePlanRepository(db: SqliteDatabase) {
   const drizzleDb = createDrizzleDb(db);
 
@@ -45,7 +92,7 @@ export function createStagePlanRepository(db: SqliteDatabase) {
             irreversibleChange: plan.irreversibleChange,
             nextQuestion: plan.nextQuestion,
             titleIdeaFocus: plan.titleIdeaFocus,
-            compressionTrigger: plan.compressionTrigger,
+            compressionTrigger: encodeCompressionTrigger(plan),
             status: plan.status ?? 'planned',
           })
           .onConflictDoUpdate({
@@ -63,7 +110,7 @@ export function createStagePlanRepository(db: SqliteDatabase) {
               irreversibleChange: plan.irreversibleChange,
               nextQuestion: plan.nextQuestion,
               titleIdeaFocus: plan.titleIdeaFocus,
-              compressionTrigger: plan.compressionTrigger,
+              compressionTrigger: encodeCompressionTrigger(plan),
               status: plan.status ?? 'planned',
             },
           })
@@ -72,7 +119,7 @@ export function createStagePlanRepository(db: SqliteDatabase) {
     },
 
     listByBook(bookId: string) {
-      return drizzleDb
+      const rows = drizzleDb
         .select({
           stageIndex: stagePlans.stageIndex,
           chapterStart: stagePlans.chapterStart,
@@ -94,6 +141,11 @@ export function createStagePlanRepository(db: SqliteDatabase) {
         .where(eq(stagePlans.bookId, bookId))
         .orderBy(asc(stagePlans.stageIndex))
         .all();
+
+      return rows.map((row) => ({
+        ...row,
+        compressionTrigger: decodeCompressionTrigger(row.compressionTrigger),
+      }));
     },
   };
 }

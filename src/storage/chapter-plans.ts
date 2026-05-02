@@ -3,6 +3,77 @@ import type { Database as SqliteDatabase } from 'better-sqlite3';
 import { createDrizzleDb } from '../db/client.js';
 import { chapterPlans } from '../db/schema/index.js';
 
+type CompatibleThreadActionsPayload = {
+  title: string;
+  plotFunction: string;
+  povCharacterId: string | null;
+  externalConflict: string;
+  internalConflict: string;
+  relationshipChange: string;
+  worldRuleUsedOrTested: string;
+  informationReveal: string;
+  readerReward: string;
+  endingHook: string;
+  mustChange: string;
+  forbiddenMoves: string[];
+  plannerThreadActions: unknown;
+};
+
+function encodeThreadActions(plan: {
+  batchGoal: string;
+  goal: string;
+  conflict: string;
+  pressureSource: string;
+  changeType: string;
+  titleIdeaLink: string;
+  reveal: string;
+  requiredPayoffs: unknown;
+  endingHook: string;
+  payoffOrCost: string;
+  forbiddenDrift: unknown;
+  threadActions: unknown;
+}) {
+  const reward =
+    Array.isArray(plan.requiredPayoffs) && typeof plan.requiredPayoffs[0] === 'string'
+      ? plan.requiredPayoffs[0]
+      : 'truth';
+  const forbiddenMoves = Array.isArray(plan.forbiddenDrift)
+    ? plan.forbiddenDrift.filter((item): item is string => typeof item === 'string')
+    : [];
+
+  const payload: CompatibleThreadActionsPayload = {
+    title: plan.batchGoal,
+    plotFunction: plan.goal,
+    povCharacterId: null,
+    externalConflict: plan.conflict,
+    internalConflict: plan.pressureSource,
+    relationshipChange: plan.changeType,
+    worldRuleUsedOrTested: plan.titleIdeaLink,
+    informationReveal: plan.reveal,
+    readerReward: reward,
+    endingHook: plan.endingHook,
+    mustChange: plan.payoffOrCost,
+    forbiddenMoves,
+    plannerThreadActions: plan.threadActions,
+  };
+
+  return JSON.stringify(payload);
+}
+
+function decodeThreadActions(value: string) {
+  const parsed = JSON.parse(value) as CompatibleThreadActionsPayload | unknown;
+
+  if (
+    parsed &&
+    typeof parsed === 'object' &&
+    'plannerThreadActions' in parsed
+  ) {
+    return parsed.plannerThreadActions;
+  }
+
+  return parsed;
+}
+
 export function createChapterPlanRepository(db: SqliteDatabase) {
   const drizzleDb = createDrizzleDb(db);
 
@@ -40,7 +111,7 @@ export function createChapterPlanRepository(db: SqliteDatabase) {
             conflict: plan.conflict,
             pressureSource: plan.pressureSource,
             changeType: plan.changeType,
-            threadActionsJson: JSON.stringify(plan.threadActions),
+            threadActionsJson: encodeThreadActions(plan),
             reveal: plan.reveal,
             payoffOrCost: plan.payoffOrCost,
             endingHook: plan.endingHook,
@@ -59,7 +130,7 @@ export function createChapterPlanRepository(db: SqliteDatabase) {
               conflict: plan.conflict,
               pressureSource: plan.pressureSource,
               changeType: plan.changeType,
-              threadActionsJson: JSON.stringify(plan.threadActions),
+              threadActionsJson: encodeThreadActions(plan),
               reveal: plan.reveal,
               payoffOrCost: plan.payoffOrCost,
               endingHook: plan.endingHook,
@@ -124,7 +195,7 @@ export function createChapterPlanRepository(db: SqliteDatabase) {
         conflict: row.conflict,
         pressureSource: row.pressureSource,
         changeType: row.changeType,
-        threadActions: JSON.parse(row.threadActionsJson) as unknown,
+        threadActions: decodeThreadActions(row.threadActionsJson),
         reveal: row.reveal,
         payoffOrCost: row.payoffOrCost,
         endingHook: row.endingHook,

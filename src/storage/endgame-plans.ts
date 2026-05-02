@@ -3,6 +3,88 @@ import type { Database as SqliteDatabase } from 'better-sqlite3';
 import { createDrizzleDb } from '../db/client.js';
 import { endgamePlans } from '../db/schema/index.js';
 
+type CompatibleCoreCharacterOutcomes = {
+  protagonistLoses: string;
+  relationshipOutcome: string;
+  plannerCoreCharacterOutcomes: unknown;
+};
+
+type CompatibleMajorPayoffs = {
+  themeAnswer: string;
+  plannerMajorPayoffs: unknown;
+};
+
+function encodeCoreCharacterOutcomes(input: {
+  coreCharacterOutcomes: unknown;
+  finalConflict: string;
+  finalOpponent: string;
+}) {
+  const plannerValue = input.coreCharacterOutcomes;
+  const plannerRecord =
+    plannerValue && typeof plannerValue === 'object' && !Array.isArray(plannerValue)
+      ? (plannerValue as Record<string, unknown>)
+      : null;
+
+  const payload: CompatibleCoreCharacterOutcomes = {
+    protagonistLoses:
+      typeof plannerRecord?.protagonistLoses === 'string'
+        ? plannerRecord.protagonistLoses
+        : input.finalConflict,
+    relationshipOutcome:
+      typeof plannerRecord?.relationshipOutcome === 'string'
+        ? plannerRecord.relationshipOutcome
+        : input.finalOpponent,
+    plannerCoreCharacterOutcomes: plannerValue,
+  };
+
+  return JSON.stringify(payload);
+}
+
+function encodeMajorPayoffs(input: { majorPayoffs: unknown; worldEndState: string }) {
+  const plannerValue = input.majorPayoffs;
+  const plannerRecord =
+    plannerValue && typeof plannerValue === 'object' && !Array.isArray(plannerValue)
+      ? (plannerValue as Record<string, unknown>)
+      : null;
+
+  const payload: CompatibleMajorPayoffs = {
+    themeAnswer:
+      typeof plannerRecord?.themeAnswer === 'string'
+        ? plannerRecord.themeAnswer
+        : input.worldEndState,
+    plannerMajorPayoffs: plannerValue,
+  };
+
+  return JSON.stringify(payload);
+}
+
+function decodeCoreCharacterOutcomes(value: string) {
+  const parsed = JSON.parse(value) as
+    | CompatibleCoreCharacterOutcomes
+    | Record<string, unknown>
+    | unknown[];
+
+  if (
+    parsed &&
+    typeof parsed === 'object' &&
+    'plannerCoreCharacterOutcomes' in parsed
+  ) {
+    return parsed.plannerCoreCharacterOutcomes;
+  }
+
+  return parsed;
+}
+
+function decodeMajorPayoffs(value: string) {
+  const parsed = JSON.parse(value) as CompatibleMajorPayoffs | Record<string, unknown> | unknown[];
+
+  if (parsed && typeof parsed === 'object' && 'plannerMajorPayoffs' in parsed) {
+    return parsed.plannerMajorPayoffs;
+  }
+
+  return parsed;
+}
+
 export function createEndgamePlanRepository(db: SqliteDatabase) {
   const drizzleDb = createDrizzleDb(db);
 
@@ -28,8 +110,8 @@ export function createEndgamePlanRepository(db: SqliteDatabase) {
           finalConflict: input.finalConflict,
           finalOpponent: input.finalOpponent,
           worldEndState: input.worldEndState,
-          coreCharacterOutcomesJson: JSON.stringify(input.coreCharacterOutcomes),
-          majorPayoffsJson: JSON.stringify(input.majorPayoffs),
+          coreCharacterOutcomesJson: encodeCoreCharacterOutcomes(input),
+          majorPayoffsJson: encodeMajorPayoffs(input),
           createdAt: now,
           updatedAt: now,
         })
@@ -41,8 +123,8 @@ export function createEndgamePlanRepository(db: SqliteDatabase) {
             finalConflict: input.finalConflict,
             finalOpponent: input.finalOpponent,
             worldEndState: input.worldEndState,
-            coreCharacterOutcomesJson: JSON.stringify(input.coreCharacterOutcomes),
-            majorPayoffsJson: JSON.stringify(input.majorPayoffs),
+            coreCharacterOutcomesJson: encodeCoreCharacterOutcomes(input),
+            majorPayoffsJson: encodeMajorPayoffs(input),
             updatedAt: now,
           },
         })
@@ -91,8 +173,8 @@ export function createEndgamePlanRepository(db: SqliteDatabase) {
         finalConflict: row.finalConflict,
         finalOpponent: row.finalOpponent,
         worldEndState: row.worldEndState,
-        coreCharacterOutcomes: JSON.parse(row.coreCharacterOutcomesJson) as unknown,
-        majorPayoffs: JSON.parse(row.majorPayoffsJson) as unknown,
+        coreCharacterOutcomes: decodeCoreCharacterOutcomes(row.coreCharacterOutcomesJson),
+        majorPayoffs: decodeMajorPayoffs(row.majorPayoffsJson),
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
       };
