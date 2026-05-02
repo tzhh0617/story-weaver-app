@@ -18,7 +18,7 @@ export const storySkillRegistry: StorySkill[] = [
     auditQuestions: ['本章是否服务当前卷计划？', '主线是否发生可描述位移？'],
     redFlags: [
       '主线多章没有推进。',
-      '主线漂移到与 centralDramaticQuestion 无关的事件。',
+      '主线漂移到与作品核心戏剧问题无关的事件。',
     ],
   },
   {
