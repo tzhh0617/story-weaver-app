@@ -4,6 +4,7 @@ import type { BookExportFormat } from '@story-weaver/shared/contracts';
 import { useBookContext } from '../contexts/BookContext';
 import { useSchedulerContext } from '../contexts/SchedulerContext';
 import { useStoryWeaverApi } from '../hooks/useStoryWeaverApi';
+import { useApiCall } from '../hooks/useApiCall';
 import { useBookGenerationEvents } from '../hooks/useBookGenerationEvents';
 import type { BookDetailData } from '../types/book-detail';
 import type { ToastFn } from './route-utils';
@@ -13,6 +14,7 @@ export default function BookDetailRoute({ showToast }: { showToast: ToastFn }) {
   const { bookId } = useParams<{ bookId: string }>();
   const navigate = useNavigate();
   const api = useStoryWeaverApi();
+  const call = useApiCall(showToast);
   const {
     books,
     selectedBookId,
@@ -82,33 +84,27 @@ export default function BookDetailRoute({ showToast }: { showToast: ToastFn }) {
       return;
     }
 
-    try {
-      if (startMessage) {
-        showToast('info', startMessage);
-      }
+    if (startMessage) {
+      showToast('info', startMessage);
+    }
 
-      await run(selectedBookId);
+    const result = await call(async () => { await run(selectedBookId); return true as const; });
+    if (result === undefined) return;
 
-      if (clearSelection) {
-        clearSelectedBook();
-      }
+    if (clearSelection) {
+      clearSelectedBook();
+    }
 
-      await loadBooks();
+    await loadBooks();
 
-      if (!clearSelection) {
-        await loadBookDetailRecord(selectedBookId, {
-          preserveExistingOnMissing: true,
-        });
-      }
+    if (!clearSelection) {
+      await loadBookDetailRecord(selectedBookId, {
+        preserveExistingOnMissing: true,
+      });
+    }
 
-      if (typeof successMessage === 'string') {
-        showToast('success', successMessage);
-      }
-    } catch (error) {
-      showToast(
-        'error',
-        error instanceof Error ? error.message : errorMessage
-      );
+    if (typeof successMessage === 'string') {
+      showToast('success', successMessage);
     }
   }
 
@@ -214,15 +210,10 @@ export default function BookDetailRoute({ showToast }: { showToast: ToastFn }) {
           return;
         }
 
-        try {
-          showToast('info', `正在导出 ${format.toUpperCase()}...`);
-          const filePath = await api.exportBook(selectedBookId, format);
+        showToast('info', `正在导出 ${format.toUpperCase()}...`);
+        const filePath = await call(() => api.exportBook(selectedBookId, format));
+        if (filePath !== undefined) {
           showToast('success', `导出完成：${filePath}`);
-        } catch (error) {
-          showToast(
-            'error',
-            error instanceof Error ? error.message : 'Failed to export book'
-          );
         }
       }}
       onDelete={async () => {

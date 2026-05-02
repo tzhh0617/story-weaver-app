@@ -13,6 +13,7 @@ import {
 } from 'react-router-dom';
 import { AppSidebar } from './components/app-sidebar';
 import { AppErrorBoundary } from './components/AppErrorBoundary';
+import { PageErrorBoundary } from './components/PageErrorBoundary';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { ModelConfigProvider } from './contexts/ModelConfigContext';
 import { BookProvider } from './contexts/BookContext';
@@ -102,16 +103,36 @@ export default function App() {
                 : 'grid content-start'
             }`}
           >
-          <ModelConfigProvider toast={showToast}>
+          <ModelConfigProvider>
             <BookProvider>
               <SchedulerProvider>
                 <AppErrorBoundary onToast={showToast}>
                   <Routes>
-                    <Route path="/" element={<LibraryRoute showToast={showToast} />} />
-                    <Route path="/books/:bookId" element={<BookDetailRoute showToast={showToast} />} />
-                    <Route path="/new-book" element={<NewBookRoute showToast={showToast} />} />
-                    <Route path="/logs" element={<LogsRoute />} />
-                    <Route path="/settings" element={<SettingsRoute showToast={showToast} />} />
+                    <Route path="/" element={
+                      <PageErrorBoundary onToast={showToast}>
+                        <LibraryRoute showToast={showToast} />
+                      </PageErrorBoundary>
+                    } />
+                    <Route path="/books/:bookId" element={
+                      <PageErrorBoundary onToast={showToast}>
+                        <BookDetailRoute showToast={showToast} />
+                      </PageErrorBoundary>
+                    } />
+                    <Route path="/new-book" element={
+                      <PageErrorBoundary onToast={showToast}>
+                        <NewBookRoute showToast={showToast} />
+                      </PageErrorBoundary>
+                    } />
+                    <Route path="/logs" element={
+                      <PageErrorBoundary onToast={showToast}>
+                        <LogsRoute />
+                      </PageErrorBoundary>
+                    } />
+                    <Route path="/settings" element={
+                      <PageErrorBoundary onToast={showToast}>
+                        <SettingsRoute showToast={showToast} />
+                      </PageErrorBoundary>
+                    } />
                     <Route path="*" element={<Navigate to="/" replace />} />
                   </Routes>
                 </AppErrorBoundary>

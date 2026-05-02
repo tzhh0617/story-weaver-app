@@ -10,8 +10,6 @@ type ModelConfigView = {
   config: Record<string, unknown>;
 };
 
-type ToastFn = (tone: 'error' | 'success' | 'info', message: string) => void;
-
 type ModelConfigContextValue = {
   modelConfigs: ModelConfigView[];
   shortChapterReviewEnabled: boolean;
@@ -22,7 +20,7 @@ type ModelConfigContextValue = {
 
 const ModelConfigContext = createContext<ModelConfigContextValue | null>(null);
 
-export function ModelConfigProvider({ children, toast }: { children: ReactNode; toast: ToastFn }) {
+export function ModelConfigProvider({ children }: { children: ReactNode }) {
   const api = useStoryWeaverApi();
   const [modelConfigs, setModelConfigs] = useState<ModelConfigView[]>([]);
   const [shortChapterReviewEnabled, setShortChapterReviewEnabled] = useState(true);

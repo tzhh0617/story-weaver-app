@@ -1,4 +1,5 @@
 import type { Database as SqliteDatabase } from 'better-sqlite3';
+import { safeJsonParse } from './json-utils.js';
 
 type ReaderReward =
   | 'reversal'
@@ -65,15 +66,6 @@ type ChapterRelationshipAction = {
   action: RelationshipAction;
   requiredChange: string;
 };
-
-function safeJsonParse<T>(value: string | null | undefined, fallback: T): T {
-  if (!value) return fallback;
-  try {
-    return JSON.parse(value) as T;
-  } catch {
-    return fallback;
-  }
-}
 
 function mapCard(row: Omit<ChapterCard, 'forbiddenMoves'> & { forbiddenMovesJson: string }) {
   return {

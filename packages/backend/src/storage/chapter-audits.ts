@@ -1,4 +1,5 @@
 import type { Database as SqliteDatabase } from 'better-sqlite3';
+import { safeJsonParse } from './json-utils.js';
 
 type AuditDecision = 'accept' | 'revise' | 'rewrite';
 type AuditIssueType =
@@ -75,15 +76,6 @@ type NarrativeAudit = {
     themeUpdate: string;
   };
 };
-
-function safeJsonParse<T>(value: string | null | undefined, fallback: T): T {
-  if (!value) return fallback;
-  try {
-    return JSON.parse(value) as T;
-  } catch {
-    return fallback;
-  }
-}
 
 export function createChapterAuditRepository(db: SqliteDatabase) {
   return {

@@ -1,4 +1,5 @@
 import type { Database as SqliteDatabase } from 'better-sqlite3';
+import { safeJsonParse } from './json-utils.js';
 import type { createCharacterArcRepository, CharacterArc } from './character-arcs.js';
 import type { createNarrativeThreadRepository, NarrativeThread } from './narrative-threads.js';
 import type { createRelationshipEdgeRepository, RelationshipEdge } from './relationship-edges.js';
@@ -79,15 +80,6 @@ type NarrativeBible = {
   narrativeThreads: NarrativeThread[];
   viralStoryProtocol?: ViralStoryProtocol;
 };
-
-function safeJsonParse<T>(value: string | null | undefined, fallback: T): T {
-  if (!value) return fallback;
-  try {
-    return JSON.parse(value) as T;
-  } catch {
-    return fallback;
-  }
-}
 
 export function createStoryBibleRepository(
   db: SqliteDatabase,
