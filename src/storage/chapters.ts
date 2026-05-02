@@ -6,6 +6,45 @@ import {
   chapters,
 } from '../db/schema/index.js';
 
+type ChapterPlanRow = {
+  batchIndex: number;
+  arcIndex: number;
+  goal: string;
+  conflict: string;
+  pressureSource: string;
+  changeType: string;
+  threadActionsJson: string;
+  reveal: string;
+  payoffOrCost: string;
+  endingHook: string;
+  titleIdeaLink: string;
+  batchGoal: string;
+  requiredPayoffsJson: string;
+  forbiddenDriftJson: string;
+  status: string;
+};
+
+function buildOutlineBridgePayload(title: string, outline: string) {
+  return JSON.stringify({
+    title,
+    plotFunction: outline,
+    povCharacterId: null,
+    externalConflict: outline,
+    internalConflict: outline,
+    relationshipChange: '',
+    worldRuleUsedOrTested: '',
+    informationReveal: '',
+    readerReward: 'truth',
+    endingHook: '',
+    mustChange: outline,
+    forbiddenMoves: [],
+  });
+}
+
+function isBlank(value: string) {
+  return value.trim().length === 0;
+}
+
 export function createChapterRepository(db: SqliteDatabase) {
   const drizzleDb = createDrizzleDb(db);
 
@@ -37,6 +76,35 @@ export function createChapterRepository(db: SqliteDatabase) {
         })
         .run();
 
+      const existingPlan = drizzleDb
+        .select({
+          batchIndex: chapterPlans.batchIndex,
+          arcIndex: chapterPlans.arcIndex,
+          goal: chapterPlans.goal,
+          conflict: chapterPlans.conflict,
+          pressureSource: chapterPlans.pressureSource,
+          changeType: chapterPlans.changeType,
+          threadActionsJson: chapterPlans.threadActionsJson,
+          reveal: chapterPlans.reveal,
+          payoffOrCost: chapterPlans.payoffOrCost,
+          endingHook: chapterPlans.endingHook,
+          titleIdeaLink: chapterPlans.titleIdeaLink,
+          batchGoal: chapterPlans.batchGoal,
+          requiredPayoffsJson: chapterPlans.requiredPayoffsJson,
+          forbiddenDriftJson: chapterPlans.forbiddenDriftJson,
+          status: chapterPlans.status,
+        })
+        .from(chapterPlans)
+        .where(
+          and(
+            eq(chapterPlans.bookId, input.bookId),
+            eq(chapterPlans.chapterIndex, input.chapterIndex)
+          )
+        )
+        .get() as ChapterPlanRow | undefined;
+
+      const fallbackPayload = buildOutlineBridgePayload(input.title, input.outline);
+
       drizzleDb
         .insert(chapterPlans)
         .values({
@@ -48,20 +116,7 @@ export function createChapterRepository(db: SqliteDatabase) {
           conflict: input.outline,
           pressureSource: input.outline,
           changeType: '',
-          threadActionsJson: JSON.stringify({
-            title: input.title,
-            plotFunction: input.outline,
-            povCharacterId: null,
-            externalConflict: input.outline,
-            internalConflict: input.outline,
-            relationshipChange: '',
-            worldRuleUsedOrTested: '',
-            informationReveal: '',
-            readerReward: 'truth',
-            endingHook: '',
-            mustChange: input.outline,
-            forbiddenMoves: [],
-          }),
+          threadActionsJson: fallbackPayload,
           reveal: '',
           payoffOrCost: input.outline,
           endingHook: '',
@@ -77,24 +132,30 @@ export function createChapterRepository(db: SqliteDatabase) {
             batchIndex: input.volumeIndex,
             arcIndex: input.volumeIndex,
             goal: input.outline,
-            conflict: input.outline,
-            pressureSource: input.outline,
-            threadActionsJson: JSON.stringify({
-              title: input.title,
-              plotFunction: input.outline,
-              povCharacterId: null,
-              externalConflict: input.outline,
-              internalConflict: input.outline,
-              relationshipChange: '',
-              worldRuleUsedOrTested: '',
-              informationReveal: '',
-              readerReward: 'truth',
-              endingHook: '',
-              mustChange: input.outline,
-              forbiddenMoves: [],
-            }),
-            payoffOrCost: input.outline,
+            conflict:
+              existingPlan && !isBlank(existingPlan.conflict)
+                ? existingPlan.conflict
+                : input.outline,
+            pressureSource:
+              existingPlan && !isBlank(existingPlan.pressureSource)
+                ? existingPlan.pressureSource
+                : input.outline,
+            changeType: existingPlan?.changeType ?? '',
+            threadActionsJson:
+              existingPlan && !isBlank(existingPlan.threadActionsJson)
+                ? existingPlan.threadActionsJson
+                : fallbackPayload,
+            reveal: existingPlan?.reveal ?? '',
+            payoffOrCost:
+              existingPlan && !isBlank(existingPlan.payoffOrCost)
+                ? existingPlan.payoffOrCost
+                : input.outline,
+            endingHook: existingPlan?.endingHook ?? '',
+            titleIdeaLink: existingPlan?.titleIdeaLink ?? '',
             batchGoal: input.title,
+            requiredPayoffsJson: existingPlan?.requiredPayoffsJson ?? '["truth"]',
+            forbiddenDriftJson: existingPlan?.forbiddenDriftJson ?? '[]',
+            status: existingPlan?.status ?? 'planned',
           },
         })
         .run();

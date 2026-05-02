@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createDatabase } from '../../src/storage/database';
 import { createBookRepository } from '../../src/storage/books';
+import { createChapterCardRepository } from '../../src/storage/chapter-cards';
 import { createChapterRepository } from '../../src/storage/chapters';
 
 describe('book repository', () => {
@@ -251,5 +252,57 @@ describe('book repository', () => {
       };
       expect(row.count).toBe(0);
     }
+  });
+
+  it('preserves rich chapter-card bridge data when outline save runs afterward', () => {
+    const db = createDatabase(':memory:');
+    const books = createBookRepository(db);
+    const chapterCards = createChapterCardRepository(db);
+    const chapters = createChapterRepository(db);
+
+    books.create({
+      id: 'book-bridge',
+      title: 'Bridge Book',
+      idea: 'A city remembers every promise.',
+      targetChapters: 1,
+      wordsPerChapter: 2500,
+    });
+
+    chapterCards.upsert({
+      bookId: 'book-bridge',
+      volumeIndex: 2,
+      chapterIndex: 1,
+      title: 'Old Ledger',
+      plotFunction: 'Lin Mu discovers the ledger reacts to his blood.',
+      povCharacterId: 'lin-mu',
+      externalConflict: 'The magistrate demands the ledger immediately.',
+      internalConflict: 'He wants to hide the truth but needs help.',
+      relationshipChange: 'He reluctantly trusts his ally.',
+      worldRuleUsedOrTested: 'blood-ledger',
+      informationReveal: 'The ledger consumes memories for power.',
+      readerReward: 'truth',
+      endingHook: 'The missing family name reappears in ash.',
+      mustChange: 'Lin Mu stops running and starts investigating.',
+      forbiddenMoves: ['Do not reveal the mastermind yet.'],
+    });
+
+    chapters.upsertOutline({
+      bookId: 'book-bridge',
+      volumeIndex: 2,
+      chapterIndex: 1,
+      title: 'Old Ledger',
+      outline: 'A simple fallback outline',
+    });
+
+    expect(chapterCards.listByBook('book-bridge')).toEqual([
+      expect.objectContaining({
+        externalConflict: 'The magistrate demands the ledger immediately.',
+        internalConflict: 'He wants to hide the truth but needs help.',
+        relationshipChange: 'He reluctantly trusts his ally.',
+        readerReward: 'truth',
+        endingHook: 'The missing family name reappears in ash.',
+        mustChange: 'Lin Mu stops running and starts investigating.',
+      }),
+    ]);
   });
 });
