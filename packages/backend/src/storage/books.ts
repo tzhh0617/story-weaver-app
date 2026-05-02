@@ -10,8 +10,8 @@ type NewBookInput = Pick<
   | 'targetChapters'
   | 'wordsPerChapter'
   | 'viralStrategy'
-  | 'titleGenerationStatus'
->;
+> &
+  Partial<Pick<BookRecord, 'titleGenerationStatus'>>;
 
 type BookRow = Omit<BookRecord, 'viralStrategy'> & {
   viralStrategyJson: string | null;
@@ -67,6 +67,7 @@ export function createBookRepository(db: SqliteDatabase) {
       ).run({
         ...input,
         modelId: '',
+        titleGenerationStatus: input.titleGenerationStatus ?? 'generated',
         viralStrategyJson: input.viralStrategy
           ? JSON.stringify(input.viralStrategy)
           : null,
