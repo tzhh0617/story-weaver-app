@@ -54,8 +54,10 @@ describe('desktop runtime config', () => {
 
   it('starts development through turbo without using the background daemon', () => {
     expect(packageJson.scripts?.dev).toBe(
-      'turbo run dev:renderer dev:electron --no-daemon'
+      'turbo run dev:renderer dev:electron'
     );
+    expect(packageJson.scripts?.dev).not.toContain('--no-daemon');
+    expect(packageJson.scripts?.dev).not.toContain('--daemon');
   });
 
   it('does not use concurrently for development startup', () => {
