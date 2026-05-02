@@ -27,12 +27,17 @@ export function createBookAggregate(deps: BookAggregateDeps) {
 
       const id = randomUUID();
       const title = input.title?.trim();
-      const hasManualTitle = Boolean(title);
+      let bookTitle = INITIAL_BOOK_TITLE;
+      let titleGenerationStatus: BookRecord['titleGenerationStatus'] = 'pending';
+      if (title) {
+        bookTitle = title;
+        titleGenerationStatus = 'manual';
+      }
 
       deps.books.create({
         id,
-        title: hasManualTitle ? title! : INITIAL_BOOK_TITLE,
-        titleGenerationStatus: hasManualTitle ? 'manual' : 'pending',
+        title: bookTitle,
+        titleGenerationStatus,
         idea: input.idea,
         targetChapters: input.targetChapters,
         wordsPerChapter: input.wordsPerChapter,

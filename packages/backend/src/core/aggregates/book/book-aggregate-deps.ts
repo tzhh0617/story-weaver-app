@@ -20,6 +20,7 @@ export type BookAggregateDeps = {
     list: () => Array<{
       id: string;
       title: string;
+      titleGenerationStatus: BookRecord['titleGenerationStatus'];
       idea: string;
       status: string;
       targetChapters: number;
@@ -32,6 +33,7 @@ export type BookAggregateDeps = {
       | {
           id: string;
           title: string;
+          titleGenerationStatus: BookRecord['titleGenerationStatus'];
           idea: string;
           status: string;
           targetChapters: number;
