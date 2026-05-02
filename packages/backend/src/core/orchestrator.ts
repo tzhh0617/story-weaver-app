@@ -47,6 +47,7 @@ export function createBookOrchestrator(deps: BookOrchestratorDeps) {
       getById: deps.books.getById,
       updateStatus: deps.books.updateStatus,
       updateTitle: deps.books.updateTitle,
+      updateTitleGenerationStatus: deps.books.updateTitleGenerationStatus,
       saveContext: deps.books.saveContext,
       getContext: deps.books.getContext,
     },

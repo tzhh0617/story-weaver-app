@@ -52,8 +52,10 @@ export function createOutlineAggregate(deps: OutlineAggregateDeps) {
 
       const modelId = deps.resolveModelId();
 
-      // Phase 1: Title generation (optional)
-      if (deps.outlineService.generateTitleFromIdea) {
+      // Phase 1: Title generation
+      let effectiveTitle = book.title;
+
+      if (book.titleGenerationStatus === 'pending') {
         updateTrackedPhase({
           bookId,
           phase: 'naming_title',
@@ -61,24 +63,27 @@ export function createOutlineAggregate(deps: OutlineAggregateDeps) {
           notifyBookUpdated: true,
         });
 
-        const generatedTitle = (
-          await deps.outlineService.generateTitleFromIdea({
-            bookId,
-            idea: book.idea,
-            targetChapters: book.targetChapters,
-            wordsPerChapter: book.wordsPerChapter,
-            modelId,
-          })
-        ).trim();
+        const generatedTitle = deps.outlineService.generateTitleFromIdea
+          ? (
+              await deps.outlineService.generateTitleFromIdea({
+                bookId,
+                title: book.title,
+                idea: book.idea,
+                targetChapters: book.targetChapters,
+                wordsPerChapter: book.wordsPerChapter,
+                viralStrategy: (book as any).viralStrategy ?? null,
+                modelId,
+              })
+            ).trim()
+          : '';
 
         if (!deps.books.getById(bookId)) {
           return;
         }
 
-        deps.books.updateTitle(
-          bookId,
-          generatedTitle || deriveTitleFromIdea(book.idea)
-        );
+        effectiveTitle = generatedTitle || deriveTitleFromIdea(book.idea);
+        deps.books.updateTitle(bookId, effectiveTitle);
+        deps.books.updateTitleGenerationStatus(bookId, 'generated');
         deps.onBookUpdated?.(bookId);
       }
 
@@ -92,6 +97,7 @@ export function createOutlineAggregate(deps: OutlineAggregateDeps) {
 
       const outlineBundle = await deps.outlineService.generateFromIdea({
         bookId,
+        title: effectiveTitle,
         idea: book.idea,
         targetChapters: book.targetChapters,
         wordsPerChapter: book.wordsPerChapter,

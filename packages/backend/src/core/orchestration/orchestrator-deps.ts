@@ -56,6 +56,10 @@ export type BookOrchestratorDeps = {
       | undefined;
     updateStatus: (bookId: string, status: BookStatus) => void;
     updateTitle: (bookId: string, title: string) => void;
+    updateTitleGenerationStatus: (
+      bookId: string,
+      titleGenerationStatus: BookRecord['titleGenerationStatus']
+    ) => void;
     delete: (bookId: string) => void;
     saveContext: (input: {
       bookId: string;
