@@ -55,6 +55,21 @@ describe('buildWorldPrompt', () => {
     expect(draftPrompt).toContain('Book title: 月税奇谈');
   });
 
+  it('includes book title in volume and chapter outline prompts', () => {
+    const input = {
+      title: '月税奇谈',
+      targetChapters: 500,
+      wordsPerChapter: 2500,
+    };
+
+    expect(buildVolumeOutlinePrompt('Master outline', input)).toContain(
+      'Book title: 月税奇谈'
+    );
+    expect(buildChapterOutlinePrompt('Volume outline', 1, input)).toContain(
+      'Book title: 月税奇谈'
+    );
+  });
+
   it('anchors prompts to target chapters and per-chapter word count', () => {
     const prompt = buildWorldPrompt({
       idea: 'A mountain archive decides who may remember history.',

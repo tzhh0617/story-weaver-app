@@ -127,7 +127,7 @@ export function buildMasterOutlinePrompt(
 
 export function buildVolumeOutlinePrompt(
   masterOutline: string,
-  input: StoryLengthConstraints,
+  input: StoryLengthConstraints & OptionalBookTitle,
   volumeCount = 10
 ) {
   const effectiveVolumeCount = Math.max(
@@ -136,6 +136,7 @@ export function buildVolumeOutlinePrompt(
   );
 
   return [
+    ...renderBookTitleLine(input.title),
     `Master outline:\n${masterOutline}`,
     ...buildLengthConstraintLines(input),
     ...buildAiFirstTextPolicyLines(),
@@ -149,9 +150,10 @@ export function buildVolumeOutlinePrompt(
 export function buildChapterOutlinePrompt(
   volumeOutline: string,
   volumeIndex: number,
-  input: StoryLengthConstraints
+  input: StoryLengthConstraints & OptionalBookTitle
 ) {
   return [
+    ...renderBookTitleLine(input.title),
     `Volume ${volumeIndex} outline:\n${volumeOutline}`,
     ...buildLengthConstraintLines(input),
     ...buildAiFirstTextPolicyLines(),

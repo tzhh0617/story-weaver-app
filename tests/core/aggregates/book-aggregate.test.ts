@@ -252,7 +252,7 @@ describe('createBookAggregate', () => {
             {
               id: 'book-1',
               title: 'Book 1',
-              titleGenerationStatus: 'manual',
+              titleGenerationStatus: 'manual' as const,
               idea: 'A city remembers every promise.',
               status: 'writing',
               targetChapters: 2,
@@ -263,7 +263,7 @@ describe('createBookAggregate', () => {
             {
               id: 'book-2',
               title: 'Book 2',
-              titleGenerationStatus: 'manual',
+              titleGenerationStatus: 'manual' as const,
               idea: 'A lighthouse records every storm.',
               status: 'creating',
               targetChapters: 1,

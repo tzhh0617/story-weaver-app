@@ -15,6 +15,7 @@ function makeBookDetailContractFixture(): BookDetail {
     book: {
       id: 'book-1',
       title: '命簿',
+      titleGenerationStatus: 'manual',
       idea: '修复命簿的人发现家族被删除。',
       status: 'writing',
       targetChapters: 80,
