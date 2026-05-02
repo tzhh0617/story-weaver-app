@@ -128,10 +128,27 @@ describe('narrative prompts', () => {
 
     expect(prompt).toContain('Opening Retention Protocol');
     expect(prompt).toContain('Chapter 1: abnormal entry');
+    expect(prompt).toContain('make the title promise visible');
     expect(prompt).toContain('Chapter 2: rising cost');
+    expect(prompt).toContain('show that it belongs to the mainline');
     expect(prompt).toContain('Chapter 3: irreversible entry');
+    expect(prompt).toContain('locks the story onto the main thread');
     expect(prompt).toContain('Chapter 4: first clear reward');
     expect(prompt).toContain('Chapter 5: long-term hostility');
+  });
+
+  it('compresses opening retention guidance for short books', () => {
+    const prompt = buildChapterCardPrompt({
+      bookId: 'book-1',
+      targetChapters: 4,
+      bibleSummary: '题材：命运悬疑。',
+      volumePlansText: '第一卷：旧页初鸣，1-4章。',
+    });
+
+    expect(prompt).toContain('chapter 1 creates the title promise');
+    expect(prompt).toContain(
+      'final available opening chapter creates irreversible mainline entry'
+    );
   });
 
   it('draft prompt includes command context and forbids explanation', () => {

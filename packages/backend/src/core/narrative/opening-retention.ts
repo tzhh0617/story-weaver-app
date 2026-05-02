@@ -11,35 +11,35 @@ export const OPENING_RETENTION_PHASES: OpeningRetentionPhase[] = [
     label: '异常入场',
     englishLabel: 'abnormal entry',
     requiredEffect:
-      'Start with abnormality, desire, conflict, danger, or an unanswered question within the opening paragraphs.',
+      'Start with abnormality, desire, conflict, danger, or an unanswered question within the opening paragraphs, and make the title promise visible.',
   },
   {
     chapterIndex: 2,
     label: '问题变贵',
     englishLabel: 'rising cost',
     requiredEffect:
-      'Make the chapter 1 problem visibly more expensive through status loss, relationship strain, resource cost, or danger.',
+      'Make the chapter 1 problem visibly more expensive through status loss, relationship strain, resource cost, or danger, and show that it belongs to the mainline.',
   },
   {
     chapterIndex: 3,
     label: '不可逆入局',
     englishLabel: 'irreversible entry',
     requiredEffect:
-      'Force a choice that makes the protagonist unable to return to the old safe life.',
+      'Force a choice that makes the protagonist unable to return to the old safe life and locks the story onto the main thread.',
   },
   {
     chapterIndex: 4,
     label: '首次明确回报',
     englishLabel: 'first clear reward',
     requiredEffect:
-      'Give the reader a breakthrough, truth, upgrade, ally, or partial victory, but attach a side effect.',
+      'Give the reader a breakthrough, truth, upgrade, ally, or partial victory, but attach a side effect that keeps the title promise alive.',
   },
   {
     chapterIndex: 5,
     label: '长线敌意',
     englishLabel: 'long-term hostility',
     requiredEffect:
-      'Reveal that a larger hostile force, unresolved mystery, or long-term pressure is now aimed at the protagonist.',
+      'Reveal that a larger hostile force, unresolved mystery, or long-term pressure is now aimed at the protagonist and can sustain the mainline.',
   },
 ];
 
@@ -57,11 +57,11 @@ export function buildOpeningRetentionProtocolLines(input: {
   const lines = [
     'Opening Retention Protocol:',
     'For the first five chapters, treat opening retention as stricter than normal chapter pacing.',
-    'Chapter 1: abnormal entry. Pull the protagonist out of ordinary life through abnormality, desire, conflict, danger, or an unanswered question.',
-    'Chapter 2: rising cost. Make the opening problem visibly more expensive and harder to dismiss.',
-    'Chapter 3: irreversible entry. Force a choice that prevents return to the old safe life.',
-    'Chapter 4: first clear reward. Give a breakthrough, truth, upgrade, ally, identity, or partial victory with a side effect.',
-    'Chapter 5: long-term hostility. Convert short hooks into a durable hostile force, mystery, or long-term pressure.',
+    'Chapter 1: abnormal entry. Pull the protagonist out of ordinary life through abnormality, desire, conflict, danger, or an unanswered question, and make the title promise visible.',
+    'Chapter 2: rising cost. Make the chapter 1 problem visibly more expensive through status loss, relationship strain, resource cost, or danger, and show that it belongs to the mainline.',
+    'Chapter 3: irreversible entry. Force a choice that makes the protagonist unable to return to the old safe life and locks the story onto the main thread.',
+    'Chapter 4: first clear reward. Give the reader a breakthrough, truth, upgrade, ally, or partial victory, but attach a side effect that keeps the title promise alive.',
+    'Chapter 5: long-term hostility. Reveal that a larger hostile force, unresolved mystery, or long-term pressure is now aimed at the protagonist and can sustain the mainline.',
     'Recommended opening pressure curve: medium -> high -> peak -> medium/high -> high.',
     'Do not solve all opening questions by chapter 5; answer one question while creating a larger one.',
   ];
@@ -69,8 +69,8 @@ export function buildOpeningRetentionProtocolLines(input: {
   if (input.targetChapters < 5) {
     lines.push(
       'Compressed opening retention for short books:',
-      'Chapter 1 still performs abnormal entry.',
-      'The final available opening chapter performs irreversible entry.',
+      'Chapter 1 still performs abnormal entry and chapter 1 creates the title promise.',
+      'The final available opening chapter performs irreversible entry and final available opening chapter creates irreversible mainline entry.',
       'Any middle opening chapter performs rising cost or first clear reward.'
     );
   }
