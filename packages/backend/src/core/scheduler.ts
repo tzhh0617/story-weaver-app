@@ -69,7 +69,7 @@ export function createScheduler({
     },
 
     async start(bookId: string) {
-      if (!queue.includes(bookId) && !running.has(bookId) && runners.has(bookId)) {
+      if (!queue.includes(bookId) && runners.has(bookId)) {
         queue.push(bookId);
       }
 

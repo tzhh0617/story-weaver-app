@@ -122,6 +122,35 @@ describe('createScheduler', () => {
     (resolveA as null | (() => void))?.();
   });
 
+  it('queues an explicit restart for a book that is currently running', async () => {
+    let resolveA: (() => void) | null = null;
+    const startA = vi.fn().mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveA = resolve;
+        })
+    );
+    const startAgain = vi.fn().mockResolvedValue(undefined);
+
+    const scheduler = createScheduler({ concurrencyLimit: 1 });
+    scheduler.register({ bookId: 'a', start: startA });
+
+    await scheduler.start('a');
+    expect(scheduler.getStatus().runningBookIds).toEqual(['a']);
+
+    scheduler.register({ bookId: 'a', start: startAgain });
+    await scheduler.start('a');
+
+    expect(scheduler.getStatus().queuedBookIds).toEqual(['a']);
+
+    (resolveA as null | (() => void))?.();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(startAgain).toHaveBeenCalledTimes(1);
+    expect(scheduler.getStatus().queuedBookIds).toEqual([]);
+  });
+
   it('uses an updated concurrency limit for later starts', async () => {
     let resolveA: (() => void) | null = null;
     let resolveB: (() => void) | null = null;

@@ -431,6 +431,19 @@ describe('createAiOutlineService', () => {
   it('normalizes freeform narrative bible enum values before validation', async () => {
     const fakeModel = { id: 'model' };
     const modelBible = validNarrativeBible() as any;
+    modelBible.genreContract = {
+      primary: '档案悬疑',
+      twist: '证据会被城市现实改写。',
+    };
+    modelBible.targetReaderExperience = [
+      '每章给出可验证线索。',
+      '每次验证都带来代价。',
+    ];
+    modelBible.endingState.relationshipOutcome = [
+      '师徒关系破裂。',
+      '双方承认彼此都隐瞒过真相。',
+    ];
+    modelBible.voiceGuide = ['冷峻', '快节奏', '证据驱动'];
     modelBible.characterArcs[0].arcDirection =
       '从孤立的修理者转向愿意承担真相后果的见证者与反抗者。';
     modelBible.characterArcs.push({
@@ -543,6 +556,16 @@ describe('createAiOutlineService', () => {
       'supporting'
     );
     expect(result.narrativeBible?.worldRules[0]?.category).toBe('power');
+    expect(result.narrativeBible?.genreContract).toBe(
+      'primary：档案悬疑；twist：证据会被城市现实改写。'
+    );
+    expect(result.narrativeBible?.targetReaderExperience).toBe(
+      '每章给出可验证线索。；每次验证都带来代价。'
+    );
+    expect(result.narrativeBible?.endingState.relationshipOutcome).toBe(
+      '师徒关系破裂。；双方承认彼此都隐瞒过真相。'
+    );
+    expect(result.narrativeBible?.voiceGuide).toBe('冷峻；快节奏；证据驱动');
     expect(result.narrativeBible?.narrativeThreads[0]).toMatchObject({
       type: 'main',
       currentState: 'open',

@@ -10,7 +10,59 @@ import type {
 } from './types.js';
 
 function normalizeText(value: unknown) {
-  return String(value ?? '').trim().toLowerCase();
+  return coerceText(value).toLowerCase();
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function coerceText(value: unknown): string {
+  if (typeof value === 'string') {
+    return value.trim();
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  if (Array.isArray(value)) {
+    return value.map(coerceText).filter(Boolean).join('；');
+  }
+  if (isRecord(value)) {
+    return Object.entries(value)
+      .map(([key, nestedValue]) => {
+        const text = coerceText(nestedValue);
+        return text ? `${key}：${text}` : '';
+      })
+      .filter(Boolean)
+      .join('；');
+  }
+  return '';
+}
+
+function nullableText(value: unknown) {
+  const text = coerceText(value);
+  return text || null;
+}
+
+function normalizeNumber(value: unknown, fallback: number) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return fallback;
+}
+
+function normalizeNullableChapter(value: unknown) {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+  const normalized = normalizeNumber(value, Number.NaN);
+  return Number.isFinite(normalized) ? normalized : null;
 }
 
 function hasAny(value: string, needles: string[]) {
@@ -169,10 +221,18 @@ export function normalizeNarrativeBible(bible: NarrativeBible): NarrativeBible {
   const narrativeThreads = Array.isArray(bible.narrativeThreads)
     ? bible.narrativeThreads.map((thread) => ({
         ...thread,
+        id: coerceText(thread.id),
         type: normalizeThreadType(thread.type),
+        promise: coerceText(thread.promise),
+        plantedAt: normalizeNumber(thread.plantedAt, 1),
+        expectedPayoff: normalizeNullableChapter(thread.expectedPayoff),
+        resolvedAt: normalizeNullableChapter(thread.resolvedAt),
         currentState: normalizeThreadState(thread.currentState),
         importance: normalizeImportance(thread.importance),
         payoffMustChange: normalizePayoffChangeTarget(thread.payoffMustChange),
+        ownerCharacterId: nullableText(thread.ownerCharacterId),
+        relatedRelationshipId: nullableText(thread.relatedRelationshipId),
+        notes: nullableText(thread.notes),
       }))
     : bible.narrativeThreads;
 
@@ -189,17 +249,79 @@ export function normalizeNarrativeBible(bible: NarrativeBible): NarrativeBible {
 
   return {
     ...bible,
+    premise: coerceText(bible.premise),
+    genreContract: coerceText(bible.genreContract),
+    targetReaderExperience: coerceText(bible.targetReaderExperience),
+    themeQuestion: coerceText(bible.themeQuestion),
+    themeAnswerDirection: coerceText(bible.themeAnswerDirection),
+    centralDramaticQuestion: coerceText(bible.centralDramaticQuestion),
+    endingState: {
+      protagonistWins: coerceText(bible.endingState?.protagonistWins),
+      protagonistLoses: coerceText(bible.endingState?.protagonistLoses),
+      worldChange: coerceText(bible.endingState?.worldChange),
+      relationshipOutcome: coerceText(bible.endingState?.relationshipOutcome),
+      themeAnswer: coerceText(bible.endingState?.themeAnswer),
+    },
+    voiceGuide: coerceText(bible.voiceGuide),
     characterArcs: Array.isArray(bible.characterArcs)
       ? bible.characterArcs.map((character) => ({
           ...character,
+          id: coerceText(character.id),
+          name: coerceText(character.name),
           roleType: normalizeCharacterRoleType(character.roleType),
+          desire: coerceText(character.desire),
+          fear: coerceText(character.fear),
+          flaw: coerceText(character.flaw),
+          misbelief: coerceText(character.misbelief),
+          wound: nullableText(character.wound),
+          externalGoal: coerceText(character.externalGoal),
+          internalNeed: coerceText(character.internalNeed),
           arcDirection: normalizeArcDirection(character.arcDirection),
+          decisionLogic: coerceText(character.decisionLogic),
+          lineWillNotCross: nullableText(character.lineWillNotCross),
+          lineMayEventuallyCross: nullableText(character.lineMayEventuallyCross),
+          currentArcPhase: coerceText(character.currentArcPhase),
         }))
       : bible.characterArcs,
+    relationshipEdges: Array.isArray(bible.relationshipEdges)
+      ? bible.relationshipEdges.map((relationship) => ({
+          ...relationship,
+          id: coerceText(relationship.id),
+          fromCharacterId: coerceText(relationship.fromCharacterId),
+          toCharacterId: coerceText(relationship.toCharacterId),
+          visibleLabel: coerceText(relationship.visibleLabel),
+          hiddenTruth: nullableText(relationship.hiddenTruth),
+          dependency: nullableText(relationship.dependency),
+          debt: nullableText(relationship.debt),
+          misunderstanding: nullableText(relationship.misunderstanding),
+          affection: nullableText(relationship.affection),
+          harmPattern: nullableText(relationship.harmPattern),
+          sharedGoal: nullableText(relationship.sharedGoal),
+          valueConflict: nullableText(relationship.valueConflict),
+          trustLevel: normalizeNumber(relationship.trustLevel, 0),
+          tensionLevel: normalizeNumber(relationship.tensionLevel, 0),
+          currentState: coerceText(relationship.currentState),
+          plannedTurns: Array.isArray(relationship.plannedTurns)
+            ? relationship.plannedTurns.map((turn) => ({
+                chapterRange: coerceText(turn.chapterRange),
+                change: coerceText(turn.change),
+              }))
+            : [],
+        }))
+      : bible.relationshipEdges,
     worldRules: Array.isArray(bible.worldRules)
       ? bible.worldRules.map((rule) => ({
           ...rule,
+          id: coerceText(rule.id),
           category: normalizeWorldRuleCategory(rule.category),
+          ruleText: coerceText(rule.ruleText),
+          cost: coerceText(rule.cost),
+          whoBenefits: nullableText(rule.whoBenefits),
+          whoSuffers: nullableText(rule.whoSuffers),
+          taboo: nullableText(rule.taboo),
+          violationConsequence: nullableText(rule.violationConsequence),
+          allowedException: nullableText(rule.allowedException),
+          currentStatus: coerceText(rule.currentStatus),
         }))
       : bible.worldRules,
     narrativeThreads,
