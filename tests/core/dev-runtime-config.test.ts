@@ -16,6 +16,14 @@ const electronMainSource = fs.readFileSync(
   path.resolve(__dirname, '../../electron/main.ts'),
   'utf8'
 );
+const electronRuntimeAiServicesSource = fs.readFileSync(
+  path.resolve(__dirname, '../../electron/runtime-ai-services.ts'),
+  'utf8'
+);
+const electronRuntimeEnvSource = fs.readFileSync(
+  path.resolve(__dirname, '../../electron/runtime-env.ts'),
+  'utf8'
+);
 const electronPreloadSource = fs.readFileSync(
   path.resolve(__dirname, '../../electron/preload.cts'),
   'utf8'
@@ -26,6 +34,10 @@ const electronTsConfigSource = fs.readFileSync(
 );
 const iconGenerationSource = fs.readFileSync(
   path.resolve(__dirname, '../../scripts/generate-icons.py'),
+  'utf8'
+);
+const gitignoreSource = fs.readFileSync(
+  path.resolve(__dirname, '../../.gitignore'),
   'utf8'
 );
 
@@ -98,5 +110,15 @@ describe('desktop runtime config', () => {
   it('does not force a native rebuild during installation', () => {
     expect(packageJson.scripts?.['rebuild:native']).toBeUndefined();
     expect(packageJson.scripts?.postinstall).toBeUndefined();
+  });
+
+  it('loads runtime environment values from .env.local before process env', () => {
+    expect(electronRuntimeEnvSource).toContain("'.env.local'");
+    expect(electronRuntimeAiServicesSource).toContain('runtimeConfig');
+    expect(electronRuntimeAiServicesSource).not.toContain('process.env.STORY_WEAVER');
+  });
+
+  it('keeps local environment overrides out of git', () => {
+    expect(gitignoreSource).toContain('.env.local');
   });
 });

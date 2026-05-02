@@ -21,36 +21,11 @@ import {
   DEFAULT_MOCK_MODEL_ID,
 } from '../src/models/runtime-mode.js';
 import { createMockStoryServices } from '../src/mock/story-services.js';
+import {
+  runtimeConfig,
+} from './runtime-env.js';
 
-const DEFAULT_MOCK_RUNTIME_DELAY_MS = 1000;
-const DEFAULT_MOCK_STREAM_TOKENS_PER_SECOND = 200;
 const MOCK_STREAM_CHUNK_TOKENS = 40;
-
-function parseMockRuntimeDelayMs(value: string | undefined) {
-  if (value === undefined) {
-    return DEFAULT_MOCK_RUNTIME_DELAY_MS;
-  }
-
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed < 0) {
-    return DEFAULT_MOCK_RUNTIME_DELAY_MS;
-  }
-
-  return parsed;
-}
-
-function parseMockStreamTokensPerSecond(value: string | undefined) {
-  if (value === undefined) {
-    return DEFAULT_MOCK_STREAM_TOKENS_PER_SECOND;
-  }
-
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    return DEFAULT_MOCK_STREAM_TOKENS_PER_SECOND;
-  }
-
-  return parsed;
-}
 
 function countMockStreamTokens(text: string) {
   let count = 0;
@@ -93,9 +68,7 @@ async function streamMockChapterContent(
   content: string,
   onChunk: (chunk: string) => void
 ) {
-  const tokensPerSecond = parseMockStreamTokensPerSecond(
-    process.env.STORY_WEAVER_MOCK_STREAM_TOKENS_PER_SECOND
-  );
+  const tokensPerSecond = runtimeConfig.mockStreamTokensPerSecond;
   const chunks = splitMockStreamChunks(content, MOCK_STREAM_CHUNK_TOKENS);
 
   for (const chunk of chunks) {
@@ -107,9 +80,7 @@ async function streamMockChapterContent(
 }
 
 async function waitForMockRuntimeDelay() {
-  const delayMs = parseMockRuntimeDelayMs(
-    process.env.STORY_WEAVER_MOCK_DELAY_MS
-  );
+  const delayMs = runtimeConfig.mockRuntimeDelayMs;
 
   if (delayMs <= 0) {
     return;
@@ -125,31 +96,7 @@ async function withMockRuntimeDelay<T>(operation: () => Promise<T>) {
 }
 
 function getEnvironmentModelConfigs(): ModelConfigInput[] {
-  const configs: ModelConfigInput[] = [];
-
-  if (process.env.OPENAI_API_KEY) {
-    configs.push({
-      id: 'openai:gpt-4o-mini',
-      provider: 'openai',
-      modelName: 'gpt-4o-mini',
-      apiKey: process.env.OPENAI_API_KEY,
-      baseUrl: '',
-      config: {},
-    });
-  }
-
-  if (process.env.ANTHROPIC_API_KEY) {
-    configs.push({
-      id: 'anthropic:claude-3-5-sonnet',
-      provider: 'anthropic',
-      modelName: 'claude-3-5-sonnet',
-      apiKey: process.env.ANTHROPIC_API_KEY,
-      baseUrl: '',
-      config: {},
-    });
-  }
-
-  return configs;
+  return runtimeConfig.environmentModelConfigs;
 }
 
 function getRuntimeModelMode(persistedConfigs: ModelConfigInput[]) {

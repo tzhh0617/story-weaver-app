@@ -64,4 +64,4 @@ All renderer→main calls go through `window.storyWeaver.invoke(channel, payload
 - `tsconfig.node.json` — electron process only; `moduleResolution: NodeNext` (outputs to `dist-electron/`)
 
 ### Mock / dev mode
-When no model configs are saved and no `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` env vars are set, `createRuntimeMode` returns `kind: 'mock'` and all AI calls are handled by deterministic mocks in `src/mock/`. This lets the full UI flow work without API keys.
+When no model configs are saved and no complete unified environment model config is set, `createRuntimeMode` returns `kind: 'mock'` and all AI calls are handled by deterministic mocks in `src/mock/`. This lets the full UI flow work without API keys.

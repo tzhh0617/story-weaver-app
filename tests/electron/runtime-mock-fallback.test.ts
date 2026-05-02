@@ -31,6 +31,10 @@ async function loadRuntimeServices(input: {
       input.mockStreamTokensPerSecond ?? 300_000
     );
   }
+  process.env.STORY_WEAVER_LOCAL_ENV_PATH = path.join(
+    input.tempHome,
+    '.env.local'
+  );
   vi.doMock('node:os', () => ({
     default: {
       homedir: () => input.tempHome,
@@ -80,6 +84,7 @@ describe('runtime mock fallback', () => {
     vi.doUnmock('ai');
     delete process.env.STORY_WEAVER_MOCK_DELAY_MS;
     delete process.env.STORY_WEAVER_MOCK_STREAM_TOKENS_PER_SECOND;
+    delete process.env.STORY_WEAVER_LOCAL_ENV_PATH;
     vi.useRealTimers();
     fs.rmSync(tempHome, { recursive: true, force: true });
   });
