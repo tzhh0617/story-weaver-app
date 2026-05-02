@@ -22,6 +22,7 @@ export const ViralStrategySchema = z.object({
 }).nullish();
 
 export const BookCreateSchema = z.object({
+  title: z.string().optional(),
   idea: z.string(),
   targetChapters: z.number().int().positive(),
   wordsPerChapter: z.number().int().positive(),

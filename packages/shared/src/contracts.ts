@@ -7,6 +7,8 @@ export type BookStatus =
   | 'completed'
   | 'error';
 
+export type BookTitleGenerationStatus = 'manual' | 'pending' | 'generated';
+
 export type ViralTropeContractPayload =
   | 'rebirth_change_fate'
   | 'system_growth'
@@ -30,6 +32,7 @@ export type ViralStrategyPayload = {
 export type BookRecord = {
   id: string;
   title: string;
+  titleGenerationStatus: BookTitleGenerationStatus;
   idea: string;
   status: BookStatus;
   targetChapters: number;
@@ -246,6 +249,7 @@ export type ExecutionLogRecord = {
 export type BookExportFormat = 'txt' | 'md';
 
 export type BookCreatePayload = {
+  title?: string;
   idea: string;
   targetChapters: number;
   wordsPerChapter: number;
