@@ -2,7 +2,7 @@ import { and, eq, inArray, sql } from 'drizzle-orm';
 import type { Database as SqliteDatabase } from 'better-sqlite3';
 import { createDrizzleDb } from '../db/client.js';
 import {
-  chapterCards,
+  chapterPlans,
   chapters,
 } from '../db/schema/index.js';
 
@@ -38,29 +38,63 @@ export function createChapterRepository(db: SqliteDatabase) {
         .run();
 
       drizzleDb
-        .insert(chapterCards)
+        .insert(chapterPlans)
         .values({
           bookId: input.bookId,
-          volumeIndex: input.volumeIndex,
+          batchIndex: input.volumeIndex,
           chapterIndex: input.chapterIndex,
-          title: input.title,
-          plotFunction: input.outline,
-          povCharacterId: null,
-          externalConflict: input.outline,
-          internalConflict: input.outline,
-          relationshipChange: '',
-          worldRuleUsedOrTested: '',
-          informationReveal: '',
-          readerReward: 'truth',
-          endingHook: '',
-          mustChange: input.outline,
-          forbiddenMovesJson: '[]',
-        })
-        .onConflictDoUpdate({
-          target: [chapterCards.bookId, chapterCards.volumeIndex, chapterCards.chapterIndex],
-          set: {
+          arcIndex: input.volumeIndex,
+          goal: input.outline,
+          conflict: input.outline,
+          pressureSource: input.outline,
+          changeType: '',
+          threadActionsJson: JSON.stringify({
             title: input.title,
             plotFunction: input.outline,
+            povCharacterId: null,
+            externalConflict: input.outline,
+            internalConflict: input.outline,
+            relationshipChange: '',
+            worldRuleUsedOrTested: '',
+            informationReveal: '',
+            readerReward: 'truth',
+            endingHook: '',
+            mustChange: input.outline,
+            forbiddenMoves: [],
+          }),
+          reveal: '',
+          payoffOrCost: input.outline,
+          endingHook: '',
+          titleIdeaLink: '',
+          batchGoal: input.title,
+          requiredPayoffsJson: '["truth"]',
+          forbiddenDriftJson: '[]',
+          status: 'planned',
+        })
+        .onConflictDoUpdate({
+          target: [chapterPlans.bookId, chapterPlans.chapterIndex],
+          set: {
+            batchIndex: input.volumeIndex,
+            arcIndex: input.volumeIndex,
+            goal: input.outline,
+            conflict: input.outline,
+            pressureSource: input.outline,
+            threadActionsJson: JSON.stringify({
+              title: input.title,
+              plotFunction: input.outline,
+              povCharacterId: null,
+              externalConflict: input.outline,
+              internalConflict: input.outline,
+              relationshipChange: '',
+              worldRuleUsedOrTested: '',
+              informationReveal: '',
+              readerReward: 'truth',
+              endingHook: '',
+              mustChange: input.outline,
+              forbiddenMoves: [],
+            }),
+            payoffOrCost: input.outline,
+            batchGoal: input.title,
           },
         })
         .run();
@@ -84,11 +118,11 @@ export function createChapterRepository(db: SqliteDatabase) {
           chapterIndex: chapters.chapterIndex,
           title: chapters.title,
           outline: sql<string | null>`(
-            SELECT ${chapterCards.plotFunction}
-            FROM ${chapterCards}
-            WHERE ${chapterCards.bookId} = ${chapters.bookId}
-              AND ${chapterCards.volumeIndex} = ${chapters.volumeIndex}
-              AND ${chapterCards.chapterIndex} = ${chapters.chapterIndex}
+            SELECT json_extract(${chapterPlans.threadActionsJson}, '$.plotFunction')
+            FROM ${chapterPlans}
+            WHERE ${chapterPlans.bookId} = ${chapters.bookId}
+              AND ${chapterPlans.batchIndex} = ${chapters.volumeIndex}
+              AND ${chapterPlans.chapterIndex} = ${chapters.chapterIndex}
           )`,
           content: chapters.content,
           summary: chapters.summary,

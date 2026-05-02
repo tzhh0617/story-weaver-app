@@ -1,8 +1,63 @@
 import { asc, eq } from 'drizzle-orm';
 import type { Database as SqliteDatabase } from 'better-sqlite3';
 import { createDrizzleDb } from '../db/client.js';
-import { volumePlans } from '../db/schema/index.js';
+import { stagePlans } from '../db/schema/index.js';
 import type { VolumePlan } from '../core/narrative/types.js';
+
+type StageBridgePayload = Pick<
+  VolumePlan,
+  'title' | 'roleInStory' | 'mainPressure' | 'promisedPayoff' | 'characterArcMovement' | 'relationshipMovement' | 'worldExpansion' | 'endingTurn'
+>;
+
+function encodePlanPayload(plan: VolumePlan) {
+  const payload: StageBridgePayload = {
+    title: plan.title,
+    roleInStory: plan.roleInStory,
+    mainPressure: plan.mainPressure,
+    promisedPayoff: plan.promisedPayoff,
+    characterArcMovement: plan.characterArcMovement,
+    relationshipMovement: plan.relationshipMovement,
+    worldExpansion: plan.worldExpansion,
+    endingTurn: plan.endingTurn,
+  };
+
+  return {
+    objective: plan.title,
+    primaryResistance: plan.mainPressure,
+    pressureCurve: plan.roleInStory,
+    escalation: plan.characterArcMovement,
+    climax: plan.endingTurn,
+    payoff: plan.promisedPayoff,
+    irreversibleChange: plan.relationshipMovement,
+    nextQuestion: plan.worldExpansion,
+    titleIdeaFocus: plan.title,
+    compressionTrigger: JSON.stringify(payload),
+  };
+}
+
+function decodePlanRow(row: {
+  stageIndex: number;
+  chapterStart: number;
+  chapterEnd: number;
+  pressureCurve: string;
+  compressionTrigger: string;
+}): VolumePlan {
+  const payload = JSON.parse(row.compressionTrigger) as StageBridgePayload;
+
+  return {
+    volumeIndex: row.stageIndex,
+    title: payload.title,
+    chapterStart: row.chapterStart,
+    chapterEnd: row.chapterEnd,
+    roleInStory: payload.roleInStory ?? row.pressureCurve,
+    mainPressure: payload.mainPressure,
+    promisedPayoff: payload.promisedPayoff,
+    characterArcMovement: payload.characterArcMovement,
+    relationshipMovement: payload.relationshipMovement,
+    worldExpansion: payload.worldExpansion,
+    endingTurn: payload.endingTurn,
+  };
+}
 
 export function createVolumePlanRepository(db: SqliteDatabase) {
   const drizzleDb = createDrizzleDb(db);
@@ -10,22 +65,26 @@ export function createVolumePlanRepository(db: SqliteDatabase) {
   return {
     upsertMany(bookId: string, plans: VolumePlan[]) {
       for (const plan of plans) {
+        const encoded = encodePlanPayload(plan);
         drizzleDb
-          .insert(volumePlans)
-          .values({ ...plan, bookId })
+          .insert(stagePlans)
+          .values({
+            bookId,
+            stageIndex: plan.volumeIndex,
+            chapterStart: plan.chapterStart,
+            chapterEnd: plan.chapterEnd,
+            chapterBudget: Math.max(0, plan.chapterEnd - plan.chapterStart + 1),
+            ...encoded,
+            status: 'planned',
+          })
           .onConflictDoUpdate({
-            target: [volumePlans.bookId, volumePlans.volumeIndex],
+            target: [stagePlans.bookId, stagePlans.stageIndex],
             set: {
-              title: plan.title,
               chapterStart: plan.chapterStart,
               chapterEnd: plan.chapterEnd,
-              roleInStory: plan.roleInStory,
-              mainPressure: plan.mainPressure,
-              promisedPayoff: plan.promisedPayoff,
-              characterArcMovement: plan.characterArcMovement,
-              relationshipMovement: plan.relationshipMovement,
-              worldExpansion: plan.worldExpansion,
-              endingTurn: plan.endingTurn,
+              chapterBudget: Math.max(0, plan.chapterEnd - plan.chapterStart + 1),
+              ...encoded,
+              status: 'planned',
             },
           })
           .run();
@@ -33,24 +92,26 @@ export function createVolumePlanRepository(db: SqliteDatabase) {
     },
 
     listByBook(bookId: string): VolumePlan[] {
-      return drizzleDb
+      const rows = drizzleDb
         .select({
-          volumeIndex: volumePlans.volumeIndex,
-          title: volumePlans.title,
-          chapterStart: volumePlans.chapterStart,
-          chapterEnd: volumePlans.chapterEnd,
-          roleInStory: volumePlans.roleInStory,
-          mainPressure: volumePlans.mainPressure,
-          promisedPayoff: volumePlans.promisedPayoff,
-          characterArcMovement: volumePlans.characterArcMovement,
-          relationshipMovement: volumePlans.relationshipMovement,
-          worldExpansion: volumePlans.worldExpansion,
-          endingTurn: volumePlans.endingTurn,
+          stageIndex: stagePlans.stageIndex,
+          chapterStart: stagePlans.chapterStart,
+          chapterEnd: stagePlans.chapterEnd,
+          pressureCurve: stagePlans.pressureCurve,
+          compressionTrigger: stagePlans.compressionTrigger,
         })
-        .from(volumePlans)
-        .where(eq(volumePlans.bookId, bookId))
-        .orderBy(asc(volumePlans.volumeIndex))
-        .all() as VolumePlan[];
+        .from(stagePlans)
+        .where(eq(stagePlans.bookId, bookId))
+        .orderBy(asc(stagePlans.stageIndex))
+        .all() as Array<{
+        stageIndex: number;
+        chapterStart: number;
+        chapterEnd: number;
+        pressureCurve: string;
+        compressionTrigger: string;
+      }>;
+
+      return rows.map(decodePlanRow);
     },
   };
 }

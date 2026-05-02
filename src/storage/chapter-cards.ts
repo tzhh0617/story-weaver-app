@@ -2,8 +2,8 @@ import { and, asc, eq, isNull } from 'drizzle-orm';
 import type { Database as SqliteDatabase } from 'better-sqlite3';
 import { createDrizzleDb } from '../db/client.js';
 import {
-  chapterCards,
   chapterCharacterPressures,
+  chapterPlans,
   chapterRelationshipActions,
   chapterThreadActions,
   chapters,
@@ -15,10 +15,87 @@ import type {
   ChapterThreadAction,
 } from '../core/narrative/types.js';
 
-function mapCard(row: Omit<ChapterCard, 'forbiddenMoves'> & { forbiddenMovesJson: string }) {
+type ChapterCardBridgePayload = Omit<
+  ChapterCard,
+  'bookId' | 'volumeIndex' | 'chapterIndex' | 'forbiddenMoves'
+> & {
+  forbiddenMoves: string[];
+};
+
+function encodeCardPayload(card: ChapterCard): ChapterCardBridgePayload {
   return {
-    ...row,
-    forbiddenMoves: JSON.parse(row.forbiddenMovesJson) as string[],
+    title: card.title,
+    plotFunction: card.plotFunction,
+    povCharacterId: card.povCharacterId,
+    externalConflict: card.externalConflict,
+    internalConflict: card.internalConflict,
+    relationshipChange: card.relationshipChange,
+    worldRuleUsedOrTested: card.worldRuleUsedOrTested,
+    informationReveal: card.informationReveal,
+    readerReward: card.readerReward,
+    endingHook: card.endingHook,
+    mustChange: card.mustChange,
+    forbiddenMoves: card.forbiddenMoves,
+  };
+}
+
+function decodeCardRow(row: {
+  bookId: string;
+  batchIndex: number;
+  chapterIndex: number;
+  goal: string;
+  conflict: string;
+  pressureSource: string;
+  changeType: string;
+  threadActionsJson: string;
+  reveal: string;
+  payoffOrCost: string;
+  endingHook: string;
+  titleIdeaLink: string;
+  batchGoal: string;
+  forbiddenDriftJson: string;
+}): ChapterCard {
+  const payload = JSON.parse(row.threadActionsJson) as ChapterCardBridgePayload;
+  const forbiddenMoves = JSON.parse(row.forbiddenDriftJson) as string[];
+
+  return {
+    bookId: row.bookId,
+    volumeIndex: row.batchIndex,
+    chapterIndex: row.chapterIndex,
+    title: payload.title,
+    plotFunction: payload.plotFunction ?? row.goal,
+    povCharacterId: payload.povCharacterId ?? null,
+    externalConflict: payload.externalConflict ?? row.conflict,
+    internalConflict: payload.internalConflict ?? row.pressureSource,
+    relationshipChange: payload.relationshipChange ?? row.changeType,
+    worldRuleUsedOrTested: payload.worldRuleUsedOrTested ?? row.titleIdeaLink,
+    informationReveal: payload.informationReveal ?? row.reveal,
+    readerReward: payload.readerReward,
+    endingHook: payload.endingHook ?? row.endingHook,
+    mustChange: payload.mustChange ?? row.payoffOrCost,
+    forbiddenMoves: payload.forbiddenMoves ?? forbiddenMoves,
+  };
+}
+
+function chapterPlanValues(card: ChapterCard) {
+  return {
+    bookId: card.bookId,
+    batchIndex: card.volumeIndex,
+    chapterIndex: card.chapterIndex,
+    arcIndex: card.volumeIndex,
+    goal: card.plotFunction,
+    conflict: card.externalConflict,
+    pressureSource: card.internalConflict,
+    changeType: card.relationshipChange,
+    threadActionsJson: JSON.stringify(encodeCardPayload(card)),
+    reveal: card.informationReveal,
+    payoffOrCost: card.mustChange,
+    endingHook: card.endingHook,
+    titleIdeaLink: card.worldRuleUsedOrTested,
+    batchGoal: card.title,
+    requiredPayoffsJson: JSON.stringify([card.readerReward]),
+    forbiddenDriftJson: JSON.stringify(card.forbiddenMoves),
+    status: 'planned' as const,
   };
 }
 
@@ -27,27 +104,11 @@ export function createChapterCardRepository(db: SqliteDatabase) {
 
   function upsert(card: ChapterCard) {
     drizzleDb
-      .insert(chapterCards)
-      .values({
-        ...card,
-        forbiddenMovesJson: JSON.stringify(card.forbiddenMoves),
-      })
+      .insert(chapterPlans)
+      .values(chapterPlanValues(card))
       .onConflictDoUpdate({
-        target: [chapterCards.bookId, chapterCards.volumeIndex, chapterCards.chapterIndex],
-        set: {
-          title: card.title,
-          plotFunction: card.plotFunction,
-          povCharacterId: card.povCharacterId ?? null,
-          externalConflict: card.externalConflict,
-          internalConflict: card.internalConflict,
-          relationshipChange: card.relationshipChange,
-          worldRuleUsedOrTested: card.worldRuleUsedOrTested,
-          informationReveal: card.informationReveal,
-          readerReward: card.readerReward,
-          endingHook: card.endingHook,
-          mustChange: card.mustChange,
-          forbiddenMovesJson: JSON.stringify(card.forbiddenMoves),
-        },
+        target: [chapterPlans.bookId, chapterPlans.chapterIndex],
+        set: chapterPlanValues(card),
       })
       .run();
 
@@ -80,75 +141,96 @@ export function createChapterCardRepository(db: SqliteDatabase) {
     },
 
     listByBook(bookId: string): ChapterCard[] {
-      return drizzleDb
+      const rows = drizzleDb
         .select({
-          bookId: chapterCards.bookId,
-          volumeIndex: chapterCards.volumeIndex,
-          chapterIndex: chapterCards.chapterIndex,
-          title: chapterCards.title,
-          plotFunction: chapterCards.plotFunction,
-          povCharacterId: chapterCards.povCharacterId,
-          externalConflict: chapterCards.externalConflict,
-          internalConflict: chapterCards.internalConflict,
-          relationshipChange: chapterCards.relationshipChange,
-          worldRuleUsedOrTested: chapterCards.worldRuleUsedOrTested,
-          informationReveal: chapterCards.informationReveal,
-          readerReward: chapterCards.readerReward,
-          endingHook: chapterCards.endingHook,
-          mustChange: chapterCards.mustChange,
-          forbiddenMovesJson: chapterCards.forbiddenMovesJson,
+          bookId: chapterPlans.bookId,
+          batchIndex: chapterPlans.batchIndex,
+          chapterIndex: chapterPlans.chapterIndex,
+          goal: chapterPlans.goal,
+          conflict: chapterPlans.conflict,
+          pressureSource: chapterPlans.pressureSource,
+          changeType: chapterPlans.changeType,
+          threadActionsJson: chapterPlans.threadActionsJson,
+          reveal: chapterPlans.reveal,
+          payoffOrCost: chapterPlans.payoffOrCost,
+          endingHook: chapterPlans.endingHook,
+          titleIdeaLink: chapterPlans.titleIdeaLink,
+          batchGoal: chapterPlans.batchGoal,
+          forbiddenDriftJson: chapterPlans.forbiddenDriftJson,
         })
-        .from(chapterCards)
-        .where(eq(chapterCards.bookId, bookId))
-        .orderBy(asc(chapterCards.volumeIndex), asc(chapterCards.chapterIndex))
-        .all()
-        .map((row) =>
-          mapCard(
-            row as Omit<ChapterCard, 'forbiddenMoves'> & { forbiddenMovesJson: string }
-          )
-        );
+        .from(chapterPlans)
+        .where(eq(chapterPlans.bookId, bookId))
+        .orderBy(asc(chapterPlans.batchIndex), asc(chapterPlans.chapterIndex))
+        .all() as Array<{
+        bookId: string;
+        batchIndex: number;
+        chapterIndex: number;
+        goal: string;
+        conflict: string;
+        pressureSource: string;
+        changeType: string;
+        threadActionsJson: string;
+        reveal: string;
+        payoffOrCost: string;
+        endingHook: string;
+        titleIdeaLink: string;
+        batchGoal: string;
+        forbiddenDriftJson: string;
+      }>;
+
+      return rows.map(decodeCardRow);
     },
 
     getNextUnwritten(bookId: string): ChapterCard | null {
       const row = drizzleDb
         .select({
-          bookId: chapterCards.bookId,
-          volumeIndex: chapterCards.volumeIndex,
-          chapterIndex: chapterCards.chapterIndex,
-          title: chapterCards.title,
-          plotFunction: chapterCards.plotFunction,
-          povCharacterId: chapterCards.povCharacterId,
-          externalConflict: chapterCards.externalConflict,
-          internalConflict: chapterCards.internalConflict,
-          relationshipChange: chapterCards.relationshipChange,
-          worldRuleUsedOrTested: chapterCards.worldRuleUsedOrTested,
-          informationReveal: chapterCards.informationReveal,
-          readerReward: chapterCards.readerReward,
-          endingHook: chapterCards.endingHook,
-          mustChange: chapterCards.mustChange,
-          forbiddenMovesJson: chapterCards.forbiddenMovesJson,
+          bookId: chapterPlans.bookId,
+          batchIndex: chapterPlans.batchIndex,
+          chapterIndex: chapterPlans.chapterIndex,
+          goal: chapterPlans.goal,
+          conflict: chapterPlans.conflict,
+          pressureSource: chapterPlans.pressureSource,
+          changeType: chapterPlans.changeType,
+          threadActionsJson: chapterPlans.threadActionsJson,
+          reveal: chapterPlans.reveal,
+          payoffOrCost: chapterPlans.payoffOrCost,
+          endingHook: chapterPlans.endingHook,
+          titleIdeaLink: chapterPlans.titleIdeaLink,
+          batchGoal: chapterPlans.batchGoal,
+          forbiddenDriftJson: chapterPlans.forbiddenDriftJson,
         })
-        .from(chapterCards)
+        .from(chapterPlans)
         .leftJoin(
           chapters,
           and(
-            eq(chapters.bookId, chapterCards.bookId),
-            eq(chapters.volumeIndex, chapterCards.volumeIndex),
-            eq(chapters.chapterIndex, chapterCards.chapterIndex)
+            eq(chapters.bookId, chapterPlans.bookId),
+            eq(chapters.volumeIndex, chapterPlans.batchIndex),
+            eq(chapters.chapterIndex, chapterPlans.chapterIndex)
           )
         )
-        .where(and(eq(chapterCards.bookId, bookId), isNull(chapters.content)))
-        .orderBy(asc(chapterCards.volumeIndex), asc(chapterCards.chapterIndex))
+        .where(and(eq(chapterPlans.bookId, bookId), isNull(chapters.content)))
+        .orderBy(asc(chapterPlans.batchIndex), asc(chapterPlans.chapterIndex))
         .limit(1)
-        .get();
+        .get() as
+        | {
+            bookId: string;
+            batchIndex: number;
+            chapterIndex: number;
+            goal: string;
+            conflict: string;
+            pressureSource: string;
+            changeType: string;
+            threadActionsJson: string;
+            reveal: string;
+            payoffOrCost: string;
+            endingHook: string;
+            titleIdeaLink: string;
+            batchGoal: string;
+            forbiddenDriftJson: string;
+          }
+        | undefined;
 
-      return row
-        ? mapCard(
-            row as Omit<ChapterCard, 'forbiddenMoves'> & {
-              forbiddenMovesJson: string;
-            }
-          )
-        : null;
+      return row ? decodeCardRow(row) : null;
     },
 
     upsertThreadActions(

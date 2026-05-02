@@ -3,7 +3,10 @@ import type { Database as SqliteDatabase } from 'better-sqlite3';
 import { createDrizzleDb } from '../db/client.js';
 import { apiLogs, bookContext, books, worldSettings } from '../db/schema/index.js';
 import type { BookRecord } from '../shared/contracts.js';
-import { deleteBookPlanningData } from './book-graph.js';
+import {
+  deleteBookPlanningData,
+  deleteLegacyNarrativeData,
+} from './book-graph.js';
 
 type NewBookInput = Pick<
   BookRecord,
@@ -164,6 +167,7 @@ export function createBookRepository(db: SqliteDatabase) {
 
     clearGeneratedState(bookId: string) {
       deleteBookPlanningData(db, bookId);
+      deleteLegacyNarrativeData(db, bookId);
       drizzleDb.delete(bookContext).where(eq(bookContext.bookId, bookId)).run();
       drizzleDb.delete(worldSettings).where(eq(worldSettings.bookId, bookId)).run();
       drizzleDb.delete(apiLogs).where(eq(apiLogs.bookId, bookId)).run();
@@ -171,6 +175,7 @@ export function createBookRepository(db: SqliteDatabase) {
 
     delete(bookId: string) {
       deleteBookPlanningData(db, bookId);
+      deleteLegacyNarrativeData(db, bookId);
       drizzleDb.delete(bookContext).where(eq(bookContext.bookId, bookId)).run();
       drizzleDb.delete(worldSettings).where(eq(worldSettings.bookId, bookId)).run();
       drizzleDb.delete(apiLogs).where(eq(apiLogs.bookId, bookId)).run();
