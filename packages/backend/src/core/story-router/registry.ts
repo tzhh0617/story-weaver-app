@@ -12,10 +12,14 @@ export const storySkillRegistry: StorySkill[] = [
     promptRules: [
       '本章必须服务当前卷计划。',
       '本章必须产生可描述的剧情位移。',
+      '主线必须产生可描述位移，不能只停留在设定或背景。',
       '主线不能连续停滞。',
     ],
     auditQuestions: ['本章是否服务当前卷计划？', '主线是否发生可描述位移？'],
-    redFlags: ['主线多章没有推进。'],
+    redFlags: [
+      '主线多章没有推进。',
+      '主线漂移到与 centralDramaticQuestion 无关的事件。',
+    ],
   },
   {
     id: 'chapter-goal',
@@ -29,6 +33,7 @@ export const storySkillRegistry: StorySkill[] = [
       '必须完成章节卡 mustChange。',
       '必须体现章节卡 plotFunction。',
       '结尾必须承接或强化章节卡 endingHook。',
+      '结尾钩子必须由本章 mustChange、代价、揭示或强制选择触发。',
     ],
     auditQuestions: ['是否完成 mustChange？', '是否强化 endingHook？'],
     redFlags: ['章节结尾只是总结，没有下一步压力。'],
@@ -93,9 +98,15 @@ export const storySkillRegistry: StorySkill[] = [
       '章节结尾必须制造下一章必须承接的问题。',
       '信息揭示后要留下新的不确定性。',
       '冲突可以阶段性解决，但不能完全卸力。',
+      '钩子必须由具体后果产生，不能只抛出空悬疑问。',
     ],
     auditQuestions: ['结尾是否有明确追读压力？', '是否留下未完成问题？'],
-    redFlags: ['冲突在章末完全解决。', '读者没有下一步问题。'],
+    redFlags: [
+      '冲突在章末完全解决。',
+      '读者没有下一步问题。',
+      '空悬钩子没有来自本章事件的因果支撑。',
+      '结尾松散，只停住或总结，没有收束也没有下一步压力。',
+    ],
   },
   {
     id: 'dialogue-control',
@@ -141,6 +152,7 @@ export const storySkillRegistry: StorySkill[] = [
       '本章必须服务作品读者承诺。',
       '主角行动必须能看出核心欲望。',
       '不允许只靠设定解释读者爽点。',
+      '标题承诺和读者承诺必须进入场景行动。',
     ],
     auditQuestions: ['本章是否服务 readerPromise？', '主角欲望是否清晰可见？'],
     redFlags: ['读者承诺只停留在设定，没有进入场景行动。'],
@@ -261,6 +273,9 @@ export const storySkillRegistry: StorySkill[] = [
       '反派或配角不合理降智。',
       '对话只在解释设定。',
       '章末没有追读压力。',
+      '主线漂移。',
+      '结尾松散。',
+      '空悬钩子。',
     ],
   },
 ];

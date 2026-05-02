@@ -41,6 +41,9 @@ describe('story skill router', () => {
     );
     expect(plan.checklist).toContain('必须完成章节卡 mustChange。');
     expect(plan.checklist).toContain('必须服务作品读者承诺。');
+    expect(plan.checklist).toContain('主线必须产生可描述位移，不能只停留在设定或背景。');
+    expect(plan.checklist).toContain('结尾钩子必须由本章 mustChange、代价、揭示或强制选择触发。');
+    expect(plan.checklist).toContain('标题承诺和读者承诺必须进入场景行动。');
   });
 
   it('routes de-ai work without outline or opening modules', () => {
@@ -137,6 +140,11 @@ describe('story skill router', () => {
     expect(text).toContain('Hard Constraints');
     expect(text).toContain('Red Flags');
     expect(text).toContain('Checklist');
+    expect(text).toContain('主线必须产生可描述位移');
+    expect(text).toContain('结尾钩子必须由本章');
+    expect(text).toContain('主线漂移');
+    expect(text).toContain('结尾松散');
+    expect(text).toContain('空悬钩子');
     expect(text).not.toContain('Opening Retention');
   });
 
