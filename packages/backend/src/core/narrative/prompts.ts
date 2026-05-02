@@ -21,6 +21,15 @@ function renderBookTitleLine(title?: string | null) {
   return title?.trim() ? [`Book title: ${title.trim()}`] : [];
 }
 
+function renderBookTitlePlanningLines(title?: string | null) {
+  return title?.trim()
+    ? [
+        `Book title: ${title.trim()}`,
+        'Treat the book title as a reader promise: world rules, conflicts, rewards, and hooks must keep paying it off.',
+      ]
+    : [];
+}
+
 export function buildNarrativeBiblePrompt(input: {
   title?: string;
   idea: string;
@@ -30,11 +39,10 @@ export function buildNarrativeBiblePrompt(input: {
   return [
     'Design a long-form Chinese web novel narrative bible.',
     ...buildJsonOutputPolicyLines(),
-    ...renderBookTitleLine(input.title),
+    ...renderBookTitlePlanningLines(input.title),
     `User idea: ${input.idea}`,
     `Target chapters: ${input.targetChapters}`,
     `Words per chapter: ${input.wordsPerChapter}`,
-    'Treat the book title as a reader promise: world rules, conflicts, rewards, and hooks must keep paying it off.',
     'The JSON must include premise, genreContract, targetReaderExperience, themeQuestion, themeAnswerDirection, centralDramaticQuestion, endingState, voiceGuide.',
     'The JSON must include characterArcs array, relationshipEdges array, worldRules array, and narrativeThreads array. Use [] only when genuinely empty.',
     'Each characterArcs item must include id, name, roleType, desire, fear, flaw, misbelief, wound, externalGoal, internalNeed, arcDirection, decisionLogic, lineWillNotCross, lineMayEventuallyCross, currentArcPhase.',
@@ -57,11 +65,10 @@ export function buildVolumePlanPrompt(input: {
     'Create volume plans for this long-form Chinese web novel.',
     ...buildJsonOutputPolicyLines(),
     'Return an array of volume plan objects.',
-    ...renderBookTitleLine(input.title),
+    ...renderBookTitlePlanningLines(input.title),
     `Target chapters: ${input.targetChapters}`,
     `Narrative bible summary:\n${input.bibleSummary}`,
     ...viralPromptBlock(input.viralStoryProtocol),
-    'Treat the book title as a reader promise: world rules, conflicts, rewards, and hooks must keep paying it off.',
     'Chapter ranges must continuously cover chapter 1 through targetChapters.',
     'Each volume must include volumeIndex, title, chapterStart, chapterEnd, roleInStory, mainPressure, promisedPayoff, characterArcMovement, relationshipMovement, worldExpansion, endingTurn.',
     'Each volume must include a stage payoff that serves the reader promise when viral protocol is available.',
@@ -81,12 +88,11 @@ export function buildChapterCardPrompt(input: {
     'Create chapter cards for a long-form Chinese web novel.',
     ...buildJsonOutputPolicyLines(),
     'Return an object with keys cards, threadActions, characterPressures, relationshipActions.',
-    ...renderBookTitleLine(input.title),
+    ...renderBookTitlePlanningLines(input.title),
     `Book id: ${input.bookId}`,
     `Target chapters: ${input.targetChapters}`,
     `Narrative bible summary:\n${input.bibleSummary}`,
     `Volume plans:\n${input.volumePlansText}`,
-    'Treat the book title as a reader promise: world rules, conflicts, rewards, and hooks must keep paying it off.',
     'Each card must include volumeIndex, chapterIndex, title, plotFunction, povCharacterId, externalConflict, internalConflict, relationshipChange, worldRuleUsedOrTested, informationReveal, readerReward, endingHook, mustChange, forbiddenMoves.',
     'Every chapter must produce an irreversible mustChange.',
     'threadActions must use action plant, advance, misdirect, or payoff.',
@@ -118,13 +124,12 @@ export function buildTensionBudgetPrompt(input: {
     'Create tension budgets for a long-form Chinese web novel.',
     ...buildJsonOutputPolicyLines(),
     'Return an array of chapter tension budget objects.',
-    ...renderBookTitleLine(input.title),
+    ...renderBookTitlePlanningLines(input.title),
     `Book id: ${input.bookId}`,
     `Target chapters: ${input.targetChapters}`,
     `Narrative bible summary:\n${input.bibleSummary}`,
     `Volume plans:\n${input.volumePlansText}`,
     `Chapter cards:\n${input.chapterCardsText}`,
-    'Treat the book title as a reader promise: world rules, conflicts, rewards, and hooks must keep paying it off.',
     'Each chapter must include volumeIndex, chapterIndex, pressureLevel, dominantTension, requiredTurn, forcedChoice, costToPay, irreversibleChange, readerQuestion, hookPressure, flatnessRisks.',
     'pressureLevel must be low, medium, high, or peak.',
     'dominantTension must be danger, desire, relationship, mystery, moral_choice, deadline, status_loss, or resource_cost.',

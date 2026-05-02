@@ -11,13 +11,13 @@ import {
 describe('buildWorldPrompt', () => {
   it('builds an attractive title prompt from idea and viral strategy', () => {
     const prompt = buildTitlePrompt({
-      title: '新作品',
       idea: 'A moon taxes every miracle.',
       targetChapters: 500,
       wordsPerChapter: 2500,
       viralStrategy: {
         readerPayoff: '弱者反杀收税者',
         protagonistDesire: '夺回奇迹定价权',
+        tropeContracts: ['revenge_payback', 'weak_to_strong'],
         cadenceMode: 'fast',
         antiClicheDirection: '主角每次胜利都背上新债',
       },
@@ -25,9 +25,11 @@ describe('buildWorldPrompt', () => {
 
     expect(prompt).toContain('Reader payoff: 弱者反杀收税者');
     expect(prompt).toContain('Protagonist desire: 夺回奇迹定价权');
+    expect(prompt).toContain('Trope contracts: revenge_payback, weak_to_strong');
     expect(prompt).toContain('Anti-cliche direction: 主角每次胜利都背上新债');
     expect(prompt).toContain('memorable Chinese web novel title');
     expect(prompt).toContain('Avoid generic empty phrases');
+    expect(prompt).not.toContain('Book title:');
   });
 
   it('includes book title in world and draft prompts', () => {

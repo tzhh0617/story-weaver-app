@@ -82,6 +82,9 @@ export function buildTitlePrompt(
         input.viralStrategy.protagonistDesire
           ? `Protagonist desire: ${input.viralStrategy.protagonistDesire}`
           : '',
+        input.viralStrategy.tropeContracts?.length
+          ? `Trope contracts: ${input.viralStrategy.tropeContracts.join(', ')}`
+          : '',
         input.viralStrategy.cadenceMode
           ? `Payoff cadence: ${input.viralStrategy.cadenceMode}`
           : '',
@@ -93,7 +96,6 @@ export function buildTitlePrompt(
 
   return [
     'Name this long-form Chinese web novel.',
-    ...renderBookTitleLine(input.title),
     `User idea: ${input.idea}`,
     ...buildLengthConstraintLines(input),
     ...viralStrategyLines,
