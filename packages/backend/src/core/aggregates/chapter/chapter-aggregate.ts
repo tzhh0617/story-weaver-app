@@ -39,7 +39,12 @@ export function createChapterAggregate(deps: ChapterAggregateDeps) {
       prompt,
     } = contextBuilder.buildWriteContext({
       bookId,
-      book,
+      book: {
+        title: book.title,
+        idea: book.idea,
+        wordsPerChapter: book.wordsPerChapter,
+        targetChapters: book.targetChapters,
+      },
       context,
       chapters,
       nextChapter,

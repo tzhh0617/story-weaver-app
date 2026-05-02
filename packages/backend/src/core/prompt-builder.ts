@@ -21,6 +21,10 @@ type StoryLengthConstraints = Pick<
   'targetChapters' | 'wordsPerChapter'
 >;
 
+type OptionalBookTitle = {
+  title?: string | null;
+};
+
 function trimPromptText(text: string | null, maxCharacters: number) {
   if (!text) {
     return 'N/A';
@@ -40,14 +44,20 @@ function buildLengthConstraintLines(input: StoryLengthConstraints) {
   ];
 }
 
+function renderBookTitleLine(title?: string | null) {
+  return title?.trim() ? [`Book title: ${title.trim()}`] : [];
+}
+
 export function buildWorldPrompt(
   input: Pick<
     OutlineGenerationInput,
     'idea' | 'targetChapters' | 'wordsPerChapter'
-  >
+  > &
+    OptionalBookTitle
 ) {
   return [
     'You are designing a long-form Chinese web novel.',
+    ...renderBookTitleLine(input.title),
     `User idea: ${input.idea}`,
     ...buildLengthConstraintLines(input),
     ...buildPlainChineseOutputPolicyLines(),
@@ -60,15 +70,40 @@ export function buildWorldPrompt(
 export function buildTitlePrompt(
   input: Pick<
     OutlineGenerationInput,
-    'idea' | 'targetChapters' | 'wordsPerChapter'
-  >
+    'idea' | 'targetChapters' | 'wordsPerChapter' | 'viralStrategy'
+  > &
+    OptionalBookTitle
 ) {
+  const viralStrategyLines = input.viralStrategy
+    ? [
+        input.viralStrategy.readerPayoff
+          ? `Reader payoff: ${input.viralStrategy.readerPayoff}`
+          : '',
+        input.viralStrategy.protagonistDesire
+          ? `Protagonist desire: ${input.viralStrategy.protagonistDesire}`
+          : '',
+        input.viralStrategy.tropeContracts?.length
+          ? `Trope contracts: ${input.viralStrategy.tropeContracts.join(', ')}`
+          : '',
+        input.viralStrategy.cadenceMode
+          ? `Payoff cadence: ${input.viralStrategy.cadenceMode}`
+          : '',
+        input.viralStrategy.antiClicheDirection
+          ? `Anti-cliche direction: ${input.viralStrategy.antiClicheDirection}`
+          : '',
+      ].filter(Boolean)
+    : [];
+
   return [
     'Name this long-form Chinese web novel.',
     `User idea: ${input.idea}`,
     ...buildLengthConstraintLines(input),
+    ...viralStrategyLines,
     ...buildAiFirstTextPolicyLines(),
-    'Return only one concise Chinese book title, without quotes or explanation.',
+    'Create one concise, memorable Chinese web novel title that fits the story theme, protagonist desire, core conflict, and reader payoff.',
+    'The title should imply a hook, reversal, desire, or pressure point; it should feel clickable without becoming misleading.',
+    'Avoid generic empty phrases such as 传奇, 风云, 异世, 崛起 unless the user idea makes them specific and necessary.',
+    'Return only one Chinese book title, without quotes, explanation, candidates, numbering, or Markdown.',
   ].join('\n');
 }
 
@@ -77,9 +112,11 @@ export function buildMasterOutlinePrompt(
   input: Pick<
     OutlineGenerationInput,
     'idea' | 'targetChapters' | 'wordsPerChapter'
-  >
+  > &
+    OptionalBookTitle
 ) {
   return [
+    ...renderBookTitleLine(input.title),
     `User idea: ${input.idea}`,
     `World setting:\n${worldSetting}`,
     ...buildLengthConstraintLines(input),
@@ -90,7 +127,7 @@ export function buildMasterOutlinePrompt(
 
 export function buildVolumeOutlinePrompt(
   masterOutline: string,
-  input: StoryLengthConstraints,
+  input: StoryLengthConstraints & OptionalBookTitle,
   volumeCount = 10
 ) {
   const effectiveVolumeCount = Math.max(
@@ -99,6 +136,7 @@ export function buildVolumeOutlinePrompt(
   );
 
   return [
+    ...renderBookTitleLine(input.title),
     `Master outline:\n${masterOutline}`,
     ...buildLengthConstraintLines(input),
     ...buildAiFirstTextPolicyLines(),
@@ -112,9 +150,10 @@ export function buildVolumeOutlinePrompt(
 export function buildChapterOutlinePrompt(
   volumeOutline: string,
   volumeIndex: number,
-  input: StoryLengthConstraints
+  input: StoryLengthConstraints & OptionalBookTitle
 ) {
   return [
+    ...renderBookTitleLine(input.title),
     `Volume ${volumeIndex} outline:\n${volumeOutline}`,
     ...buildLengthConstraintLines(input),
     ...buildAiFirstTextPolicyLines(),
@@ -125,6 +164,7 @@ export function buildChapterOutlinePrompt(
 }
 
 export function buildChapterDraftPrompt(input: {
+  title?: string | null;
   idea: string;
   worldSetting: string | null;
   masterOutline: string | null;
@@ -137,6 +177,7 @@ export function buildChapterDraftPrompt(input: {
 }) {
   return [
     'Write the next chapter of a long-form Chinese web novel.',
+    ...renderBookTitleLine(input.title),
     `Book idea: ${input.idea}`,
     ...buildLengthConstraintLines(input),
     ...buildAiFirstTextPolicyLines(),

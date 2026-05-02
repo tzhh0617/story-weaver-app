@@ -28,6 +28,47 @@ const viralProtocol = {
 };
 
 describe('narrative prompts', () => {
+  it('anchors narrative planning prompts to the book title', () => {
+    expect(
+      buildNarrativeBiblePrompt({
+        title: '月税奇谈',
+        idea: '一个修复命簿的人发现自己的家族被命运删除。',
+        targetChapters: 80,
+        wordsPerChapter: 2200,
+      })
+    ).toContain('Book title: 月税奇谈');
+
+    expect(
+      buildVolumePlanPrompt({
+        title: '月税奇谈',
+        targetChapters: 80,
+        bibleSummary: '主题：自由的代价。',
+        viralStoryProtocol: viralProtocol,
+      })
+    ).toContain('Book title: 月税奇谈');
+
+    expect(
+      buildChapterCardPrompt({
+        title: '月税奇谈',
+        bookId: 'book-1',
+        targetChapters: 3,
+        bibleSummary: '主题：自由的代价。',
+        volumePlansText: '第一卷：旧页初鸣，1-3章。',
+      })
+    ).toContain('Book title: 月税奇谈');
+  });
+
+  it('omits book-title reader promise guidance when no title is provided', () => {
+    const prompt = buildNarrativeBiblePrompt({
+      idea: '一个修复命簿的人发现自己的家族被命运删除。',
+      targetChapters: 80,
+      wordsPerChapter: 2200,
+    });
+
+    expect(prompt).not.toContain('Book title:');
+    expect(prompt).not.toContain('Treat the book title as a reader promise');
+  });
+
   it('requires costly rules and character arc anchors in bible prompts', () => {
     const prompt = buildNarrativeBiblePrompt({
       idea: '一个修复命簿的人发现自己的家族被命运删除。',

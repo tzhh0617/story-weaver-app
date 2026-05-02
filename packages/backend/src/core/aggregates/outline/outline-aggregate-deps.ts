@@ -13,6 +13,7 @@ export type OutlineAggregateDeps = {
       | {
           id: string;
           title: string;
+          titleGenerationStatus: 'manual' | 'pending' | 'generated';
           idea: string;
           status: string;
           targetChapters: number;
@@ -24,6 +25,10 @@ export type OutlineAggregateDeps = {
       | undefined;
     updateStatus: (bookId: string, status: BookStatus) => void;
     updateTitle: (bookId: string, title: string) => void;
+    updateTitleGenerationStatus: (
+      bookId: string,
+      titleGenerationStatus: 'manual' | 'pending' | 'generated'
+    ) => void;
     saveContext: (input: {
       bookId: string;
       worldSetting: string;

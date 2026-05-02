@@ -17,7 +17,21 @@ function viralPromptBlock(
     : [];
 }
 
+function renderBookTitleLine(title?: string | null) {
+  return title?.trim() ? [`Book title: ${title.trim()}`] : [];
+}
+
+function renderBookTitlePlanningLines(title?: string | null) {
+  return title?.trim()
+    ? [
+        `Book title: ${title.trim()}`,
+        'Treat the book title as a reader promise: world rules, conflicts, rewards, and hooks must keep paying it off.',
+      ]
+    : [];
+}
+
 export function buildNarrativeBiblePrompt(input: {
+  title?: string;
   idea: string;
   targetChapters: number;
   wordsPerChapter: number;
@@ -25,6 +39,7 @@ export function buildNarrativeBiblePrompt(input: {
   return [
     'Design a long-form Chinese web novel narrative bible.',
     ...buildJsonOutputPolicyLines(),
+    ...renderBookTitlePlanningLines(input.title),
     `User idea: ${input.idea}`,
     `Target chapters: ${input.targetChapters}`,
     `Words per chapter: ${input.wordsPerChapter}`,
@@ -41,6 +56,7 @@ export function buildNarrativeBiblePrompt(input: {
 }
 
 export function buildVolumePlanPrompt(input: {
+  title?: string;
   targetChapters: number;
   bibleSummary: string;
   viralStoryProtocol?: ViralStoryProtocol | null;
@@ -49,6 +65,7 @@ export function buildVolumePlanPrompt(input: {
     'Create volume plans for this long-form Chinese web novel.',
     ...buildJsonOutputPolicyLines(),
     'Return an array of volume plan objects.',
+    ...renderBookTitlePlanningLines(input.title),
     `Target chapters: ${input.targetChapters}`,
     `Narrative bible summary:\n${input.bibleSummary}`,
     ...viralPromptBlock(input.viralStoryProtocol),
@@ -60,6 +77,7 @@ export function buildVolumePlanPrompt(input: {
 }
 
 export function buildChapterCardPrompt(input: {
+  title?: string;
   bookId: string;
   targetChapters: number;
   bibleSummary: string;
@@ -70,6 +88,7 @@ export function buildChapterCardPrompt(input: {
     'Create chapter cards for a long-form Chinese web novel.',
     ...buildJsonOutputPolicyLines(),
     'Return an object with keys cards, threadActions, characterPressures, relationshipActions.',
+    ...renderBookTitlePlanningLines(input.title),
     `Book id: ${input.bookId}`,
     `Target chapters: ${input.targetChapters}`,
     `Narrative bible summary:\n${input.bibleSummary}`,
@@ -93,6 +112,7 @@ export function buildChapterCardPrompt(input: {
 }
 
 export function buildTensionBudgetPrompt(input: {
+  title?: string;
   bookId: string;
   targetChapters: number;
   bibleSummary: string;
@@ -104,6 +124,7 @@ export function buildTensionBudgetPrompt(input: {
     'Create tension budgets for a long-form Chinese web novel.',
     ...buildJsonOutputPolicyLines(),
     'Return an array of chapter tension budget objects.',
+    ...renderBookTitlePlanningLines(input.title),
     `Book id: ${input.bookId}`,
     `Target chapters: ${input.targetChapters}`,
     `Narrative bible summary:\n${input.bibleSummary}`,
@@ -126,6 +147,7 @@ export function buildTensionBudgetPrompt(input: {
 }
 
 export function buildNarrativeDraftPrompt(input: {
+  title?: string;
   idea: string;
   wordsPerChapter: number;
   commandContext: string;
@@ -135,6 +157,7 @@ export function buildNarrativeDraftPrompt(input: {
 }) {
   return [
     'Write the next chapter of a long-form Chinese web novel.',
+    ...renderBookTitleLine(input.title),
     `Book idea: ${input.idea}`,
     `Write approximately ${input.wordsPerChapter} Chinese characters.`,
     ...buildAiFirstTextPolicyLines(),

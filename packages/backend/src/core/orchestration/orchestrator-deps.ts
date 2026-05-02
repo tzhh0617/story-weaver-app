@@ -22,6 +22,7 @@ export type BookOrchestratorDeps = {
     create: (input: {
       id: string;
       title: string;
+      titleGenerationStatus: BookRecord['titleGenerationStatus'];
       idea: string;
       targetChapters: number;
       wordsPerChapter: number;
@@ -30,6 +31,7 @@ export type BookOrchestratorDeps = {
     list: () => Array<{
       id: string;
       title: string;
+      titleGenerationStatus: BookRecord['titleGenerationStatus'];
       idea: string;
       status: string;
       targetChapters: number;
@@ -42,6 +44,7 @@ export type BookOrchestratorDeps = {
       | {
           id: string;
           title: string;
+          titleGenerationStatus: BookRecord['titleGenerationStatus'];
           idea: string;
           status: string;
           targetChapters: number;
@@ -53,6 +56,10 @@ export type BookOrchestratorDeps = {
       | undefined;
     updateStatus: (bookId: string, status: BookStatus) => void;
     updateTitle: (bookId: string, title: string) => void;
+    updateTitleGenerationStatus: (
+      bookId: string,
+      titleGenerationStatus: BookRecord['titleGenerationStatus']
+    ) => void;
     delete: (bookId: string) => void;
     saveContext: (input: {
       bookId: string;

@@ -5,6 +5,9 @@ export const books = sqliteTable('books', {
   title: text('title').notNull(),
   idea: text('idea').notNull(),
   status: text('status').notNull().default('creating'),
+  titleGenerationStatus: text('title_generation_status')
+    .notNull()
+    .default('generated'),
   modelId: text('model_id').notNull(),
   targetChapters: integer('target_chapters').notNull(),
   wordsPerChapter: integer('words_per_chapter').notNull(),

@@ -94,6 +94,7 @@ describe('createAiOutlineService', () => {
 
     const title = await service.generateTitleFromIdea({
       bookId: 'book-1',
+      title: '新作品',
       idea: 'The moon taxes miracles.',
       targetChapters: 1,
       wordsPerChapter: 2500,
@@ -101,6 +102,7 @@ describe('createAiOutlineService', () => {
     });
     const result = await service.generateFromIdea({
       bookId: 'book-1',
+      title,
       idea: 'The moon taxes miracles.',
       targetChapters: 1,
       wordsPerChapter: 2500,
@@ -162,6 +164,7 @@ describe('createAiOutlineService', () => {
 
     const result = await service.generateFromIdea({
       bookId: 'book-1',
+      title: '命运重建',
       idea: '废柴少年重建命运。',
       targetChapters: 1,
       wordsPerChapter: 2000,
@@ -208,6 +211,7 @@ describe('createAiOutlineService', () => {
 
     const result = await service.generateFromIdea({
       bookId: 'book-1',
+      title: '月税奇谈',
       idea: 'The moon taxes miracles.',
       targetChapters: 2,
       wordsPerChapter: 180,
@@ -244,6 +248,7 @@ describe('createAiOutlineService', () => {
 
     const result = await service.generateFromIdea({
       bookId: 'book-1',
+      title: '月税奇谈',
       idea: 'The moon taxes miracles.',
       targetChapters: 2,
       wordsPerChapter: 180,
@@ -275,6 +280,7 @@ describe('createAiOutlineService', () => {
 
     const result = await service.generateFromIdea({
       bookId: 'book-1',
+      title: '月税奇谈',
       idea: 'The moon taxes miracles.',
       targetChapters: 2,
       wordsPerChapter: 180,
@@ -309,6 +315,7 @@ describe('createAiOutlineService', () => {
 
     const result = await service.generateFromIdea({
       bookId: 'book-1',
+      title: '月税奇谈',
       idea: 'The moon taxes miracles.',
       targetChapters: 1,
       wordsPerChapter: 180,
@@ -392,6 +399,7 @@ describe('createAiOutlineService', () => {
 
     const result = await service.generateFromIdea({
       bookId: 'book-1',
+      title: '命簿初鸣',
       idea: '命簿修复师追查家族旧案。',
       targetChapters: 1,
       wordsPerChapter: 2000,
@@ -543,6 +551,7 @@ describe('createAiOutlineService', () => {
 
     const result = await service.generateFromIdea({
       bookId: 'book-1',
+      title: '午夜怀表',
       idea: '钟表修理师在午夜前修好不被改写的怀表。',
       targetChapters: 1,
       wordsPerChapter: 300,
@@ -576,11 +585,18 @@ describe('createAiOutlineService', () => {
       result.narrativeBible?.viralStoryProtocol?.payoffCadence
         .minorPayoffEveryChapters
     ).toBeGreaterThan(0);
-    expect(result.volumePlans?.[0]).toMatchObject({
+    const volumePlans = result.volumePlans;
+    const chapterCards = result.chapterCards;
+    expect(volumePlans).toBeDefined();
+    expect(chapterCards).toBeDefined();
+    if (!volumePlans || !chapterCards) {
+      throw new Error('Expected bible-based outline data');
+    }
+    expect(volumePlans[0]).toMatchObject({
       promisedPayoff: 'visible：确认怀表不会被改写。；cost：主角必须丢失一段安全记忆。',
       characterArcMovement: '主角开始接受代价。',
     });
-    expect(result.chapterCards?.[0]?.readerReward).toBe('truth');
+    expect(chapterCards[0]?.readerReward).toBe('truth');
   });
 
   it('filters malformed chapter action rows before returning generated outlines', async () => {
@@ -700,6 +716,7 @@ describe('createAiOutlineService', () => {
 
     const result = await service.generateFromIdea({
       bookId: 'book-1',
+      title: '命簿初鸣',
       idea: '命簿修复师追查家族旧案。',
       targetChapters: 1,
       wordsPerChapter: 2000,
@@ -771,6 +788,7 @@ describe('createAiOutlineService', () => {
     await expect(
       service.generateFromIdea({
         bookId: 'book-1',
+        title: '道侣命契',
         idea: '道侣越多我越无敌。',
         targetChapters: 1,
         wordsPerChapter: 2000,

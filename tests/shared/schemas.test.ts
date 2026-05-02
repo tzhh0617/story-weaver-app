@@ -41,6 +41,29 @@ describe('book schemas', () => {
     expect(result.success).toBe(true);
   });
 
+  it('BookCreateSchema accepts an optional title', () => {
+    const result = BookCreateSchema.safeParse({
+      title: '月税奇谈',
+      idea: 'A moon taxes every miracle.',
+      targetChapters: 500,
+      wordsPerChapter: 2500,
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.data).toMatchObject({ title: '月税奇谈' });
+  });
+
+  it('BookCreateSchema rejects a non-string title', () => {
+    const result = BookCreateSchema.safeParse({
+      title: 123,
+      idea: 'A moon taxes every miracle.',
+      targetChapters: 500,
+      wordsPerChapter: 2500,
+    });
+
+    expect(result.success).toBe(false);
+  });
+
   it('BookCreateSchema rejects missing required fields', () => {
     const result = BookCreateSchema.safeParse({ idea: 'test' });
     expect(result.success).toBe(false);

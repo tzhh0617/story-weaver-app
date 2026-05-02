@@ -77,6 +77,7 @@ describe('createBookOrchestrator', () => {
   it('creates a book and lists it', () => {
     const orchestrator = createOrchestrator(createMinimalDeps());
     const bookId = orchestrator.createBook({
+      title: 'Promise Ledger',
       idea: 'A city remembers every promise.',
       targetChapters: 3,
       wordsPerChapter: 2500,
@@ -88,7 +89,8 @@ describe('createBookOrchestrator', () => {
     expect(books).toHaveLength(1);
     expect(books[0]).toMatchObject({
       id: bookId,
-      title: '新作品',
+      title: 'Promise Ledger',
+      titleGenerationStatus: 'manual',
       idea: 'A city remembers every promise.',
       targetChapters: 3,
       wordsPerChapter: 2500,

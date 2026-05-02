@@ -4,8 +4,14 @@ import { deleteBookPlanningData } from './book-graph.js';
 
 type NewBookInput = Pick<
   BookRecord,
-  'id' | 'title' | 'idea' | 'targetChapters' | 'wordsPerChapter' | 'viralStrategy'
->;
+  | 'id'
+  | 'title'
+  | 'idea'
+  | 'targetChapters'
+  | 'wordsPerChapter'
+  | 'viralStrategy'
+> &
+  Partial<Pick<BookRecord, 'titleGenerationStatus'>>;
 
 type BookRow = Omit<BookRecord, 'viralStrategy'> & {
   viralStrategyJson: string | null;
@@ -36,6 +42,7 @@ export function createBookRepository(db: SqliteDatabase) {
             title,
             idea,
             status,
+            title_generation_status,
             model_id,
             target_chapters,
             words_per_chapter,
@@ -48,6 +55,7 @@ export function createBookRepository(db: SqliteDatabase) {
             @title,
             @idea,
             'creating',
+            @titleGenerationStatus,
             '',
             @targetChapters,
             @wordsPerChapter,
@@ -59,6 +67,7 @@ export function createBookRepository(db: SqliteDatabase) {
       ).run({
         ...input,
         modelId: '',
+        titleGenerationStatus: input.titleGenerationStatus ?? 'generated',
         viralStrategyJson: input.viralStrategy
           ? JSON.stringify(input.viralStrategy)
           : null,
@@ -76,6 +85,7 @@ export function createBookRepository(db: SqliteDatabase) {
               title,
               idea,
               status,
+              title_generation_status AS titleGenerationStatus,
               target_chapters AS targetChapters,
               words_per_chapter AS wordsPerChapter,
               viral_strategy_json AS viralStrategyJson,
@@ -99,6 +109,7 @@ export function createBookRepository(db: SqliteDatabase) {
               title,
               idea,
               status,
+              title_generation_status AS titleGenerationStatus,
               target_chapters AS targetChapters,
               words_per_chapter AS wordsPerChapter,
               viral_strategy_json AS viralStrategyJson,
@@ -131,6 +142,19 @@ export function createBookRepository(db: SqliteDatabase) {
           WHERE id = ?
         `
       ).run(title, new Date().toISOString(), bookId);
+    },
+
+    updateTitleGenerationStatus(
+      bookId: string,
+      titleGenerationStatus: BookRecord['titleGenerationStatus']
+    ) {
+      db.prepare(
+        `
+          UPDATE books
+          SET title_generation_status = ?, updated_at = ?
+          WHERE id = ?
+        `
+      ).run(titleGenerationStatus, new Date().toISOString(), bookId);
     },
 
     saveContext(input: {

@@ -101,6 +101,27 @@ describe('createChapterAggregate', () => {
     );
   });
 
+  it('includes the final book title in chapter draft prompts', async () => {
+    const prompts: string[] = [];
+    const writeChapter = vi
+      .fn()
+      .mockImplementation(async ({ prompt }: { prompt: string }) => {
+        prompts.push(prompt);
+        return {
+          content: '林牧抬头，看见月亮开始收税。',
+          usage: { inputTokens: 100, outputTokens: 400 },
+        };
+      });
+    const { aggregate, bookId, deps } = createTestDeps({
+      chapterWriter: { writeChapter },
+    });
+    deps.books.updateTitle(bookId, '月税奇谈');
+
+    await aggregate.writeNext(bookId);
+
+    expect(prompts.join('\n')).toContain('Book title: 月税奇谈');
+  });
+
   it('throws when book is not found', async () => {
     const { aggregate } = createTestDeps();
 

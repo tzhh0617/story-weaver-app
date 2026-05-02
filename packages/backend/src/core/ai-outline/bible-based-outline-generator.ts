@@ -51,7 +51,12 @@ type GeneratorContext = {
 export async function generateBibleBasedBundle(
   ctx: GeneratorContext
 ): Promise<OutlineBundle | null> {
-  const biblePrompt = buildNarrativeBiblePrompt(ctx.input);
+  const biblePrompt = buildNarrativeBiblePrompt({
+    title: ctx.input.title,
+    idea: ctx.input.idea,
+    targetChapters: ctx.input.targetChapters,
+    wordsPerChapter: ctx.input.wordsPerChapter,
+  });
   const bibleText = (
     await ctx.generateText({
       model: ctx.model,
@@ -96,6 +101,7 @@ export async function generateBibleBasedBundle(
       await ctx.generateText({
         model: ctx.model,
         prompt: buildVolumePlanPrompt({
+          title: ctx.input.title,
           targetChapters: ctx.input.targetChapters,
           bibleSummary: bibleSummary(narrativeBible),
           viralStoryProtocol,
@@ -128,6 +134,7 @@ export async function generateBibleBasedBundle(
       await ctx.generateText({
         model: ctx.model,
         prompt: buildChapterCardPrompt({
+          title: ctx.input.title,
           bookId: ctx.input.bookId,
           targetChapters: ctx.input.targetChapters,
           bibleSummary: bibleSummary(narrativeBible),
@@ -154,6 +161,7 @@ export async function generateBibleBasedBundle(
       await ctx.generateText({
         model: ctx.model,
         prompt: buildTensionBudgetPrompt({
+          title: ctx.input.title,
           bookId: ctx.input.bookId,
           targetChapters: ctx.input.targetChapters,
           bibleSummary: bibleSummary(narrativeBible),

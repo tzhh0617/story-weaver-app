@@ -42,6 +42,7 @@ function createDefaultSetup(overrides?: {
     targetChapters,
     wordsPerChapter,
     viralStrategy: overrides?.viralStrategy ?? null,
+    titleGenerationStatus: 'pending',
   });
   books.updateStatus(BOOK_ID, 'building_world');
 
@@ -101,6 +102,7 @@ function createDeletionTestSetup(overrides: {
     targetChapters: 1,
     wordsPerChapter: 2500,
     viralStrategy: null,
+    titleGenerationStatus: 'pending',
   });
   books.updateStatus(bookId, 'building_world');
 
@@ -245,6 +247,99 @@ describe('createOutlineAggregate', () => {
 
       const updatedBook = books.getById(bookId);
       expect(updatedBook?.title).toBe('月税奇谈');
+    });
+
+    it('does not generate a title for manual titles', async () => {
+      const generateTitleFromIdea = vi.fn().mockResolvedValue('系统标题');
+      const generateFromIdea = vi.fn().mockResolvedValue({
+        worldSetting: 'World',
+        masterOutline: 'Outline',
+        volumeOutlines: [],
+        chapterOutlines: [],
+      });
+      const { aggregate, bookId, books } = createDefaultSetup({
+        outlineService: { generateTitleFromIdea, generateFromIdea },
+      });
+      books.updateTitle(bookId, '手填标题');
+      books.updateTitleGenerationStatus(bookId, 'manual');
+
+      await aggregate.generateFromIdea(bookId);
+
+      expect(generateTitleFromIdea).not.toHaveBeenCalled();
+      expect(books.getById(bookId)).toMatchObject({
+        title: '手填标题',
+        titleGenerationStatus: 'manual',
+      });
+    });
+
+    it('marks generated title status after pending title generation', async () => {
+      const generateTitleFromIdea = vi.fn().mockResolvedValue('月税奇谈');
+      const { aggregate, bookId, books } = createDefaultSetup({
+        outlineService: {
+          generateTitleFromIdea,
+          generateFromIdea: vi.fn().mockResolvedValue({
+            worldSetting: 'World',
+            masterOutline: 'Outline',
+            volumeOutlines: [],
+            chapterOutlines: [],
+          }),
+        },
+      });
+
+      await aggregate.generateFromIdea(bookId);
+
+      expect(books.getById(bookId)).toMatchObject({
+        title: '月税奇谈',
+        titleGenerationStatus: 'generated',
+      });
+    });
+
+    it('keeps a manual title set while title generation is in flight', async () => {
+      const generateFromIdea = vi.fn().mockResolvedValue({
+        worldSetting: 'World',
+        masterOutline: 'Outline',
+        volumeOutlines: [],
+        chapterOutlines: [],
+      });
+      const { aggregate, bookId, books, deps } = createDefaultSetup({
+        outlineService: { generateFromIdea },
+      });
+      deps.outlineService.generateTitleFromIdea = vi.fn().mockImplementation(async () => {
+        books.updateTitle(bookId, '手动抢先标题');
+        books.updateTitleGenerationStatus(bookId, 'manual');
+        return '系统标题';
+      });
+
+      await aggregate.generateFromIdea(bookId);
+
+      expect(books.getById(bookId)).toMatchObject({
+        title: '手动抢先标题',
+        titleGenerationStatus: 'manual',
+      });
+      expect(generateFromIdea).toHaveBeenCalledWith(
+        expect.objectContaining({ title: '手动抢先标题' })
+      );
+    });
+
+    it('passes the final title into outline generation', async () => {
+      const generateFromIdea = vi.fn().mockResolvedValue({
+        worldSetting: 'World',
+        masterOutline: 'Outline',
+        volumeOutlines: [],
+        chapterOutlines: [],
+      });
+      const { aggregate, bookId } = createDefaultSetup({
+        outlineService: {
+          generateTitleFromIdea: vi.fn().mockResolvedValue('月税奇谈'),
+          generateFromIdea,
+        },
+      });
+
+      await aggregate.generateFromIdea(bookId);
+
+      expect(generateFromIdea).toHaveBeenCalledWith(
+        expect.objectContaining({ title: '月税奇谈' })
+      );
     });
 
     it('falls back to deriveTitleFromIdea when generated title is empty', async () => {

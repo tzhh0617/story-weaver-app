@@ -47,12 +47,14 @@ export default function NewBook({
   onCreate,
 }: {
   onCreate: (input: {
+    title?: string;
     idea: string;
     targetChapters: number;
     wordsPerChapter: number;
     viralStrategy?: ViralStrategyInput;
   }) => void | Promise<void>;
 }) {
+  const [title, setTitle] = useState('');
   const [idea, setIdea] = useState('');
   const [targetChapters, setTargetChapters] = useState(500);
   const [wordsPerChapter, setWordsPerChapter] = useState(2500);
@@ -104,6 +106,7 @@ export default function NewBook({
             const trimmedReaderPayoff = readerPayoff.trim();
             const trimmedProtagonistDesire = protagonistDesire.trim();
             const trimmedAntiClicheDirection = antiClicheDirection.trim();
+            const trimmedTitle = title.trim();
 
             if (trimmedReaderPayoff) {
               viralStrategy.readerPayoff = trimmedReaderPayoff;
@@ -122,6 +125,7 @@ export default function NewBook({
             }
 
             const result = onCreate({
+              ...(trimmedTitle ? { title: trimmedTitle } : {}),
               idea,
               targetChapters,
               wordsPerChapter,
@@ -149,6 +153,14 @@ export default function NewBook({
             data-testid="new-book-fields-panel"
             className="grid gap-5 p-6"
           >
+            <div className="grid gap-2">
+              <Label htmlFor="new-book-title">书名</Label>
+              <Input
+                id="new-book-title"
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+              />
+            </div>
             <div className="grid gap-2">
               <Label htmlFor="new-book-idea">故事设想</Label>
               <Textarea

@@ -20,6 +20,7 @@ describe('book repository', () => {
       idea: 'A city remembers every promise.',
       targetChapters: 500,
       wordsPerChapter: 2500,
+      titleGenerationStatus: 'manual',
     });
 
     vi.setSystemTime(new Date('2026-04-28T11:00:00.000Z'));
@@ -29,6 +30,7 @@ describe('book repository', () => {
       idea: 'A lighthouse records every storm.',
       targetChapters: 500,
       wordsPerChapter: 2500,
+      titleGenerationStatus: 'manual',
     });
 
     vi.setSystemTime(new Date('2026-04-28T12:00:00.000Z'));
@@ -47,6 +49,7 @@ describe('book repository', () => {
       idea: '旧案复仇',
       targetChapters: 500,
       wordsPerChapter: 2500,
+      titleGenerationStatus: 'manual',
       viralStrategy: {
         readerPayoff: 'revenge',
         protagonistDesire: '洗清旧案',
@@ -65,6 +68,46 @@ describe('book repository', () => {
     });
   });
 
+  it('persists title generation status on book records', () => {
+    const db = createDatabase(':memory:');
+    const repo = createBookRepository(db);
+
+    repo.create({
+      id: 'book-title-status',
+      title: '月税奇谈',
+      idea: 'A moon taxes every miracle.',
+      targetChapters: 500,
+      wordsPerChapter: 2500,
+      titleGenerationStatus: 'manual',
+    });
+
+    expect(repo.getById('book-title-status')?.titleGenerationStatus).toBe(
+      'manual'
+    );
+    expect(repo.list()[0].titleGenerationStatus).toBe('manual');
+  });
+
+  it('updates title generation status independently of title text', () => {
+    const db = createDatabase(':memory:');
+    const repo = createBookRepository(db);
+
+    repo.create({
+      id: 'book-auto-title',
+      title: '新作品',
+      idea: 'A city remembers every promise.',
+      targetChapters: 500,
+      wordsPerChapter: 2500,
+      titleGenerationStatus: 'pending',
+    });
+
+    repo.updateTitleGenerationStatus('book-auto-title', 'generated');
+
+    expect(repo.getById('book-auto-title')).toMatchObject({
+      title: '新作品',
+      titleGenerationStatus: 'generated',
+    });
+  });
+
   it('summarizes chapter completion for multiple books in one repository call', () => {
     const db = createDatabase(':memory:');
     const books = createBookRepository(db);
@@ -76,6 +119,7 @@ describe('book repository', () => {
       idea: 'A city remembers every promise.',
       targetChapters: 2,
       wordsPerChapter: 2500,
+      titleGenerationStatus: 'manual',
     });
     books.create({
       id: 'book-2',
@@ -83,6 +127,7 @@ describe('book repository', () => {
       idea: 'A lighthouse records every storm.',
       targetChapters: 1,
       wordsPerChapter: 2500,
+      titleGenerationStatus: 'manual',
     });
     chapters.upsertOutline({
       bookId: 'book-1',
