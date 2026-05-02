@@ -30,7 +30,8 @@
     "test:watch": "vitest",
     "smoke:browser-persistence": "node scripts/smoke-browser-persistence.mjs",
     "smoke:electron-package": "node scripts/smoke-electron-package.mjs",
-    "package": "pnpm run build && electron-builder"
+    "package": "pnpm run build && electron-builder",
+    "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.71",
