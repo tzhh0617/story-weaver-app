@@ -24,9 +24,9 @@ describe('narrative schema', () => {
         'narrative_checkpoints',
       ])
     );
-    expect(tables).not.toEqual(
-      expect.arrayContaining(['story_bibles', 'volume_plans', 'chapter_cards'])
-    );
+    expect(tables).not.toContain('story_bibles');
+    expect(tables).not.toContain('volume_plans');
+    expect(tables).not.toContain('chapter_cards');
   });
 
   it('defines the expected dual-loop chapter planning columns', () => {

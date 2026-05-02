@@ -278,11 +278,6 @@ export const storyStateSnapshots = sqliteTable(
   })
 );
 
-// Compatibility exports keep legacy repository modules loadable during the schema transition.
-export const storyBibles = titleIdeaContracts;
-export const volumePlans = stagePlans;
-export const chapterCards = chapterPlans;
-
 export const chapterThreadActions = sqliteTable(
   'chapter_thread_actions',
   {

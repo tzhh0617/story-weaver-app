@@ -2135,7 +2135,7 @@
           "notNull": true,
           "autoincrement": false,
           "default": "'planned'"
-        },
+        }
       },
       "indexes": {},
       "foreignKeys": {
@@ -2298,13 +2298,6 @@
           "notNull": true,
           "autoincrement": false
         },
-        "volume_index": {
-          "name": "volume_index",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
         "title": {
           "name": "title",
           "type": "text",
@@ -2341,6 +2334,20 @@
           "notNull": true,
           "autoincrement": false,
           "default": "'[]'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
         }
       },
       "indexes": {},

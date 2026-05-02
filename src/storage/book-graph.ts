@@ -10,7 +10,6 @@ const bookScopedPlanningTables = [
   'narrative_checkpoints',
   'chapter_generation_audits',
   'relationship_states',
-  'chapter_tension_budgets',
 ] as const;
 
 export function deleteBookPlanningData(
