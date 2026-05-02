@@ -1,18 +1,6 @@
 import type { Database as SqliteDatabase } from 'better-sqlite3';
 
-function ensureProgressColumns(db: SqliteDatabase) {
-  const columns = db
-    .prepare('PRAGMA table_info(writing_progress)')
-    .all() as Array<{ name: string }>;
-
-  if (!columns.some((column) => column.name === 'step_label')) {
-    db.prepare('ALTER TABLE writing_progress ADD COLUMN step_label TEXT').run();
-  }
-}
-
 export function createProgressRepository(db: SqliteDatabase) {
-  ensureProgressColumns(db);
-
   return {
     updatePhase(
       bookId: string,
