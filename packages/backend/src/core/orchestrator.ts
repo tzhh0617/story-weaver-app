@@ -110,6 +110,7 @@ export function createBookOrchestrator(deps: BookOrchestratorDeps) {
 
   return {
     createBook(input: {
+      title?: string;
       idea: string;
       targetChapters: number;
       wordsPerChapter: number;
