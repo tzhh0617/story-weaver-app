@@ -13,8 +13,9 @@
   },
   "main": "dist-electron/electron/main.js",
   "scripts": {
-    "dev": "concurrently -k \"pnpm run dev:frontend\" \"pnpm run dev:electron\"",
-    "dev:web": "concurrently -k \"pnpm run dev:frontend\" \"pnpm run dev:backend\"",
+    "dev": "bash scripts/cleanup-dev.sh && concurrently -k \"pnpm run dev:frontend\" \"pnpm run dev:electron\"",
+    "dev:web": "bash scripts/cleanup-dev.sh && concurrently -k \"pnpm run dev:frontend\" \"pnpm run dev:backend\"",
+    "dev:cleanup": "bash scripts/cleanup-dev.sh",
     "dev:frontend": "pnpm --filter @story-weaver/frontend dev",
     "dev:backend": "pnpm --filter @story-weaver/backend dev",
     "dev:electron": "pnpm run build:shared && pnpm run build:backend && pnpm run build:electron && electron-rebuild -f -w better-sqlite3 && wait-on tcp:5173 && VITE_DEV_SERVER_URL=http://localhost:5173 electron .",
