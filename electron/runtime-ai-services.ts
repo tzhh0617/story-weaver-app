@@ -95,14 +95,15 @@ async function withMockRuntimeDelay<T>(operation: () => Promise<T>) {
   return result;
 }
 
-function getEnvironmentModelConfigs(): ModelConfigInput[] {
-  return runtimeConfig.environmentModelConfigs;
+function getModelConfig(): ModelConfigInput | null {
+  return runtimeConfig.modelConfig;
 }
 
 function getRuntimeModelMode(persistedConfigs: ModelConfigInput[]) {
+  const modelConfig = getModelConfig();
   return createRuntimeMode({
     persistedConfigs,
-    environmentConfigs: getEnvironmentModelConfigs(),
+    environmentConfigs: modelConfig ? [modelConfig] : [],
     fallbackModelId: DEFAULT_MOCK_MODEL_ID,
   });
 }

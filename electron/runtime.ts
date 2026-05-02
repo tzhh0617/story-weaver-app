@@ -21,10 +21,14 @@ import type {
 } from '../src/shared/contracts.js';
 import { createSettingsRepository } from '../src/storage/settings.js';
 import { createRuntimeAiServices } from './runtime-ai-services.js';
+import { runtimeConfig } from './runtime-env.js';
 
 type RuntimeServices = {
   bookService: ReturnType<typeof createBookService>;
   modelConfigs: ReturnType<typeof createModelConfigRepository>;
+  getModelConfig: () => ReturnType<
+    ReturnType<typeof createModelConfigRepository>['getById']
+  >;
   settings: ReturnType<typeof createSettingsRepository>;
   startBook: (bookId: string) => Promise<void>;
   pauseBook: (bookId: string) => void;
@@ -381,6 +385,14 @@ export function getRuntimeServices() {
   runtimeServices = {
     bookService,
     modelConfigs,
+    getModelConfig: () => {
+      const modelConfig = runtimeConfig.modelConfig;
+      if (!modelConfig) {
+        return modelConfigs.list()[0] ?? null;
+      }
+
+      return modelConfigs.getById(modelConfig.id) ?? modelConfig;
+    },
     settings,
     startBook: async (bookId: string) => {
       logExecution({

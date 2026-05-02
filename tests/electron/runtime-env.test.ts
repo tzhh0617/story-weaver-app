@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
-  createEnvironmentModelConfigs,
+  createModelConfig,
   createRuntimeConfig,
   createRuntimeEnvReader,
   parseLocalEnv,
@@ -50,7 +50,7 @@ describe('runtime env reader', () => {
     expect(reader.getValue('STORY_WEAVER_MODEL_NAME')).toBe('gpt-4o-mini');
   });
 
-  it('builds environment model config from unified runtime keys', () => {
+  it('builds the model config from unified runtime keys', () => {
     const reader = createRuntimeEnvReader({
       cwd: tempRoot,
       env: {
@@ -61,19 +61,17 @@ describe('runtime env reader', () => {
       },
     });
 
-    expect(createEnvironmentModelConfigs(reader)).toEqual([
-      {
-        id: 'anthropic:claude-sonnet-4-5',
-        provider: 'anthropic',
-        modelName: 'claude-sonnet-4-5',
-        apiKey: 'sk-unified',
-        baseUrl: 'https://proxy.example.com/anthropic',
-        config: {},
-      },
-    ]);
+    expect(createModelConfig(reader)).toEqual({
+      id: 'anthropic:claude-sonnet-4-5',
+      provider: 'anthropic',
+      modelName: 'claude-sonnet-4-5',
+      apiKey: 'sk-unified',
+      baseUrl: 'https://proxy.example.com/anthropic',
+      config: {},
+    });
   });
 
-  it('does not create environment model config from provider-specific legacy keys', () => {
+  it('does not create model config from provider-specific legacy keys', () => {
     const reader = createRuntimeEnvReader({
       cwd: tempRoot,
       env: {
@@ -82,7 +80,7 @@ describe('runtime env reader', () => {
       },
     });
 
-    expect(createEnvironmentModelConfigs(reader)).toEqual([]);
+    expect(createModelConfig(reader)).toBeNull();
   });
 
   it('creates the full runtime config from one reader', () => {
@@ -98,16 +96,14 @@ describe('runtime env reader', () => {
     });
 
     expect(createRuntimeConfig(reader)).toEqual({
-      environmentModelConfigs: [
-        {
-          id: 'openai:gpt-4o-mini',
-          provider: 'openai',
-          modelName: 'gpt-4o-mini',
-          apiKey: 'sk-unified',
-          baseUrl: '',
-          config: {},
-        },
-      ],
+      modelConfig: {
+        id: 'openai:gpt-4o-mini',
+        provider: 'openai',
+        modelName: 'gpt-4o-mini',
+        apiKey: 'sk-unified',
+        baseUrl: '',
+        config: {},
+      },
       mockRuntimeDelayMs: 0,
       mockStreamTokensPerSecond: 500,
     });

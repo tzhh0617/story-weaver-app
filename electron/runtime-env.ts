@@ -16,7 +16,7 @@ const DEFAULT_MOCK_STREAM_TOKENS_PER_SECOND = 200;
 const supportedModelProviders = new Set<ModelProvider>(['openai', 'anthropic']);
 
 export type RuntimeConfig = {
-  environmentModelConfigs: ModelConfigInput[];
+  modelConfig: ModelConfigInput | null;
   mockRuntimeDelayMs: number;
   mockStreamTokensPerSecond: number;
 };
@@ -82,9 +82,9 @@ export function createRuntimeEnvReader(input?: {
   };
 }
 
-export function createEnvironmentModelConfigs(input: {
+export function createModelConfig(input: {
   getValue: (key: string) => string | undefined;
-}): ModelConfigInput[] {
+}): ModelConfigInput | null {
   const provider = input.getValue(MODEL_PROVIDER_KEY);
   const modelName = input.getValue(MODEL_NAME_KEY);
   const apiKey = input.getValue(API_KEY_KEY);
@@ -96,19 +96,17 @@ export function createEnvironmentModelConfigs(input: {
     !modelName ||
     !apiKey
   ) {
-    return [];
+    return null;
   }
 
-  return [
-    {
-      id: `${provider}:${modelName}`,
-      provider: provider as ModelProvider,
-      modelName,
-      apiKey,
-      baseUrl,
-      config: {},
-    },
-  ];
+  return {
+    id: `${provider}:${modelName}`,
+    provider: provider as ModelProvider,
+    modelName,
+    apiKey,
+    baseUrl,
+    config: {},
+  };
 }
 
 function parseMockRuntimeDelayMs(value: string | undefined) {
@@ -141,7 +139,7 @@ export function createRuntimeConfig(input: {
   getValue: (key: string) => string | undefined;
 }): RuntimeConfig {
   return {
-    environmentModelConfigs: createEnvironmentModelConfigs(input),
+    modelConfig: createModelConfig(input),
     mockRuntimeDelayMs: parseMockRuntimeDelayMs(input.getValue(MOCK_DELAY_MS_KEY)),
     mockStreamTokensPerSecond: parseMockStreamTokensPerSecond(
       input.getValue(MOCK_STREAM_TOKENS_PER_SECOND_KEY)
