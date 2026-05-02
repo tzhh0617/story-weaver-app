@@ -14,6 +14,7 @@ export function resolveDefaultMigrationsFolder() {
     path.resolve(process.cwd(), 'drizzle'),
     path.resolve(moduleDir, '../../drizzle'),
     path.resolve(moduleDir, '../../../drizzle'),
+    path.resolve(moduleDir, '../../../../drizzle'),
   ];
   const migrationsFolder = candidates.find((candidate) =>
     existsSync(path.join(candidate, 'meta', '_journal.json'))
