@@ -12,6 +12,16 @@ describe('development scripts', () => {
     );
 
     expect(cleanupScript).not.toContain('pkill -9 -f "concurrently.*dev"');
+    expect(cleanupScript).toContain('protected_pids');
+    expect(cleanupScript).toContain('protected_pgids');
+    expect(cleanupScript).toContain('kill_process_group');
+    expect(cleanupScript).toContain('kill_matching_processes "node .*/pnpm dev$"');
+    expect(cleanupScript).toContain(
+      'kill_matching_processes "node .*/pnpm run dev$"'
+    );
+    expect(cleanupScript).toContain(
+      'kill_matching_processes "sh -c bash scripts/cleanup-dev\\\\.sh && concurrently"'
+    );
     expect(cleanupScript).toContain('concurrently/dist/bin/concurrently');
   });
 });
