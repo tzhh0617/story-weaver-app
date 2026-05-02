@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.dev.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": ".."
+  },
+  "include": ["src/**/*.ts", "../shared/src/**/*.ts"]
+}

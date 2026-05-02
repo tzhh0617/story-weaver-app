@@ -37,10 +37,11 @@ export async function buildServer(options?: {
     }
 
     if (typeof error === 'object' && error !== null && 'validation' in error) {
+      const message = error instanceof Error ? error.message : 'Validation error';
       return reply.status(400).send({
         error: {
           code: 'VALIDATION_ERROR',
-          message: error instanceof Error ? error.message : String(error),
+          message,
         },
       });
     }

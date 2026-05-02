@@ -1,5 +1,4 @@
 import { createProviderRegistry } from 'ai';
-import type { ProviderV3 } from '@ai-sdk/provider';
 import {
   type ModelConfigInput,
   validateModelConfig,
@@ -7,7 +6,13 @@ import {
 import { createAnthropicProvider } from './providers/anthropic.js';
 import { createOpenAIProvider } from './providers/openai.js';
 
-export function createRuntimeRegistry(configs: ModelConfigInput[]) {
+type ProviderRegistryInput = Parameters<typeof createProviderRegistry>[0];
+type ProviderV3 = ProviderRegistryInput[string];
+type RuntimeRegistry = ReturnType<typeof createProviderRegistry>;
+
+export function createRuntimeRegistry(
+  configs: ModelConfigInput[]
+): RuntimeRegistry {
   const providers: Record<string, ProviderV3> = {};
   const normalizedConfigs = configs.map((config) => validateModelConfig(config));
 

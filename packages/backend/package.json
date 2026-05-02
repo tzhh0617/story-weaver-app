@@ -41,7 +41,7 @@
     "dev": "pnpm rebuild better-sqlite3 && tsx --tsconfig tsconfig.dev.json src/main.ts",
     "build": "tsc -p tsconfig.json",
     "start": "pnpm rebuild better-sqlite3 && node dist/main.js",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.typecheck.json"
   },
   "dependencies": {
     "@story-weaver/shared": "workspace:*"
