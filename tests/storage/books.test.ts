@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createDatabase } from '../../src/storage/database';
+import { createDatabase, createRepositories } from '../../src/storage/database';
 import { createBookRepository } from '../../src/storage/books';
 import { createChapterCardRepository } from '../../src/storage/chapter-cards';
 import { createChapterRepository } from '../../src/storage/chapters';
@@ -128,6 +128,96 @@ describe('book repository', () => {
     const chapters = createChapterRepository(db);
 
     expect(chapters.listProgressByBookIds([])).toEqual(new Map());
+  });
+
+  it('round-trips core planning repositories by book', () => {
+    const db = createDatabase(':memory:');
+    const repos = createRepositories(db);
+
+    repos.books.create({
+      id: 'book-planning',
+      title: 'Book Planning',
+      idea: 'A city remembers every promise.',
+      targetChapters: 24,
+      wordsPerChapter: 2500,
+    });
+
+    const titleIdeaContract = {
+      bookId: 'book-planning',
+      title: 'The Promise Archive',
+      idea: 'A city remembers every promise.',
+      corePromise: 'Every bargain leaves a scar.',
+      titleHooks: ['promise', 'archive'],
+      forbiddenDrift: ['cheap amnesia'],
+    };
+    repos.titleIdeaContracts.save(titleIdeaContract);
+
+    const endgamePlan = {
+      bookId: 'book-planning',
+      titleIdeaContract: 'The Promise Archive',
+      protagonistEndState: 'She tells the truth publicly.',
+      finalConflict: 'Expose the archive or save her brother.',
+      finalOpponent: 'The city registrar',
+      worldEndState: 'Public memory becomes shared property.',
+      coreCharacterOutcomes: {
+        protagonist: 'Accepts the cost of honesty.',
+        brother: 'Chooses testimony over safety.',
+      },
+      majorPayoffs: ['The missing vow is restored', 'The registrar is unmasked'],
+    };
+    repos.endgamePlans.save(endgamePlan);
+
+    const chapterPlan = {
+      batchIndex: 1,
+      chapterIndex: 3,
+      arcIndex: 1,
+      goal: 'Steal the ledger key.',
+      conflict: 'The vault can read her old promises.',
+      pressureSource: 'Her guilt over her brother.',
+      changeType: 'trust fracture',
+      threadActions: [{ threadId: 'ledger', action: 'advance' }],
+      reveal: 'The key responds to blood vows.',
+      payoffOrCost: 'She burns her last private memory.',
+      endingHook: 'The vault opens to her mother’s voice.',
+      titleIdeaLink: 'Promises have weight.',
+      batchGoal: 'Break into the archive',
+      requiredPayoffs: ['ledger clue'],
+      forbiddenDrift: ['easy win'],
+      status: 'planned',
+    };
+    repos.chapterPlans.upsertMany('book-planning', [chapterPlan]);
+
+    const snapshot = {
+      bookId: 'book-planning',
+      chapterIndex: 3,
+      summary: 'She gets the key but loses a memory.',
+      titleIdeaAlignment: 'strong',
+      flatnessRisk: 'medium',
+      characterChanges: [{ characterId: 'hero', change: 'accepts the cost' }],
+      relationshipChanges: [{ relationshipId: 'hero-brother', change: 'trust drops' }],
+      worldFacts: ['Blood vows can unlock sealed memory vaults.'],
+      threadUpdates: [{ threadId: 'ledger', update: 'advanced to reveal' }],
+      unresolvedPromises: ['Who forged the erased vow?'],
+      stageProgress: 'midpoint complete',
+      remainingChapterBudget: 21,
+    };
+    repos.storyStateSnapshots.save(snapshot);
+
+    expect(repos.titleIdeaContracts.getByBook('book-planning')).toEqual({
+      ...titleIdeaContract,
+      createdAt: expect.any(String),
+      updatedAt: expect.any(String),
+    });
+    expect(repos.endgamePlans.getByBook('book-planning')).toEqual({
+      ...endgamePlan,
+      createdAt: expect.any(String),
+      updatedAt: expect.any(String),
+    });
+    expect(repos.chapterPlans.listByBook('book-planning')).toEqual([chapterPlan]);
+    expect(repos.storyStateSnapshots.getLatestByBook('book-planning')).toEqual({
+      ...snapshot,
+      createdAt: expect.any(String),
+    });
   });
 
   it('deletes legacy narrative tables before removing the book row', () => {
