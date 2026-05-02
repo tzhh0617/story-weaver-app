@@ -11,7 +11,7 @@ import type {
 
 export type OutlineGenerationInput = {
   bookId: string;
-  title?: string;
+  title: string;
   idea: string;
   targetChapters: number;
   wordsPerChapter: number;

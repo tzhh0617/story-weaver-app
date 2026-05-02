@@ -3,11 +3,56 @@ import {
   buildChapterDraftPrompt,
   buildChapterOutlinePrompt,
   buildMasterOutlinePrompt,
+  buildTitlePrompt,
   buildVolumeOutlinePrompt,
   buildWorldPrompt,
 } from '@story-weaver/backend/core/prompt-builder';
 
 describe('buildWorldPrompt', () => {
+  it('builds an attractive title prompt from idea and viral strategy', () => {
+    const prompt = buildTitlePrompt({
+      title: '新作品',
+      idea: 'A moon taxes every miracle.',
+      targetChapters: 500,
+      wordsPerChapter: 2500,
+      viralStrategy: {
+        readerPayoff: '弱者反杀收税者',
+        protagonistDesire: '夺回奇迹定价权',
+        cadenceMode: 'fast',
+        antiClicheDirection: '主角每次胜利都背上新债',
+      },
+    });
+
+    expect(prompt).toContain('Reader payoff: 弱者反杀收税者');
+    expect(prompt).toContain('Protagonist desire: 夺回奇迹定价权');
+    expect(prompt).toContain('Anti-cliche direction: 主角每次胜利都背上新债');
+    expect(prompt).toContain('memorable Chinese web novel title');
+    expect(prompt).toContain('Avoid generic empty phrases');
+  });
+
+  it('includes book title in world and draft prompts', () => {
+    const worldPrompt = buildWorldPrompt({
+      title: '月税奇谈',
+      idea: 'A moon taxes every miracle.',
+      targetChapters: 500,
+      wordsPerChapter: 2500,
+    });
+    const draftPrompt = buildChapterDraftPrompt({
+      title: '月税奇谈',
+      idea: 'A moon taxes every miracle.',
+      worldSetting: 'World setting',
+      masterOutline: 'Master outline',
+      continuityContext: null,
+      chapterTitle: 'Chapter 1',
+      chapterOutline: 'Opening',
+      targetChapters: 500,
+      wordsPerChapter: 2500,
+    });
+
+    expect(worldPrompt).toContain('Book title: 月税奇谈');
+    expect(draftPrompt).toContain('Book title: 月税奇谈');
+  });
+
   it('anchors prompts to target chapters and per-chapter word count', () => {
     const prompt = buildWorldPrompt({
       idea: 'A mountain archive decides who may remember history.',

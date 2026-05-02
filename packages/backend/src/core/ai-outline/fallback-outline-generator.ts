@@ -35,7 +35,12 @@ export async function generateFallbackBundle(
     (
       await ctx.generateText({
         model: ctx.model,
-        prompt: buildWorldPrompt(ctx.input),
+        prompt: buildWorldPrompt({
+          title: ctx.input.title,
+          idea: ctx.input.idea,
+          targetChapters: ctx.input.targetChapters,
+          wordsPerChapter: ctx.input.wordsPerChapter,
+        }),
       })
     ).text
   );
@@ -44,7 +49,12 @@ export async function generateFallbackBundle(
   const masterOutline = (
     await ctx.generateText({
       model: ctx.model,
-      prompt: buildMasterOutlinePrompt(worldSetting, ctx.input),
+      prompt: buildMasterOutlinePrompt(worldSetting, {
+        title: ctx.input.title,
+        idea: ctx.input.idea,
+        targetChapters: ctx.input.targetChapters,
+        wordsPerChapter: ctx.input.wordsPerChapter,
+      }),
     })
   ).text;
   ctx.input.onMasterOutline?.(masterOutline);
