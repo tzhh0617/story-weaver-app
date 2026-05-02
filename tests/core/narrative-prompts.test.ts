@@ -319,6 +319,83 @@ describe('narrative prompts', () => {
     ).toContain('costToPay must connect to this chapter payoff');
   });
 
+  it('injects story arc control into planning, drafting, audit, and revision prompts', () => {
+    const biblePrompt = buildNarrativeBiblePrompt({
+      title: '命簿旧债',
+      idea: '一个修复命簿的人发现自己的家族被命运删除。',
+      targetChapters: 80,
+      wordsPerChapter: 2200,
+    });
+    const volumePrompt = buildVolumePlanPrompt({
+      title: '命簿旧债',
+      targetChapters: 80,
+      bibleSummary: '主线：命簿旧债必须偿还。',
+      viralStoryProtocol: viralProtocol,
+    });
+    const cardPrompt = buildChapterCardPrompt({
+      title: '命簿旧债',
+      bookId: 'book-1',
+      targetChapters: 80,
+      bibleSummary: '主线：命簿旧债必须偿还。',
+      volumePlansText: '第一卷：旧债初鸣，1-20章。',
+      viralStoryProtocol: viralProtocol,
+    });
+    const tensionPrompt = buildTensionBudgetPrompt({
+      title: '命簿旧债',
+      bookId: 'book-1',
+      targetChapters: 80,
+      bibleSummary: '主线：命簿旧债必须偿还。',
+      volumePlansText: '第一卷：旧债初鸣，1-20章。',
+      chapterCardsText: 'Chapter 1: 旧债入场。',
+      viralStoryProtocol: viralProtocol,
+    });
+    const draftPrompt = buildNarrativeDraftPrompt({
+      title: '命簿旧债',
+      idea: '旧案复仇',
+      wordsPerChapter: 2500,
+      commandContext: 'Chapter Mission: 林牧必须发现旧债代价。',
+      viralStoryProtocol: viralProtocol,
+      chapterIndex: 2,
+    });
+    const auditPrompt = buildChapterAuditPrompt({
+      draft: '林牧发现旧债，却没有选择或后果。',
+      auditContext: 'Chapter Mission: 旧债入局。',
+      viralStoryProtocol: viralProtocol,
+      chapterIndex: 2,
+    });
+    const revisionPrompt = buildRevisionPrompt({
+      originalPrompt: draftPrompt,
+      draft: '林牧发现旧债，却没有选择或后果。',
+      issues: [
+        {
+          type: 'pacing_problem',
+          severity: 'major',
+          evidence: '章节离开旧债主线。',
+          fixInstruction: '让旧债造成具体选择和代价。',
+        },
+      ],
+    });
+
+    for (const prompt of [
+      biblePrompt,
+      volumePrompt,
+      cardPrompt,
+      tensionPrompt,
+      draftPrompt,
+      auditPrompt,
+      revisionPrompt,
+    ]) {
+      expect(prompt).toContain('Story Arc Control Protocol');
+      expect(prompt).toContain('Title Promise Control');
+      expect(prompt).toContain('Mainline Control');
+      expect(prompt).toContain('Ending Control');
+    }
+    expect(auditPrompt).toContain('weak_title_promise');
+    expect(auditPrompt).toContain('mainline_drift');
+    expect(auditPrompt).toContain('loose_ending');
+    expect(auditPrompt).toContain('unearned_hook');
+  });
+
   it('injects viral protocol into draft and audit prompts', () => {
     const draftPrompt = buildNarrativeDraftPrompt({
       idea: '旧案复仇',
