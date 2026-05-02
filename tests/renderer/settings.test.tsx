@@ -28,7 +28,7 @@ describe('Settings', () => {
   });
 
   it('only offers openai and anthropic model providers', () => {
-    render(
+    const { container } = render(
       <Settings
         onSaveModel={vi.fn()}
         onTestModel={vi.fn()}
@@ -46,6 +46,11 @@ describe('Settings', () => {
       'name',
       'model-provider'
     );
+    expect(
+      Array.from(container.querySelectorAll('select')).every(
+        (select) => select.id || select.name
+      )
+    ).toBe(true);
     expect(providerOptions).toEqual(['openai', 'anthropic']);
   });
 

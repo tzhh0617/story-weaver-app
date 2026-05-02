@@ -49,8 +49,9 @@ const electronPackageSmokeSource = fs.existsSync(
   : '';
 
 describe('desktop runtime config', () => {
-  it('builds renderer assets with a relative base for file:// loading', () => {
-    expect(viteConfigSource).toContain("base: './'");
+  it('builds renderer assets with root-relative URLs for server-backed SPA routes', () => {
+    expect(viteConfigSource).toContain("base: '/'");
+    expect(viteConfigSource).not.toContain("base: './'");
   });
 
   it('passes the Vite dev server URL into Electron during development', () => {

@@ -175,6 +175,7 @@ export default function ModelForm({
             ))}
           </select>
           <Select
+            name="model-provider"
             value={provider}
             onValueChange={(nextProvider) =>
               setProvider(getSupportedProvider(nextProvider))
