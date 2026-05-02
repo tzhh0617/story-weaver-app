@@ -1,0 +1,29 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "tasks": {
+    "dev:renderer": {
+      "cache": false,
+      "persistent": true
+    },
+    "dev:electron": {
+      "cache": false,
+      "persistent": true
+    },
+    "build": {
+      "dependsOn": ["build:renderer", "build:electron"],
+      "outputs": ["dist/**", "dist-electron/**"]
+    },
+    "build:renderer": {
+      "outputs": ["dist/**"]
+    },
+    "build:electron": {
+      "outputs": ["dist-electron/**"]
+    },
+    "typecheck": {
+      "outputs": []
+    },
+    "test": {
+      "outputs": []
+    }
+  }
+}

@@ -52,6 +52,16 @@ describe('desktop runtime config', () => {
     );
   });
 
+  it('starts development through turbo without using the background daemon', () => {
+    expect(packageJson.scripts?.dev).toBe(
+      'turbo run dev:renderer dev:electron --no-daemon'
+    );
+  });
+
+  it('does not use concurrently for development startup', () => {
+    expect(packageJson.scripts?.dev).not.toContain('concurrently');
+  });
+
   it('builds the Electron preload before launching the dev shell', () => {
     expect(packageJson.scripts?.['dev:electron']).toContain(
       'pnpm run build:electron'

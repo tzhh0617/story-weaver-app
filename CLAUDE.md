@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-# Development (starts renderer + electron concurrently)
+# Development (starts renderer + electron through turbo, without daemon/background mode)
 pnpm run dev
 
 # Type checking (both renderer and electron tsconfigs)
