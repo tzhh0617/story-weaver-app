@@ -1800,6 +1800,87 @@ describe('App shell', () => {
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
+  it('exports a directly opened book detail route as txt', async () => {
+    const books = [
+      {
+        id: 'book-1',
+        title: 'Existing Book',
+        idea: 'An old archive wakes up.',
+        status: 'completed',
+        modelId: 'openai:gpt-4o-mini',
+        targetChapters: 500,
+        wordsPerChapter: 2500,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    ];
+    const detail = {
+      book: books[0],
+      context: null,
+      latestScene: null,
+      characterStates: [],
+      plotThreads: [],
+      chapters: [
+        {
+          bookId: 'book-1',
+          volumeIndex: 1,
+          chapterIndex: 1,
+          title: 'Chapter 1',
+          outline: 'Opening conflict',
+          content: 'Generated chapter content',
+          summary: 'Chapter summary',
+          wordCount: 1200,
+        },
+      ],
+      progress: {
+        bookId: 'book-1',
+        currentVolume: 1,
+        currentChapter: 1,
+        phase: 'completed',
+        retryCount: 0,
+        errorMsg: null,
+      },
+    };
+
+    const { request } = installApiMock(async (routeKey) => {
+      switch (routeKey) {
+        case 'GET /api/books':
+          return copy(books);
+        case 'GET /api/models':
+          return [];
+        case 'GET /api/books/:bookId':
+          return copy(detail);
+        case 'POST /api/books/:bookId/exports':
+          return '/tmp/story-weaver/exports/Existing Book.txt';
+        default:
+          return null;
+      }
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/books/book-1']}>
+        <App />
+      </MemoryRouter>
+    );
+
+    expect(
+      await screen.findByRole('heading', { name: /^Existing Book（/ })
+    ).toBeInTheDocument();
+
+    fireEvent.click(await screen.findByText('导出 TXT'));
+
+    await waitFor(() => {
+      expect(request).toHaveBeenCalledWith('POST /api/books/:bookId/exports', {
+        bookId: 'book-1',
+        format: 'txt',
+      });
+    });
+
+    await expectToast(
+      '导出完成：/tmp/story-weaver/exports/Existing Book.txt（下载：/api/exports/export-1）'
+    );
+  });
+
   it('deletes the selected writing book from book detail', async () => {
     const books = [
       {
@@ -3116,6 +3197,87 @@ describe('App shell', () => {
           element.textContent === '流式第一段\n流式第二段'
       )
     ).toBeInTheDocument();
+  });
+
+  it('shows live generation output for a directly opened book detail route', async () => {
+    const books = [
+      {
+        id: 'book-1',
+        title: 'Stream Book',
+        idea: 'A city hears unfinished stories.',
+        status: 'writing',
+        targetChapters: 2,
+        wordsPerChapter: 1200,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    ];
+    const detail = {
+      book: books[0],
+      context: null,
+      latestScene: null,
+      characterStates: [],
+      plotThreads: [],
+      chapters: [
+        {
+          bookId: 'book-1',
+          volumeIndex: 1,
+          chapterIndex: 1,
+          title: 'Chapter 1',
+          outline: 'Opening',
+          content: '已完成正文',
+          summary: null,
+          wordCount: 1200,
+        },
+        {
+          bookId: 'book-1',
+          volumeIndex: 1,
+          chapterIndex: 2,
+          title: 'Chapter 2',
+          outline: 'Second',
+          content: null,
+          summary: null,
+          wordCount: 0,
+        },
+      ],
+      progress: {
+        phase: 'writing',
+      },
+    };
+    const api = installApiMock(async (routeKey, payload) => {
+      switch (routeKey) {
+        case 'GET /api/books':
+          return copy(books);
+        case 'GET /api/models':
+          return [];
+        case 'GET /api/books/:bookId': {
+          const { bookId } = payload as { bookId: string };
+          return bookId === 'book-1' ? copy(detail) : null;
+        }
+        default:
+          return null;
+      }
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/books/book-1']}>
+        <App />
+      </MemoryRouter>
+    );
+    expect(
+      await screen.findByRole('heading', { name: /^Stream Book（/ })
+    ).toBeInTheDocument();
+
+    api.emitBookGeneration({
+      bookId: 'book-1',
+      type: 'chapter-stream',
+      volumeIndex: 1,
+      chapterIndex: 2,
+      title: 'Chapter 2',
+      delta: '直达流式正文',
+    });
+
+    expect(await screen.findByText('直达流式正文')).toBeInTheDocument();
   });
 
   it('keeps the generation event subscription stable while stream chunks render', async () => {

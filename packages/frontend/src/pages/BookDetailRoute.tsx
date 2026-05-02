@@ -26,10 +26,11 @@ export default function BookDetailRoute({ showToast }: { showToast: ToastFn }) {
     clearSelectedBook,
   } = useBookContext();
   const { progress, executionLogs } = useSchedulerContext();
+  const activeBookId = bookId ?? selectedBookId;
 
   const liveOutput = useBookGenerationEvents({
     api,
-    selectedBookId,
+    selectedBookId: activeBookId ?? null,
     selectedBookIdRef,
     setSelectedBookDetail,
     loadBookDetail: loadBookDetailRecord,
@@ -44,13 +45,13 @@ export default function BookDetailRoute({ showToast }: { showToast: ToastFn }) {
     void (async () => {
       await loadBooks();
 
-      if (selectedBookId) {
-        await loadBookDetailRecord(selectedBookId, {
+      if (activeBookId) {
+        await loadBookDetailRecord(activeBookId, {
           preserveExistingOnMissing: true,
         });
       }
     })();
-  }, [progress, selectedBookId, loadBooks, loadBookDetailRecord]);
+  }, [progress, activeBookId, loadBooks, loadBookDetailRecord]);
 
   // Clear selected book if it disappears from the list
   useEffect(() => {
@@ -80,7 +81,7 @@ export default function BookDetailRoute({ showToast }: { showToast: ToastFn }) {
     successMessage?: string | null;
     clearSelection?: boolean;
   }) {
-    if (!selectedBookId) {
+    if (!activeBookId) {
       return;
     }
 
@@ -88,7 +89,7 @@ export default function BookDetailRoute({ showToast }: { showToast: ToastFn }) {
       showToast('info', startMessage);
     }
 
-    const result = await call(async () => { await run(selectedBookId); return true as const; });
+    const result = await call(async () => { await run(activeBookId); return true as const; });
     if (result === undefined) return;
 
     if (clearSelection) {
@@ -98,7 +99,7 @@ export default function BookDetailRoute({ showToast }: { showToast: ToastFn }) {
     await loadBooks();
 
     if (!clearSelection) {
-      await loadBookDetailRecord(selectedBookId, {
+      await loadBookDetailRecord(activeBookId, {
         preserveExistingOnMissing: true,
       });
     }
@@ -133,9 +134,9 @@ export default function BookDetailRoute({ showToast }: { showToast: ToastFn }) {
     return null;
   }
 
-  const isActive = selectedBookId
-    ? progress.runningBookIds.includes(selectedBookId) ||
-      progress.queuedBookIds.includes(selectedBookId)
+  const isActive = activeBookId
+    ? progress.runningBookIds.includes(activeBookId) ||
+      progress.queuedBookIds.includes(activeBookId)
     : false;
 
   return (
@@ -206,12 +207,12 @@ export default function BookDetailRoute({ showToast }: { showToast: ToastFn }) {
         });
       }}
       onExport={async (format: BookExportFormat) => {
-        if (!selectedBookId) {
+        if (!activeBookId) {
           return;
         }
 
         showToast('info', `正在导出 ${format.toUpperCase()}...`);
-        const filePath = await call(() => api.exportBook(selectedBookId, format));
+        const filePath = await call(() => api.exportBook(activeBookId, format));
         if (filePath !== undefined) {
           showToast('success', `导出完成：${filePath}`);
         }
