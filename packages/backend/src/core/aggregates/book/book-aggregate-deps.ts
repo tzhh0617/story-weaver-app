@@ -11,6 +11,7 @@ export type BookAggregateDeps = {
     create: (input: {
       id: string;
       title: string;
+      titleGenerationStatus: BookRecord['titleGenerationStatus'];
       idea: string;
       targetChapters: number;
       wordsPerChapter: number;

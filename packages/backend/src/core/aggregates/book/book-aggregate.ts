@@ -10,6 +10,7 @@ export type { BookAggregateDeps } from './book-aggregate-deps.js';
 export function createBookAggregate(deps: BookAggregateDeps) {
   return {
     createBook(input: {
+      title?: string;
       idea: string;
       targetChapters: number;
       wordsPerChapter: number;
@@ -25,10 +26,13 @@ export function createBookAggregate(deps: BookAggregateDeps) {
       );
 
       const id = randomUUID();
+      const title = input.title?.trim();
+      const hasManualTitle = Boolean(title);
 
       deps.books.create({
         id,
-        title: INITIAL_BOOK_TITLE,
+        title: hasManualTitle ? title! : INITIAL_BOOK_TITLE,
+        titleGenerationStatus: hasManualTitle ? 'manual' : 'pending',
         idea: input.idea,
         targetChapters: input.targetChapters,
         wordsPerChapter: input.wordsPerChapter,

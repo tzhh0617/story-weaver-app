@@ -65,6 +65,54 @@ describe('createBookAggregate', () => {
       });
     });
 
+    it('persists a manual title and marks title generation as manual', () => {
+      const { aggregate } = createTestAggregate({});
+
+      const bookId = aggregate.createBook({
+        title: '月税奇谈',
+        idea: 'A moon taxes every miracle.',
+        targetChapters: 500,
+        wordsPerChapter: 2500,
+      });
+
+      expect(aggregate.listBooks()[0]).toMatchObject({
+        id: bookId,
+        title: '月税奇谈',
+        titleGenerationStatus: 'manual',
+      });
+    });
+
+    it('marks title generation as pending when no title is provided', () => {
+      const { aggregate } = createTestAggregate({});
+
+      aggregate.createBook({
+        idea: 'A moon taxes every miracle.',
+        targetChapters: 500,
+        wordsPerChapter: 2500,
+      });
+
+      expect(aggregate.listBooks()[0]).toMatchObject({
+        title: '新作品',
+        titleGenerationStatus: 'pending',
+      });
+    });
+
+    it('treats a blank title as missing', () => {
+      const { aggregate } = createTestAggregate({});
+
+      aggregate.createBook({
+        title: '   ',
+        idea: 'A moon taxes every miracle.',
+        targetChapters: 500,
+        wordsPerChapter: 2500,
+      });
+
+      expect(aggregate.listBooks()[0]).toMatchObject({
+        title: '新作品',
+        titleGenerationStatus: 'pending',
+      });
+    });
+
     it('rejects zero target chapters', () => {
       const { aggregate } = createTestAggregate({});
 
