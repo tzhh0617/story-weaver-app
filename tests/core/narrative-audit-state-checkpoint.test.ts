@@ -230,6 +230,106 @@ describe('narrative audit helpers', () => {
     ).toBe('rewrite');
   });
 
+  it('keeps viral rewrite precedence over story arc revise issues', () => {
+    expect(
+      decideAuditAction({
+        passed: false,
+        score: 62,
+        decision: 'revise',
+        issues: [
+          {
+            type: 'weak_reader_promise',
+            severity: 'major',
+            evidence: '本章没有服务压抑后翻盘。',
+            fixInstruction: '重建章节目标。',
+          },
+          {
+            type: 'unclear_desire',
+            severity: 'major',
+            evidence: '主角没有主动目标。',
+            fixInstruction: '重建主角行动线。',
+          },
+          {
+            type: 'loose_ending',
+            severity: 'major',
+            evidence: '章末只是停住。',
+            fixInstruction: '用本章代价制造下一步压力。',
+          },
+        ],
+        scoring: {
+          characterLogic: 70,
+          mainlineProgress: 70,
+          relationshipChange: 70,
+          conflictDepth: 70,
+          worldRuleCost: 70,
+          threadManagement: 70,
+          pacingReward: 70,
+          themeAlignment: 70,
+          viral: {
+            openingHook: 70,
+            desireClarity: 40,
+            payoffStrength: 65,
+            readerQuestionStrength: 70,
+            tropeFulfillment: 70,
+            antiClicheFreshness: 70,
+          },
+        },
+        stateUpdates: {
+          characterArcUpdates: [],
+          relationshipUpdates: [],
+          threadUpdates: [],
+          worldKnowledgeUpdates: [],
+          themeUpdate: '',
+        },
+      })
+    ).toBe('rewrite');
+  });
+
+  it('keeps flatness rewrite precedence over opening title-promise revise issues', () => {
+    expect(
+      decideAuditAction(
+        {
+          passed: true,
+          score: 88,
+          decision: 'accept',
+          issues: [
+            {
+              type: 'weak_title_promise',
+              severity: 'minor',
+              evidence: '第一章没有体现命簿旧债。',
+              fixInstruction: '让异常入场直接触碰标题承诺。',
+            },
+          ],
+          scoring: {
+            characterLogic: 18,
+            mainlineProgress: 13,
+            relationshipChange: 13,
+            conflictDepth: 14,
+            worldRuleCost: 9,
+            threadManagement: 8,
+            pacingReward: 9,
+            themeAlignment: 4,
+            flatness: {
+              conflictEscalation: 50,
+              choicePressure: 55,
+              consequenceVisibility: 50,
+              irreversibleChange: 55,
+              hookStrength: 50,
+            },
+          },
+          stateUpdates: {
+            characterArcUpdates: [],
+            relationshipUpdates: [],
+            threadUpdates: [],
+            worldKnowledgeUpdates: [],
+            themeUpdate: '',
+          },
+        },
+        { chapterIndex: 1 }
+      )
+    ).toBe('rewrite');
+  });
+
   it('revises strict opening chapters with weak viral opening hook', () => {
     expect(
       decideAuditAction(

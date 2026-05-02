@@ -29,25 +29,6 @@ export function decideAuditAction(
     if (driftIssue?.severity === 'blocker') return 'rewrite';
   }
 
-  if (
-    audit.issues.some(
-      (issue) =>
-        issue.severity === 'major' &&
-        (issue.type === 'mainline_drift' ||
-          issue.type === 'loose_ending' ||
-          issue.type === 'unearned_hook')
-    )
-  ) {
-    return 'revise';
-  }
-
-  if (
-    isOpeningControlChapter(context.chapterIndex) &&
-    (hasIssue(audit, 'weak_title_promise') || hasIssue(audit, 'mainline_drift'))
-  ) {
-    return 'revise';
-  }
-
   const viral = audit.scoring.viral;
   if (viral) {
     if (
@@ -116,6 +97,25 @@ export function decideAuditAction(
     ) {
       return 'revise';
     }
+  }
+
+  if (
+    audit.issues.some(
+      (issue) =>
+        issue.severity === 'major' &&
+        (issue.type === 'mainline_drift' ||
+          issue.type === 'loose_ending' ||
+          issue.type === 'unearned_hook')
+    )
+  ) {
+    return 'revise';
+  }
+
+  if (
+    isOpeningControlChapter(context.chapterIndex) &&
+    (hasIssue(audit, 'weak_title_promise') || hasIssue(audit, 'mainline_drift'))
+  ) {
+    return 'revise';
   }
 
   if (!audit.passed || audit.score < 80) {
