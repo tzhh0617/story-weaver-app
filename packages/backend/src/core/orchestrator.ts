@@ -147,8 +147,13 @@ export function createBookOrchestrator(deps: BookOrchestratorDeps) {
         throw new Error(`Book not found: ${bookId}`);
       }
 
-      deps.books.updateStatus(bookId, 'writing');
-      deps.progress.updatePhase(bookId, 'writing');
+      const hasPlannedChapters = deps.chapters.listByBook(bookId).length > 0;
+      if (!hasPlannedChapters) {
+        await this.startBook(bookId);
+      } else {
+        deps.books.updateStatus(bookId, 'writing');
+        deps.progress.updatePhase(bookId, 'writing');
+      }
 
       return this.writeRemainingChapters(bookId);
     },

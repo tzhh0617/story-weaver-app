@@ -191,9 +191,10 @@ export default function BookDetail({
     (chapter) => chapter.status === 'done'
   ).length;
   const totalChapters = renderedChapters.length;
-  const hasRemainingChapters = renderedChapters.some(
-    (chapter) => chapter.status !== 'done'
-  );
+  const hasRemainingChapters =
+    renderedChapters.length === 0
+      ? currentPhase !== 'completed'
+      : renderedChapters.some((chapter) => chapter.status !== 'done');
   const hasGeneratedContent = Boolean(
     chapters?.some((chapter) => chapter.content && chapter.content.trim().length > 0)
   );

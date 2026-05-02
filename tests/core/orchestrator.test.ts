@@ -289,6 +289,49 @@ describe('createBookOrchestrator', () => {
     });
   });
 
+  it('resumes a paused book that has not planned chapters yet', async () => {
+    const outlineService = {
+      generateFromIdea: vi.fn().mockResolvedValue({
+        worldSetting: 'World rules',
+        masterOutline: 'Master outline',
+        volumeOutlines: ['Volume 1'],
+        chapterOutlines: [
+          {
+            volumeIndex: 1,
+            chapterIndex: 1,
+            title: 'Chapter 1',
+            outline: 'Opening conflict',
+          },
+        ],
+      }),
+    };
+    const writeChapter = vi.fn().mockResolvedValue({
+      content: 'Generated after resume',
+      usage: { inputTokens: 90, outputTokens: 280 },
+    });
+    const orchestrator = createOrchestrator(
+      createMinimalDeps({ outlineService, chapterWriter: { writeChapter } })
+    );
+    const bookId = orchestrator.createBook({
+      idea: 'The moon taxes miracles.',
+      targetChapters: 1,
+      wordsPerChapter: 2500,
+    });
+
+    orchestrator.pauseBook(bookId);
+    await orchestrator.resumeBook(bookId);
+    const detail = orchestrator.getBookDetail(bookId);
+
+    expect(outlineService.generateFromIdea).toHaveBeenCalledTimes(1);
+    expect(writeChapter).toHaveBeenCalledTimes(1);
+    expect(detail?.book.status).toBe('completed');
+    expect(detail?.chapters).toHaveLength(1);
+    expect(detail?.chapters[0]).toMatchObject({
+      content: 'Generated after resume',
+      summary: 'Chapter summary',
+    });
+  });
+
   it('throws when resuming a non-existent book', async () => {
     const orchestrator = createOrchestrator(createMinimalDeps());
     await expect(orchestrator.resumeBook('non-existent')).rejects.toThrow(

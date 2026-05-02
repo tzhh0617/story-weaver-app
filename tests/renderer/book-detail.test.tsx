@@ -806,6 +806,25 @@ describe('BookDetail', () => {
     expect(screen.getByRole('button', { name: '导出 TXT' })).toBeEnabled();
   });
 
+  it('allows an early paused book to resume before chapters are planned', () => {
+    const onResume = vi.fn();
+
+    render(
+      <BookDetail
+        book={{ title: 'Book 1', status: 'paused', wordCount: 0 }}
+        progress={{ phase: 'paused' }}
+        chapters={[]}
+        onResume={onResume}
+      />
+    );
+
+    const resumeButton = screen.getByRole('button', { name: '恢复写作' });
+
+    expect(resumeButton).toBeEnabled();
+    fireEvent.click(resumeButton);
+    expect(onResume).toHaveBeenCalledTimes(1);
+  });
+
   it('omits duplicate writing and markdown export actions from the topbar', () => {
     render(
       <BookDetail

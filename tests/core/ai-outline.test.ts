@@ -576,11 +576,11 @@ describe('createAiOutlineService', () => {
       result.narrativeBible?.viralStoryProtocol?.payoffCadence
         .minorPayoffEveryChapters
     ).toBeGreaterThan(0);
-    expect(result.volumePlans[0]).toMatchObject({
+    expect(result.volumePlans?.[0]).toMatchObject({
       promisedPayoff: 'visible：确认怀表不会被改写。；cost：主角必须丢失一段安全记忆。',
       characterArcMovement: '主角开始接受代价。',
     });
-    expect(result.chapterCards[0]?.readerReward).toBe('truth');
+    expect(result.chapterCards?.[0]?.readerReward).toBe('truth');
   });
 
   it('filters malformed chapter action rows before returning generated outlines', async () => {
