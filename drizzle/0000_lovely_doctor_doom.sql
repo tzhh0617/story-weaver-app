@@ -28,25 +28,25 @@ CREATE TABLE `world_settings` (
 	FOREIGN KEY (`book_id`) REFERENCES `books`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE TABLE `chapter_cards` (
+CREATE TABLE `chapter_plans` (
 	`book_id` text NOT NULL,
-	`volume_index` integer NOT NULL,
+	`batch_index` integer NOT NULL,
 	`chapter_index` integer NOT NULL,
-	`title` text NOT NULL,
-	`plot_function` text NOT NULL,
-	`pov_character_id` text,
-	`external_conflict` text NOT NULL,
-	`internal_conflict` text NOT NULL,
-	`relationship_change` text NOT NULL,
-	`world_rule_used_or_tested` text NOT NULL,
-	`information_reveal` text NOT NULL,
-	`reader_reward` text NOT NULL,
+	`arc_index` integer NOT NULL,
+	`goal` text NOT NULL,
+	`conflict` text NOT NULL,
+	`pressure_source` text NOT NULL,
+	`change_type` text NOT NULL,
+	`thread_actions_json` text NOT NULL,
+	`reveal` text NOT NULL,
+	`payoff_or_cost` text NOT NULL,
 	`ending_hook` text NOT NULL,
-	`must_change` text NOT NULL,
-	`forbidden_moves_json` text DEFAULT '[]' NOT NULL,
+	`title_idea_link` text NOT NULL,
+	`batch_goal` text NOT NULL,
+	`required_payoffs_json` text NOT NULL,
+	`forbidden_drift_json` text NOT NULL,
 	`status` text DEFAULT 'planned' NOT NULL,
-	`revision` integer DEFAULT 0 NOT NULL,
-	PRIMARY KEY(`book_id`, `volume_index`, `chapter_index`),
+	PRIMARY KEY(`book_id`, `chapter_index`),
 	FOREIGN KEY (`book_id`) REFERENCES `books`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
@@ -198,6 +198,43 @@ CREATE TABLE `narrative_checkpoints` (
 	FOREIGN KEY (`book_id`) REFERENCES `books`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
+CREATE TABLE `arc_plans` (
+	`book_id` text NOT NULL,
+	`arc_index` integer NOT NULL,
+	`stage_index` integer NOT NULL,
+	`chapter_start` integer NOT NULL,
+	`chapter_end` integer NOT NULL,
+	`chapter_budget` integer NOT NULL,
+	`primary_threads_json` text NOT NULL,
+	`character_turns_json` text NOT NULL,
+	`thread_actions_json` text NOT NULL,
+	`target_outcome` text NOT NULL,
+	`escalation_mode` text NOT NULL,
+	`turning_point` text NOT NULL,
+	`required_payoff` text NOT NULL,
+	`resulting_instability` text NOT NULL,
+	`title_idea_focus` text NOT NULL,
+	`min_chapter_count` integer NOT NULL,
+	`max_chapter_count` integer NOT NULL,
+	`status` text DEFAULT 'planned' NOT NULL,
+	PRIMARY KEY(`book_id`, `arc_index`),
+	FOREIGN KEY (`book_id`) REFERENCES `books`(`id`) ON UPDATE no action ON DELETE no action
+);
+--> statement-breakpoint
+CREATE TABLE `endgame_plans` (
+	`book_id` text PRIMARY KEY NOT NULL,
+	`title_idea_contract` text NOT NULL,
+	`protagonist_end_state` text NOT NULL,
+	`final_conflict` text NOT NULL,
+	`final_opponent` text NOT NULL,
+	`world_end_state` text NOT NULL,
+	`core_character_outcomes_json` text NOT NULL,
+	`major_payoffs_json` text NOT NULL,
+	`created_at` text NOT NULL,
+	`updated_at` text NOT NULL,
+	FOREIGN KEY (`book_id`) REFERENCES `books`(`id`) ON UPDATE no action ON DELETE no action
+);
+--> statement-breakpoint
 CREATE TABLE `narrative_threads` (
 	`id` text PRIMARY KEY NOT NULL,
 	`book_id` text NOT NULL,
@@ -272,36 +309,54 @@ CREATE TABLE `scene_records` (
 	FOREIGN KEY (`book_id`) REFERENCES `books`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE TABLE `story_bibles` (
-	`book_id` text PRIMARY KEY NOT NULL,
-	`premise` text NOT NULL,
-	`genre_contract` text NOT NULL,
-	`target_reader_experience` text NOT NULL,
-	`theme_question` text NOT NULL,
-	`theme_answer_direction` text NOT NULL,
-	`central_dramatic_question` text NOT NULL,
-	`ending_state_json` text NOT NULL,
-	`voice_guide` text NOT NULL,
-	`viral_protocol_json` text,
-	`created_at` text NOT NULL,
-	`updated_at` text NOT NULL,
+CREATE TABLE `stage_plans` (
+	`book_id` text NOT NULL,
+	`stage_index` integer NOT NULL,
+	`chapter_start` integer NOT NULL,
+	`chapter_end` integer NOT NULL,
+	`chapter_budget` integer NOT NULL,
+	`objective` text NOT NULL,
+	`primary_resistance` text NOT NULL,
+	`pressure_curve` text NOT NULL,
+	`escalation` text NOT NULL,
+	`climax` text NOT NULL,
+	`payoff` text NOT NULL,
+	`irreversible_change` text NOT NULL,
+	`next_question` text NOT NULL,
+	`title_idea_focus` text NOT NULL,
+	`compression_trigger` text NOT NULL,
+	`status` text DEFAULT 'planned' NOT NULL,
+	PRIMARY KEY(`book_id`, `stage_index`),
 	FOREIGN KEY (`book_id`) REFERENCES `books`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE TABLE `volume_plans` (
+CREATE TABLE `story_state_snapshots` (
 	`book_id` text NOT NULL,
-	`volume_index` integer NOT NULL,
+	`chapter_index` integer NOT NULL,
+	`summary` text NOT NULL,
+	`title_idea_alignment` text NOT NULL,
+	`flatness_risk` text NOT NULL,
+	`character_changes_json` text NOT NULL,
+	`relationship_changes_json` text NOT NULL,
+	`world_facts_json` text NOT NULL,
+	`thread_updates_json` text NOT NULL,
+	`unresolved_promises_json` text NOT NULL,
+	`stage_progress` text NOT NULL,
+	`remaining_chapter_budget` integer NOT NULL,
+	`created_at` text NOT NULL,
+	PRIMARY KEY(`book_id`, `chapter_index`),
+	FOREIGN KEY (`book_id`) REFERENCES `books`(`id`) ON UPDATE no action ON DELETE no action
+);
+--> statement-breakpoint
+CREATE TABLE `title_idea_contracts` (
+	`book_id` text PRIMARY KEY NOT NULL,
 	`title` text NOT NULL,
-	`chapter_start` integer NOT NULL,
-	`chapter_end` integer NOT NULL,
-	`role_in_story` text NOT NULL,
-	`main_pressure` text NOT NULL,
-	`promised_payoff` text NOT NULL,
-	`character_arc_movement` text NOT NULL,
-	`relationship_movement` text NOT NULL,
-	`world_expansion` text NOT NULL,
-	`ending_turn` text NOT NULL,
-	PRIMARY KEY(`book_id`, `volume_index`),
+	`idea` text NOT NULL,
+	`core_promise` text NOT NULL,
+	`title_hooks_json` text DEFAULT '[]' NOT NULL,
+	`forbidden_drift_json` text DEFAULT '[]' NOT NULL,
+	`created_at` text NOT NULL,
+	`updated_at` text NOT NULL,
 	FOREIGN KEY (`book_id`) REFERENCES `books`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint

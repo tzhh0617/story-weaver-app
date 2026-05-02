@@ -1,20 +1,16 @@
 import type { Database as SqliteDatabase } from 'better-sqlite3';
 
 const bookScopedPlanningTables = [
+  'story_state_snapshots',
+  'chapter_plans',
+  'arc_plans',
+  'stage_plans',
+  'endgame_plans',
+  'title_idea_contracts',
   'narrative_checkpoints',
   'chapter_generation_audits',
-  'chapter_relationship_actions',
-  'chapter_tension_budgets',
-  'chapter_character_pressures',
-  'chapter_thread_actions',
-  'chapter_cards',
-  'volume_plans',
   'relationship_states',
-  'relationship_edges',
-  'narrative_threads',
-  'world_rules',
-  'character_arcs',
-  'story_bibles',
+  'chapter_tension_budgets',
 ] as const;
 
 export function deleteBookPlanningData(

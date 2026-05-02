@@ -8,22 +8,62 @@ import {
 } from 'drizzle-orm/sqlite-core';
 import { books } from './books.js';
 
-export const storyBibles = sqliteTable('story_bibles', {
+export const titleIdeaContracts = sqliteTable('title_idea_contracts', {
   bookId: text('book_id')
     .primaryKey()
     .references(() => books.id),
-  premise: text('premise').notNull(),
-  genreContract: text('genre_contract').notNull(),
-  targetReaderExperience: text('target_reader_experience').notNull(),
-  themeQuestion: text('theme_question').notNull(),
-  themeAnswerDirection: text('theme_answer_direction').notNull(),
-  centralDramaticQuestion: text('central_dramatic_question').notNull(),
-  endingStateJson: text('ending_state_json').notNull(),
-  voiceGuide: text('voice_guide').notNull(),
-  viralProtocolJson: text('viral_protocol_json'),
+  title: text('title').notNull(),
+  idea: text('idea').notNull(),
+  corePromise: text('core_promise').notNull(),
+  titleHooksJson: text('title_hooks_json').notNull().default('[]'),
+  forbiddenDriftJson: text('forbidden_drift_json').notNull().default('[]'),
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
 });
+
+export const endgamePlans = sqliteTable('endgame_plans', {
+  bookId: text('book_id')
+    .primaryKey()
+    .references(() => books.id),
+  titleIdeaContract: text('title_idea_contract').notNull(),
+  protagonistEndState: text('protagonist_end_state').notNull(),
+  finalConflict: text('final_conflict').notNull(),
+  finalOpponent: text('final_opponent').notNull(),
+  worldEndState: text('world_end_state').notNull(),
+  coreCharacterOutcomesJson: text('core_character_outcomes_json').notNull(),
+  majorPayoffsJson: text('major_payoffs_json').notNull(),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+});
+
+export const stagePlans = sqliteTable(
+  'stage_plans',
+  {
+    bookId: text('book_id')
+      .notNull()
+      .references(() => books.id),
+    stageIndex: integer('stage_index').notNull(),
+    chapterStart: integer('chapter_start').notNull(),
+    chapterEnd: integer('chapter_end').notNull(),
+    chapterBudget: integer('chapter_budget').notNull(),
+    objective: text('objective').notNull(),
+    primaryResistance: text('primary_resistance').notNull(),
+    pressureCurve: text('pressure_curve').notNull(),
+    escalation: text('escalation').notNull(),
+    climax: text('climax').notNull(),
+    payoff: text('payoff').notNull(),
+    irreversibleChange: text('irreversible_change').notNull(),
+    nextQuestion: text('next_question').notNull(),
+    titleIdeaFocus: text('title_idea_focus').notNull(),
+    compressionTrigger: text('compression_trigger').notNull(),
+    status: text('status').notNull().default('planned'),
+  },
+  (table) => ({
+    pk: primaryKey({
+      columns: [table.bookId, table.stageIndex],
+    }),
+  })
+);
 
 export const characterArcs = sqliteTable('character_arcs', {
   id: text('id').primaryKey(),
@@ -151,60 +191,97 @@ export const narrativeThreads = sqliteTable('narrative_threads', {
   notes: text('notes'),
 });
 
-export const volumePlans = sqliteTable(
-  'volume_plans',
+export const arcPlans = sqliteTable(
+  'arc_plans',
   {
     bookId: text('book_id')
       .notNull()
       .references(() => books.id),
-    volumeIndex: integer('volume_index').notNull(),
-    title: text('title').notNull(),
+    arcIndex: integer('arc_index').notNull(),
+    stageIndex: integer('stage_index').notNull(),
     chapterStart: integer('chapter_start').notNull(),
     chapterEnd: integer('chapter_end').notNull(),
-    roleInStory: text('role_in_story').notNull(),
-    mainPressure: text('main_pressure').notNull(),
-    promisedPayoff: text('promised_payoff').notNull(),
-    characterArcMovement: text('character_arc_movement').notNull(),
-    relationshipMovement: text('relationship_movement').notNull(),
-    worldExpansion: text('world_expansion').notNull(),
-    endingTurn: text('ending_turn').notNull(),
+    chapterBudget: integer('chapter_budget').notNull(),
+    primaryThreadsJson: text('primary_threads_json').notNull(),
+    characterTurnsJson: text('character_turns_json').notNull(),
+    threadActionsJson: text('thread_actions_json').notNull(),
+    targetOutcome: text('target_outcome').notNull(),
+    escalationMode: text('escalation_mode').notNull(),
+    turningPoint: text('turning_point').notNull(),
+    requiredPayoff: text('required_payoff').notNull(),
+    resultingInstability: text('resulting_instability').notNull(),
+    titleIdeaFocus: text('title_idea_focus').notNull(),
+    minChapterCount: integer('min_chapter_count').notNull(),
+    maxChapterCount: integer('max_chapter_count').notNull(),
+    status: text('status').notNull().default('planned'),
   },
   (table) => ({
     pk: primaryKey({
-      columns: [table.bookId, table.volumeIndex],
+      columns: [table.bookId, table.arcIndex],
     }),
   })
 );
 
-export const chapterCards = sqliteTable(
-  'chapter_cards',
+export const chapterPlans = sqliteTable(
+  'chapter_plans',
   {
     bookId: text('book_id')
       .notNull()
       .references(() => books.id),
-    volumeIndex: integer('volume_index').notNull(),
+    batchIndex: integer('batch_index').notNull(),
     chapterIndex: integer('chapter_index').notNull(),
-    title: text('title').notNull(),
-    plotFunction: text('plot_function').notNull(),
-    povCharacterId: text('pov_character_id'),
-    externalConflict: text('external_conflict').notNull(),
-    internalConflict: text('internal_conflict').notNull(),
-    relationshipChange: text('relationship_change').notNull(),
-    worldRuleUsedOrTested: text('world_rule_used_or_tested').notNull(),
-    informationReveal: text('information_reveal').notNull(),
-    readerReward: text('reader_reward').notNull(),
+    arcIndex: integer('arc_index').notNull(),
+    goal: text('goal').notNull(),
+    conflict: text('conflict').notNull(),
+    pressureSource: text('pressure_source').notNull(),
+    changeType: text('change_type').notNull(),
+    threadActionsJson: text('thread_actions_json').notNull(),
+    reveal: text('reveal').notNull(),
+    payoffOrCost: text('payoff_or_cost').notNull(),
     endingHook: text('ending_hook').notNull(),
-    mustChange: text('must_change').notNull(),
-    forbiddenMovesJson: text('forbidden_moves_json').notNull().default('[]'),
+    titleIdeaLink: text('title_idea_link').notNull(),
+    batchGoal: text('batch_goal').notNull(),
+    requiredPayoffsJson: text('required_payoffs_json').notNull(),
+    forbiddenDriftJson: text('forbidden_drift_json').notNull(),
     status: text('status').notNull().default('planned'),
-    revision: integer('revision').notNull().default(0),
   },
   (table) => ({
     pk: primaryKey({
-      columns: [table.bookId, table.volumeIndex, table.chapterIndex],
+      columns: [table.bookId, table.chapterIndex],
     }),
   })
 );
+
+export const storyStateSnapshots = sqliteTable(
+  'story_state_snapshots',
+  {
+    bookId: text('book_id')
+      .notNull()
+      .references(() => books.id),
+    chapterIndex: integer('chapter_index').notNull(),
+    summary: text('summary').notNull(),
+    titleIdeaAlignment: text('title_idea_alignment').notNull(),
+    flatnessRisk: text('flatness_risk').notNull(),
+    characterChangesJson: text('character_changes_json').notNull(),
+    relationshipChangesJson: text('relationship_changes_json').notNull(),
+    worldFactsJson: text('world_facts_json').notNull(),
+    threadUpdatesJson: text('thread_updates_json').notNull(),
+    unresolvedPromisesJson: text('unresolved_promises_json').notNull(),
+    stageProgress: text('stage_progress').notNull(),
+    remainingChapterBudget: integer('remaining_chapter_budget').notNull(),
+    createdAt: text('created_at').notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({
+      columns: [table.bookId, table.chapterIndex],
+    }),
+  })
+);
+
+// Compatibility exports keep legacy repository modules loadable during the schema transition.
+export const storyBibles = titleIdeaContracts;
+export const volumePlans = stagePlans;
+export const chapterCards = chapterPlans;
 
 export const chapterThreadActions = sqliteTable(
   'chapter_thread_actions',

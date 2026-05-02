@@ -3,7 +3,7 @@ import { createChapterTensionBudgetRepository } from '../../src/storage/chapter-
 import { createDatabase } from '../../src/storage/database';
 
 describe('narrative schema', () => {
-  it('creates structured narrative planning and audit tables', () => {
+  it('creates dual-loop narrative planning and audit tables', () => {
     const db = createDatabase(':memory:');
     const tables = db
       .prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name")
@@ -12,17 +12,44 @@ describe('narrative schema', () => {
 
     expect(tables).toEqual(
       expect.arrayContaining([
-        'story_bibles',
-        'character_arcs',
-        'relationship_edges',
-        'world_rules',
-        'narrative_threads',
-        'volume_plans',
-        'chapter_cards',
+        'title_idea_contracts',
+        'endgame_plans',
+        'stage_plans',
+        'arc_plans',
+        'chapter_plans',
+        'story_state_snapshots',
         'chapter_tension_budgets',
         'chapter_generation_audits',
         'relationship_states',
         'narrative_checkpoints',
+      ])
+    );
+    expect(tables).not.toEqual(
+      expect.arrayContaining(['story_bibles', 'volume_plans', 'chapter_cards'])
+    );
+  });
+
+  it('defines the expected dual-loop chapter planning columns', () => {
+    const db = createDatabase(':memory:');
+    const chapterPlanColumns = db
+      .prepare('PRAGMA table_info(chapter_plans)')
+      .all()
+      .map((row) => (row as { name: string }).name);
+    const snapshotColumns = db
+      .prepare('PRAGMA table_info(story_state_snapshots)')
+      .all()
+      .map((row) => (row as { name: string }).name);
+
+    expect(chapterPlanColumns).toEqual(
+      expect.arrayContaining(['book_id', 'chapter_index', 'status', 'required_payoffs_json'])
+    );
+    expect(snapshotColumns).toEqual(
+      expect.arrayContaining([
+        'book_id',
+        'chapter_index',
+        'title_idea_alignment',
+        'flatness_risk',
+        'remaining_chapter_budget',
       ])
     );
   });
