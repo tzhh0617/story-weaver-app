@@ -296,6 +296,8 @@ describe('Library', () => {
     const searchInput = screen.getByLabelText('按标题搜索作品');
 
     expect(searchInput).toHaveAttribute('placeholder', '按标题搜索');
+    expect(searchInput).toHaveAttribute('id', 'library-search');
+    expect(searchInput).toHaveAttribute('name', 'library-search');
     expect(searchInput.className).toContain('h-9');
     expect(searchInput.className).toContain('sm:max-w-64');
 

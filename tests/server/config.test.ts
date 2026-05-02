@@ -1,9 +1,15 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import os from 'node:os';
 import path from 'node:path';
 import { resolveServerConfig } from '@story-weaver/backend/config';
 
 describe('resolveServerConfig', () => {
+  const originalCwd = process.cwd();
+
+  afterEach(() => {
+    process.chdir(originalCwd);
+  });
+
   it('uses local defaults when no environment overrides are provided', () => {
     expect(resolveServerConfig({})).toEqual({
       host: '127.0.0.1',
@@ -11,6 +17,14 @@ describe('resolveServerConfig', () => {
       rootDir: path.join(os.homedir(), '.story-weaver'),
       staticDir: path.resolve('packages/frontend/dist'),
     });
+  });
+
+  it('resolves the default static directory independently of process cwd', () => {
+    process.chdir(path.resolve('packages/backend'));
+
+    expect(resolveServerConfig({}).staticDir).toBe(
+      path.resolve(originalCwd, 'packages/frontend/dist')
+    );
   });
 
   it('resolves explicit environment overrides', () => {

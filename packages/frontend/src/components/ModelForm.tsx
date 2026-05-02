@@ -160,6 +160,7 @@ export default function ModelForm({
           <Label htmlFor="model-form-provider">Provider</Label>
           <select
             id="model-form-provider"
+            name="model-provider"
             className="sr-only"
             tabIndex={-1}
             value={provider}

@@ -100,6 +100,8 @@ export default function Library({
               className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
             />
             <Input
+              id="library-search"
+              name="library-search"
               aria-label="按标题搜索作品"
               placeholder="按标题搜索"
               className="h-9 min-w-0 pl-8 sm:max-w-64"

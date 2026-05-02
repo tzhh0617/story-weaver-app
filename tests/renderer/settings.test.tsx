@@ -42,6 +42,10 @@ describe('Settings', () => {
       screen.getByLabelText('Provider').querySelectorAll('option')
     ).map((option) => option.value);
 
+    expect(screen.getByLabelText('Provider')).toHaveAttribute(
+      'name',
+      'model-provider'
+    );
     expect(providerOptions).toEqual(['openai', 'anthropic']);
   });
 

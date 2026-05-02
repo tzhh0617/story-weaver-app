@@ -1,5 +1,6 @@
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 export type ServerConfig = {
   host: string;
@@ -22,6 +23,9 @@ function parsePort(value: string | undefined) {
   return parsed;
 }
 
+const backendModuleDir = path.dirname(fileURLToPath(import.meta.url));
+const defaultStaticDir = path.resolve(backendModuleDir, '../../frontend/dist');
+
 export function resolveServerConfig(
   env: Partial<NodeJS.ProcessEnv> = process.env
 ): ServerConfig {
@@ -29,7 +33,6 @@ export function resolveServerConfig(
     host: env.STORY_WEAVER_SERVER_HOST || '127.0.0.1',
     port: parsePort(env.STORY_WEAVER_SERVER_PORT),
     rootDir: env.STORY_WEAVER_ROOT_DIR || path.join(os.homedir(), '.story-weaver'),
-    staticDir:
-      env.STORY_WEAVER_STATIC_DIR || path.resolve('packages/frontend/dist'),
+    staticDir: env.STORY_WEAVER_STATIC_DIR || defaultStaticDir,
   };
 }
