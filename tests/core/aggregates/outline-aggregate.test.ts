@@ -294,6 +294,33 @@ describe('createOutlineAggregate', () => {
       });
     });
 
+    it('keeps a manual title set while title generation is in flight', async () => {
+      const generateFromIdea = vi.fn().mockResolvedValue({
+        worldSetting: 'World',
+        masterOutline: 'Outline',
+        volumeOutlines: [],
+        chapterOutlines: [],
+      });
+      const { aggregate, bookId, books, deps } = createDefaultSetup({
+        outlineService: { generateFromIdea },
+      });
+      deps.outlineService.generateTitleFromIdea = vi.fn().mockImplementation(async () => {
+        books.updateTitle(bookId, '手动抢先标题');
+        books.updateTitleGenerationStatus(bookId, 'manual');
+        return '系统标题';
+      });
+
+      await aggregate.generateFromIdea(bookId);
+
+      expect(books.getById(bookId)).toMatchObject({
+        title: '手动抢先标题',
+        titleGenerationStatus: 'manual',
+      });
+      expect(generateFromIdea).toHaveBeenCalledWith(
+        expect.objectContaining({ title: '手动抢先标题' })
+      );
+    });
+
     it('passes the final title into outline generation', async () => {
       const generateFromIdea = vi.fn().mockResolvedValue({
         worldSetting: 'World',

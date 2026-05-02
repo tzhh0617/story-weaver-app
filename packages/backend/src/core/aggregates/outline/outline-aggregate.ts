@@ -77,14 +77,19 @@ export function createOutlineAggregate(deps: OutlineAggregateDeps) {
             ).trim()
           : '';
 
-        if (!deps.books.getById(bookId)) {
+        const currentBook = deps.books.getById(bookId);
+        if (!currentBook) {
           return;
         }
 
-        effectiveTitle = generatedTitle || deriveTitleFromIdea(book.idea);
-        deps.books.updateTitle(bookId, effectiveTitle);
-        deps.books.updateTitleGenerationStatus(bookId, 'generated');
-        deps.onBookUpdated?.(bookId);
+        if (currentBook.titleGenerationStatus !== 'pending') {
+          effectiveTitle = currentBook.title;
+        } else {
+          effectiveTitle = generatedTitle || deriveTitleFromIdea(book.idea);
+          deps.books.updateTitle(bookId, effectiveTitle);
+          deps.books.updateTitleGenerationStatus(bookId, 'generated');
+          deps.onBookUpdated?.(bookId);
+        }
       }
 
       // Phase 2: World-building + outline generation
