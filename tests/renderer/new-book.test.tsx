@@ -6,6 +6,7 @@ describe('NewBook', () => {
   it('associates visible labels with the form controls', () => {
     render(<NewBook onCreate={vi.fn()} />);
 
+    expect(screen.getByLabelText('书名')).toBeInTheDocument();
     expect(screen.getByLabelText('故事设想')).toBeInTheDocument();
     expect(screen.getByLabelText('目标章节数')).toBeInTheDocument();
     expect(screen.getByLabelText('每章字数')).toBeInTheDocument();
@@ -67,6 +68,47 @@ describe('NewBook', () => {
         cadenceMode: 'fast',
         antiClicheDirection: '每次变强都暴露新债务',
       },
+    });
+  });
+
+  it('submits a trimmed optional book title when provided', () => {
+    const onCreate = vi.fn();
+
+    render(<NewBook onCreate={onCreate} />);
+
+    fireEvent.change(screen.getByLabelText('书名'), {
+      target: { value: '  月税奇谈  ' },
+    });
+    fireEvent.change(screen.getByLabelText('故事设想'), {
+      target: { value: 'A moon taxes every miracle.' },
+    });
+    fireEvent.click(screen.getByText('开始写作'));
+
+    expect(onCreate).toHaveBeenCalledWith({
+      title: '月税奇谈',
+      idea: 'A moon taxes every miracle.',
+      targetChapters: 500,
+      wordsPerChapter: 2500,
+    });
+  });
+
+  it('does not submit a blank book title', () => {
+    const onCreate = vi.fn();
+
+    render(<NewBook onCreate={onCreate} />);
+
+    fireEvent.change(screen.getByLabelText('书名'), {
+      target: { value: '   ' },
+    });
+    fireEvent.change(screen.getByLabelText('故事设想'), {
+      target: { value: 'A moon taxes every miracle.' },
+    });
+    fireEvent.click(screen.getByText('开始写作'));
+
+    expect(onCreate).toHaveBeenCalledWith({
+      idea: 'A moon taxes every miracle.',
+      targetChapters: 500,
+      wordsPerChapter: 2500,
     });
   });
 

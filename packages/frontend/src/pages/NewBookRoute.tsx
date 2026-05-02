@@ -13,6 +13,7 @@ export default function NewBookRoute({ showToast }: { showToast: ToastFn }) {
   const call = useApiCall(showToast);
 
   const handleCreate = useCallback(async (input: {
+    title?: string;
     idea: string;
     targetChapters: number;
     wordsPerChapter: number;
@@ -24,7 +25,10 @@ export default function NewBookRoute({ showToast }: { showToast: ToastFn }) {
 
     await loadBooks();
     navigate(`/books/${bookId}`);
-    showToast('info', '书本已创建，正在生成书名...');
+    showToast(
+      'info',
+      input.title ? '书本已创建，正在构建世界观...' : '书本已创建，正在生成书名...'
+    );
 
     void (async () => {
       const result = await call(async () => { await api.startBook(bookId); return true as const; });
