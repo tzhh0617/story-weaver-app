@@ -59,7 +59,7 @@ export default function Library({
       .map((book) => book.id),
   ]).size;
   const hasRunnableBooks = books.some(
-    (book) => book.status !== 'completed' && book.status !== 'paused'
+    (book) => book.status !== 'completed'
   );
   const hasPausableBooks = books.some(
     (book) => book.status !== 'completed' && book.status !== 'paused'
