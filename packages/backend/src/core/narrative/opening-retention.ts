@@ -69,8 +69,8 @@ export function buildOpeningRetentionProtocolLines(input: {
   if (input.targetChapters < 5) {
     lines.push(
       'Compressed opening retention for short books:',
-      'Chapter 1 still performs abnormal entry and chapter 1 creates the title promise.',
-      'The final available opening chapter performs irreversible entry and final available opening chapter creates irreversible mainline entry.',
+      'Chapter 1 still performs abnormal entry and establishes the title promise.',
+      'The final available opening chapter performs irreversible entry and commits the protagonist to the mainline.',
       'Any middle opening chapter performs rising cost or first clear reward.'
     );
   }

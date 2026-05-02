@@ -137,7 +137,7 @@ describe('narrative prompts', () => {
     expect(prompt).toContain('Chapter 5: long-term hostility');
   });
 
-  it('compresses opening retention guidance for short books', () => {
+  it('adds title promise and mainline entry guidance for short-book openings', () => {
     const prompt = buildChapterCardPrompt({
       bookId: 'book-1',
       targetChapters: 4,
@@ -145,10 +145,8 @@ describe('narrative prompts', () => {
       volumePlansText: '第一卷：旧页初鸣，1-4章。',
     });
 
-    expect(prompt).toContain('chapter 1 creates the title promise');
-    expect(prompt).toContain(
-      'final available opening chapter creates irreversible mainline entry'
-    );
+    expect(prompt).toContain('establishes the title promise');
+    expect(prompt).toContain('commits the protagonist to the mainline');
   });
 
   it('draft prompt includes command context and forbids explanation', () => {
