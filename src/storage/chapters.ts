@@ -24,6 +24,21 @@ type ChapterPlanRow = {
   status: string;
 };
 
+type ChapterPlanBridgePayload = {
+  title?: string;
+  plotFunction?: string;
+  povCharacterId?: string | null;
+  externalConflict?: string;
+  internalConflict?: string;
+  relationshipChange?: string;
+  worldRuleUsedOrTested?: string;
+  informationReveal?: string;
+  readerReward?: string;
+  endingHook?: string;
+  mustChange?: string;
+  forbiddenMoves?: string[];
+};
+
 function buildOutlineBridgePayload(title: string, outline: string) {
   return JSON.stringify({
     title,
@@ -43,6 +58,24 @@ function buildOutlineBridgePayload(title: string, outline: string) {
 
 function isBlank(value: string) {
   return value.trim().length === 0;
+}
+
+function mergeOutlineBridgePayload(
+  existingPayloadJson: string | undefined,
+  title: string,
+  outline: string
+) {
+  if (!existingPayloadJson || isBlank(existingPayloadJson)) {
+    return buildOutlineBridgePayload(title, outline);
+  }
+
+  const existingPayload = JSON.parse(existingPayloadJson) as ChapterPlanBridgePayload;
+
+  return JSON.stringify({
+    ...existingPayload,
+    title,
+    plotFunction: outline,
+  });
 }
 
 export function createChapterRepository(db: SqliteDatabase) {
@@ -104,6 +137,11 @@ export function createChapterRepository(db: SqliteDatabase) {
         .get() as ChapterPlanRow | undefined;
 
       const fallbackPayload = buildOutlineBridgePayload(input.title, input.outline);
+      const mergedPayload = mergeOutlineBridgePayload(
+        existingPlan?.threadActionsJson,
+        input.title,
+        input.outline
+      );
 
       drizzleDb
         .insert(chapterPlans)
@@ -141,10 +179,7 @@ export function createChapterRepository(db: SqliteDatabase) {
                 ? existingPlan.pressureSource
                 : input.outline,
             changeType: existingPlan?.changeType ?? '',
-            threadActionsJson:
-              existingPlan && !isBlank(existingPlan.threadActionsJson)
-                ? existingPlan.threadActionsJson
-                : fallbackPayload,
+            threadActionsJson: mergedPayload,
             reveal: existingPlan?.reveal ?? '',
             payoffOrCost:
               existingPlan && !isBlank(existingPlan.payoffOrCost)

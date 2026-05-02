@@ -254,7 +254,7 @@ describe('book repository', () => {
     }
   });
 
-  it('preserves rich chapter-card bridge data when outline save runs afterward', () => {
+  it('preserves rich chapter-card bridge data while updating outline text on later outline save', () => {
     const db = createDatabase(':memory:');
     const books = createBookRepository(db);
     const chapterCards = createChapterCardRepository(db);
@@ -302,6 +302,15 @@ describe('book repository', () => {
         readerReward: 'truth',
         endingHook: 'The missing family name reappears in ash.',
         mustChange: 'Lin Mu stops running and starts investigating.',
+        plotFunction: 'A simple fallback outline',
+        title: 'Old Ledger',
+      }),
+    ]);
+
+    expect(chapters.listByBook('book-bridge')).toEqual([
+      expect.objectContaining({
+        title: 'Old Ledger',
+        outline: 'A simple fallback outline',
       }),
     ]);
   });
