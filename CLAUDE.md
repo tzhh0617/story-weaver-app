@@ -118,7 +118,7 @@ not close the runtime, pause the scheduler, or cancel generation.
 
 ### Model Runtime
 Generation requires at least one complete saved model config or a complete
-environment model config from `OPENAI_API_KEY` / `ANTHROPIC_API_KEY`.
+environment model config from `STORY_WEAVER_API_KEY`.
 `createRuntimeMode` filters invalid configs and `resolveModelId()` throws
 `No model configured` when none remain; the runtime no longer auto-generates
 mock content when no model is available.

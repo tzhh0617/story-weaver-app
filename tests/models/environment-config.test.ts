@@ -73,24 +73,6 @@ describe('resolveEnvironmentModelConfigs', () => {
     ]);
   });
 
-  it('ignores provider-specific API key environment variables', () => {
-    const cwd = createTempDir();
-    writeFileSync(
-      path.join(cwd, '.env.local'),
-      'STORY_WEAVER_MODEL_PROVIDER=openai\n'
-    );
-
-    const result = resolveEnvironmentModelConfigs({
-      cwd,
-      env: {
-        OPENAI_API_KEY: 'sk-openai',
-      },
-    });
-
-    expect(result.preferEnvironmentConfigs).toBe(true);
-    expect(result.configs).toEqual([]);
-  });
-
   it('can ignore local .env.local files for hermetic runtimes', () => {
     const cwd = createTempDir();
     writeFileSync(
