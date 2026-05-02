@@ -8,6 +8,10 @@ function isOpeningStrictChapter(chapterIndex?: number | null) {
   return typeof chapterIndex === 'number' && chapterIndex >= 1 && chapterIndex <= 3;
 }
 
+function isOpeningControlChapter(chapterIndex?: number | null) {
+  return typeof chapterIndex === 'number' && chapterIndex >= 1 && chapterIndex <= 5;
+}
+
 function hasIssue(audit: NarrativeAudit, type: NarrativeAudit['issues'][number]['type']) {
   return audit.issues.some((issue) => issue.type === type);
 }
@@ -18,6 +22,30 @@ export function decideAuditAction(
 ): AuditDecision {
   if (audit.issues.some((issue) => issue.severity === 'blocker')) {
     return 'rewrite';
+  }
+
+  if (hasIssue(audit, 'mainline_drift')) {
+    const driftIssue = audit.issues.find((issue) => issue.type === 'mainline_drift');
+    if (driftIssue?.severity === 'blocker') return 'rewrite';
+  }
+
+  if (
+    audit.issues.some(
+      (issue) =>
+        issue.severity === 'major' &&
+        (issue.type === 'mainline_drift' ||
+          issue.type === 'loose_ending' ||
+          issue.type === 'unearned_hook')
+    )
+  ) {
+    return 'revise';
+  }
+
+  if (
+    isOpeningControlChapter(context.chapterIndex) &&
+    (hasIssue(audit, 'weak_title_promise') || hasIssue(audit, 'mainline_drift'))
+  ) {
+    return 'revise';
   }
 
   const viral = audit.scoring.viral;

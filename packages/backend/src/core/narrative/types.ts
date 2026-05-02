@@ -167,7 +167,11 @@ export type AuditIssueType =
   | 'payoff_without_cost'
   | 'generic_trope'
   | 'weak_reader_question'
-  | 'stale_hook_engine';
+  | 'stale_hook_engine'
+  | 'weak_title_promise'
+  | 'mainline_drift'
+  | 'loose_ending'
+  | 'unearned_hook';
 
 export type AuditSeverity = 'blocker' | 'major' | 'minor';
 export type AuditDecision = 'accept' | 'revise' | 'rewrite';

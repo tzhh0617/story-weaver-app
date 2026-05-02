@@ -360,6 +360,133 @@ describe('narrative audit helpers', () => {
       })
     ).toBe('rewrite');
   });
+
+  it('rewrites blocker mainline drift', () => {
+    const audit = {
+      passed: false,
+      score: 78,
+      decision: 'revise' as const,
+      issues: [
+        {
+          type: 'mainline_drift' as const,
+          severity: 'blocker' as const,
+          evidence: '整章离开命簿旧债主线。',
+          fixInstruction: '重写为围绕旧债选择推进。',
+        },
+      ],
+      scoring: {
+        characterLogic: 90,
+        mainlineProgress: 20,
+        relationshipChange: 80,
+        conflictDepth: 80,
+        worldRuleCost: 80,
+        threadManagement: 20,
+        pacingReward: 80,
+        themeAlignment: 80,
+      },
+      stateUpdates: {
+        characterArcUpdates: [],
+        relationshipUpdates: [],
+        threadUpdates: [],
+        worldKnowledgeUpdates: [],
+        themeUpdate: '',
+      },
+    };
+
+    expect(decideAuditAction(audit)).toBe('rewrite');
+  });
+
+  it('revises major loose endings and unearned hooks', () => {
+    const baseAudit = {
+      passed: true,
+      score: 92,
+      decision: 'accept' as const,
+      issues: [],
+      scoring: {
+        characterLogic: 90,
+        mainlineProgress: 90,
+        relationshipChange: 90,
+        conflictDepth: 90,
+        worldRuleCost: 90,
+        threadManagement: 90,
+        pacingReward: 90,
+        themeAlignment: 90,
+      },
+      stateUpdates: {
+        characterArcUpdates: [],
+        relationshipUpdates: [],
+        threadUpdates: [],
+        worldKnowledgeUpdates: [],
+        themeUpdate: '',
+      },
+    };
+
+    expect(
+      decideAuditAction({
+        ...baseAudit,
+        issues: [
+          {
+            type: 'loose_ending' as const,
+            severity: 'major' as const,
+            evidence: '章末只是停住，没有收束也没有具体压力。',
+            fixInstruction: '用本章代价制造下一步压力。',
+          },
+        ],
+      })
+    ).toBe('revise');
+
+    expect(
+      decideAuditAction({
+        ...baseAudit,
+        issues: [
+          {
+            type: 'unearned_hook' as const,
+            severity: 'major' as const,
+            evidence: '章末突然抛出陌生敌人。',
+            fixInstruction: '让钩子来自本章揭示或选择。',
+          },
+        ],
+      })
+    ).toBe('revise');
+  });
+
+  it('revises opening chapters with weak title promise', () => {
+    expect(
+      decideAuditAction(
+        {
+          passed: true,
+          score: 90,
+          decision: 'accept',
+          issues: [
+            {
+              type: 'weak_title_promise',
+              severity: 'minor',
+              evidence: '第一章没有体现命簿旧债。',
+              fixInstruction: '让异常入场直接触碰标题承诺。',
+            },
+          ],
+          scoring: {
+            characterLogic: 90,
+            mainlineProgress: 90,
+            relationshipChange: 90,
+            conflictDepth: 90,
+            worldRuleCost: 90,
+            threadManagement: 90,
+            pacingReward: 90,
+            themeAlignment: 90,
+          },
+          stateUpdates: {
+            characterArcUpdates: [],
+            relationshipUpdates: [],
+            threadUpdates: [],
+            worldKnowledgeUpdates: [],
+            themeUpdate: '',
+          },
+        },
+        { chapterIndex: 5 }
+      )
+    ).toBe('revise');
+  });
 });
 
 describe('normalizeNarrativeStateDelta', () => {
