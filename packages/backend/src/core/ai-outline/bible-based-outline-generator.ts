@@ -5,6 +5,7 @@ import {
   buildVolumePlanPrompt,
 } from '../narrative/prompts.js';
 import { parseJsonObject } from '../narrative/json.js';
+import { normalizeNarrativeBible } from '../narrative/normalization.js';
 import { deriveViralStoryProtocol } from '../narrative/viral-story-protocol.js';
 import {
   validateChapterCards,
@@ -23,9 +24,11 @@ import type {
 } from '../narrative/types.js';
 import type { OutlineBundle, OutlineGenerationInput } from '../types.js';
 import {
+  normalizeChapterCards,
   normalizeChapterThreadActions,
   normalizeChapterCharacterPressures,
   normalizeChapterRelationshipActions,
+  normalizeVolumePlans,
 } from './normalization.js';
 import {
   bibleSummary,
@@ -67,6 +70,7 @@ export async function generateBibleBasedBundle(
     return null;
   }
 
+  narrativeBible = normalizeNarrativeBible(narrativeBible);
   const bibleValidation = validateNarrativeBible(narrativeBible, {
     targetChapters: ctx.input.targetChapters,
   });
@@ -87,7 +91,7 @@ export async function generateBibleBasedBundle(
   const worldSetting = renderWorldSettingFromBible(narrativeBible, ctx.input);
   ctx.input.onWorldSetting?.(worldSetting);
 
-  const volumePlans = parseJsonObject<VolumePlan[]>(
+  const volumePlans = normalizeVolumePlans(parseJsonObject<VolumePlan[]>(
     (
       await ctx.generateText({
         model: ctx.model,
@@ -98,7 +102,7 @@ export async function generateBibleBasedBundle(
         }),
       })
     ).text
-  );
+  ));
   const volumeValidation = validateVolumePlans(volumePlans, {
     targetChapters: ctx.input.targetChapters,
   });
@@ -133,10 +137,7 @@ export async function generateBibleBasedBundle(
       })
     ).text
   );
-  const chapterCards = (cardBundle.cards ?? []).map((card) => ({
-    ...card,
-    bookId: ctx.input.bookId,
-  })) as ChapterCard[];
+  const chapterCards = normalizeChapterCards(ctx.input.bookId, cardBundle.cards);
   const cardValidation = validateChapterCards(chapterCards, {
     targetChapters: ctx.input.targetChapters,
   });

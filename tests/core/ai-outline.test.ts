@@ -428,6 +428,138 @@ describe('createAiOutlineService', () => {
     expect(generateText).toHaveBeenCalledTimes(4);
   });
 
+  it('normalizes freeform narrative bible enum values before validation', async () => {
+    const fakeModel = { id: 'model' };
+    const modelBible = validNarrativeBible() as any;
+    modelBible.characterArcs[0].arcDirection =
+      '从孤立的修理者转向愿意承担真相后果的见证者与反抗者。';
+    modelBible.characterArcs.push({
+      id: 'mentor-shadow',
+      name: '影子导师',
+      roleType: 'mentor-shadow',
+      desire: '让主角活到午夜。',
+      fear: '真相再次毁掉家族。',
+      flaw: '用隐瞒代替保护。',
+      misbelief: '被保护的人不该知道代价。',
+      wound: '曾经亲手封存关键记忆。',
+      externalGoal: '留下修复怀表的线索。',
+      internalNeed: '承认保护也会成为伤害。',
+      arcDirection: '迟来忏悔弧。',
+      decisionLogic: '优先保护主角，但会隐瞒危险。',
+      lineWillNotCross: null,
+      lineMayEventuallyCross: null,
+      currentArcPhase: 'shadow',
+    });
+    modelBible.worldRules[0].category = 'time-and-causality';
+    modelBible.narrativeThreads[0].type = 'main-plot';
+    modelBible.narrativeThreads[0].currentState =
+      '怀表停在23:47，修复难点指向第十三齿。';
+    modelBible.narrativeThreads[0].importance = 'high';
+    modelBible.narrativeThreads[0].payoffMustChange =
+      '修表不能只是技术成功，必须迫使主角付出记忆或信任的代价。';
+    modelBible.viralStoryProtocol = {
+      readerPromise: '每章都有时间规则反转。',
+    };
+    const responses = [
+      JSON.stringify(modelBible),
+      JSON.stringify([
+        {
+          volumeIndex: 1,
+          title: '午夜初鸣',
+          chapterStart: 1,
+          chapterEnd: 1,
+          roleInStory: '建立午夜规则。',
+          mainPressure: '钟声临近。',
+          promisedPayoff: {
+            visible: '确认怀表不会被改写。',
+            cost: '主角必须丢失一段安全记忆。',
+          },
+          characterArcMovement: ['主角开始接受代价。'],
+          relationshipMovement: '导师隐瞒暴露。',
+          worldExpansion: '展示时间改写规则。',
+          endingTurn: '怀表停在下一次改写前。',
+        },
+      ]),
+      JSON.stringify({
+        cards: [
+          {
+            volumeIndex: 1,
+            chapterIndex: 1,
+            title: '不响的怀表',
+            plotFunction: '开局建立钟声规则。',
+            povCharacterId: 'lin-mu',
+            externalConflict: '午夜将至。',
+            internalConflict: '主角必须决定是否相信导师。',
+            relationshipChange: '主角发现导师隐藏线索。',
+            worldRuleUsedOrTested: 'record-cost',
+            informationReveal: '怀表可保存一次真相。',
+            readerReward:
+              '读者获得第一次明确的现实改写目击：事故、伤亡、围观记忆和物证同时发生冲突；同时获得情感钩子——沈砚真正想守住的可能不是父亲遗物，而是一个连他自己都快想不起的孩子。',
+            endingHook: '怀表指针突然倒退。',
+            mustChange: '主角从逃避转为主动修表。',
+            forbiddenMoves: [],
+          },
+        ],
+      }),
+      JSON.stringify([
+        {
+          volumeIndex: 1,
+          chapterIndex: 1,
+          pressureLevel: 'high',
+          dominantTension: 'deadline',
+          requiredTurn: '修表会暴露被隐藏的真相。',
+          forcedChoice: '相信导师，或独自拆表。',
+          costToPay: '失去一段安全记忆。',
+          irreversibleChange: '主角无法再相信城市记录。',
+          readerQuestion: '谁让钟声改写结局？',
+          hookPressure: '午夜提前响起。',
+          flatnessRisks: ['不要只解释规则。'],
+        },
+      ]),
+    ];
+    const registry = {
+      languageModel: vi.fn().mockReturnValue(fakeModel),
+    };
+    const generateText = vi.fn().mockImplementation(async () => ({
+      text: responses.shift() ?? '',
+    }));
+    const service = createAiOutlineService({
+      registry: registry as never,
+      generateText: generateText as never,
+    });
+
+    const result = await service.generateFromIdea({
+      bookId: 'book-1',
+      idea: '钟表修理师在午夜前修好不被改写的怀表。',
+      targetChapters: 1,
+      wordsPerChapter: 300,
+      modelId: 'model-1',
+    });
+
+    expect(result.narrativeBible?.characterArcs[0]?.arcDirection).toBe(
+      'growth'
+    );
+    expect(result.narrativeBible?.characterArcs[1]?.roleType).toBe(
+      'supporting'
+    );
+    expect(result.narrativeBible?.worldRules[0]?.category).toBe('power');
+    expect(result.narrativeBible?.narrativeThreads[0]).toMatchObject({
+      type: 'main',
+      currentState: 'open',
+      importance: 'critical',
+      payoffMustChange: 'relationship',
+    });
+    expect(
+      result.narrativeBible?.viralStoryProtocol?.payoffCadence
+        .minorPayoffEveryChapters
+    ).toBeGreaterThan(0);
+    expect(result.volumePlans[0]).toMatchObject({
+      promisedPayoff: 'visible：确认怀表不会被改写。；cost：主角必须丢失一段安全记忆。',
+      characterArcMovement: '主角开始接受代价。',
+    });
+    expect(result.chapterCards[0]?.readerReward).toBe('truth');
+  });
+
   it('filters malformed chapter action rows before returning generated outlines', async () => {
     const fakeModel = { id: 'model' };
     const responses = [
