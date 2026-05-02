@@ -113,7 +113,12 @@ export type WriteContextResult = {
 export function createContextBuilder(deps: ContextBuilderDeps) {
   function buildWriteContext(input: {
     bookId: string;
-    book: { idea: string; wordsPerChapter: number; targetChapters: number };
+    book: {
+      title: string;
+      idea: string;
+      wordsPerChapter: number;
+      targetChapters: number;
+    };
     context: { worldSetting?: string | null; outline?: string | null } | undefined;
     chapters: Array<{
       bookId: string;
@@ -245,6 +250,7 @@ export function createContextBuilder(deps: ContextBuilderDeps) {
     });
     const prompt = effectiveChapterCard
       ? buildNarrativeDraftPrompt({
+          title: input.book.title,
           idea: input.book.idea,
           wordsPerChapter: input.book.wordsPerChapter,
           commandContext: commandContext ?? legacyContinuityContext,
@@ -253,6 +259,7 @@ export function createContextBuilder(deps: ContextBuilderDeps) {
           chapterIndex: input.nextChapter.chapterIndex,
         })
       : buildChapterDraftPrompt({
+          title: input.book.title,
           idea: input.book.idea,
           worldSetting: input.context?.worldSetting ?? null,
           masterOutline: input.context?.outline ?? null,
