@@ -24,6 +24,14 @@ export function createProgressRepository(db: SqliteDatabase) {
         starvationScore?: number | null;
       }
     ) {
+      const hasDriftLevel = Object.hasOwn(metadata ?? {}, 'driftLevel');
+      const hasLastHealthyCheckpointChapter = Object.hasOwn(
+        metadata ?? {},
+        'lastHealthyCheckpointChapter'
+      );
+      const hasCooldownUntil = Object.hasOwn(metadata ?? {}, 'cooldownUntil');
+      const hasStarvationScore = Object.hasOwn(metadata ?? {}, 'starvationScore');
+
       drizzleDb
         .insert(writingProgress)
         .values({
@@ -52,11 +60,19 @@ export function createProgressRepository(db: SqliteDatabase) {
             stepLabel: metadata?.stepLabel ?? null,
             activeTaskType: metadata?.activeTaskType ?? null,
             errorMsg: metadata?.errorMsg ?? null,
-            driftLevel: metadata?.driftLevel ?? 'none',
-            lastHealthyCheckpointChapter:
-              metadata?.lastHealthyCheckpointChapter ?? null,
-            cooldownUntil: metadata?.cooldownUntil ?? null,
-            starvationScore: metadata?.starvationScore ?? 0,
+            ...(hasDriftLevel ? { driftLevel: metadata?.driftLevel ?? 'none' } : {}),
+            ...(hasLastHealthyCheckpointChapter
+              ? {
+                  lastHealthyCheckpointChapter:
+                    metadata?.lastHealthyCheckpointChapter ?? null,
+                }
+              : {}),
+            ...(hasCooldownUntil
+              ? { cooldownUntil: metadata?.cooldownUntil ?? null }
+              : {}),
+            ...(hasStarvationScore
+              ? { starvationScore: metadata?.starvationScore ?? 0 }
+              : {}),
           },
         })
         .run();

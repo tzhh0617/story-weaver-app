@@ -1692,6 +1692,19 @@ describe('createBookService', () => {
       })
     );
 
+    progress.updatePhase('book-1', 'paused');
+
+    expect(progress.getByBookId('book-1')).toEqual(
+      expect.objectContaining({
+        bookId: 'book-1',
+        phase: 'paused',
+        driftLevel: 'medium',
+        lastHealthyCheckpointChapter: 12,
+        cooldownUntil: '2026-05-03T09:30:00.000Z',
+        starvationScore: 4,
+      })
+    );
+
     progress.reset('book-1', 'creating');
 
     expect(progress.getByBookId('book-1')).toEqual(
