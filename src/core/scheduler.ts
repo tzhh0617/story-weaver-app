@@ -30,7 +30,7 @@ export function createScheduler({
   const runners = new Map<string, Runner>();
   const queue: string[] = [];
   const runningTaskKeys = new Set<string>();
-  const runningBookIds = new Set<string>();
+  const runningBooksByTaskKey = new Map<string, string>();
 
   function enqueueTask(taskKey: string) {
     if (!queue.includes(taskKey) && !runningTaskKeys.has(taskKey) && runners.has(taskKey)) {
@@ -40,12 +40,16 @@ export function createScheduler({
 
   function emitStatus() {
     onStatusChange?.({
-      runningBookIds: [...runningBookIds],
+      runningBookIds: [...new Set(runningBooksByTaskKey.values())],
       queuedBookIds: queue
         .map((taskKey) => runners.get(taskKey)?.bookId)
         .filter((bookId): bookId is string => Boolean(bookId)),
       concurrencyLimit: currentConcurrencyLimit,
     });
+  }
+
+  function isBookRunning(bookId: string) {
+    return [...runningBooksByTaskKey.values()].includes(bookId);
   }
 
   function sortQueue() {
@@ -71,7 +75,7 @@ export function createScheduler({
       sortQueue();
       const nextTaskKeyIndex = queue.findIndex((taskKey) => {
         const runner = runners.get(taskKey);
-        return runner ? !runningBookIds.has(runner.bookId) : false;
+        return runner ? !isBookRunning(runner.bookId) : false;
       });
 
       if (nextTaskKeyIndex < 0) {
@@ -84,17 +88,17 @@ export function createScheduler({
       }
 
       const runner = runners.get(nextTaskKey);
-      if (!runner || runningBookIds.has(runner.bookId)) {
+      if (!runner || isBookRunning(runner.bookId)) {
         continue;
       }
 
       runningTaskKeys.add(nextTaskKey);
-      runningBookIds.add(runner.bookId);
+      runningBooksByTaskKey.set(nextTaskKey, runner.bookId);
       emitStatus();
 
       void runner.start().finally(() => {
         runningTaskKeys.delete(nextTaskKey);
-        runningBookIds.delete(runner.bookId);
+        runningBooksByTaskKey.delete(nextTaskKey);
         emitStatus();
         pumpQueue();
       });
@@ -151,30 +155,9 @@ export function createScheduler({
 
       for (const taskKey of taskKeysToRemove) {
         runners.delete(taskKey);
-        runningTaskKeys.delete(taskKey);
         const queueIndex = queue.indexOf(taskKey);
         if (queueIndex >= 0) {
           queue.splice(queueIndex, 1);
-        }
-      }
-
-      const hasRunningTaskForBook = [...runningTaskKeys].some((taskKey) => {
-        const runner = runners.get(taskKey);
-        return runner?.bookId === taskKeyOrBookId;
-      });
-
-      if (!hasRunningTaskForBook) {
-        runningBookIds.delete(taskKeyOrBookId);
-      }
-
-      for (const bookId of [...runningBookIds]) {
-        const stillRunningForBook = [...runningTaskKeys].some((taskKey) => {
-          const runner = runners.get(taskKey);
-          return runner?.bookId === bookId;
-        });
-
-        if (!stillRunningForBook) {
-          runningBookIds.delete(bookId);
         }
       }
 
@@ -197,7 +180,7 @@ export function createScheduler({
 
     getStatus() {
       return {
-        runningBookIds: [...runningBookIds],
+        runningBookIds: [...new Set(runningBooksByTaskKey.values())],
         queuedBookIds: queue
           .map((taskKey) => runners.get(taskKey)?.bookId)
           .filter((bookId): bookId is string => Boolean(bookId)),

@@ -254,4 +254,50 @@ describe('createScheduler', () => {
     await Promise.resolve();
     await Promise.resolve();
   });
+
+  it('keeps the book locked until a running unregistered task settles', async () => {
+    const firstTask = createDeferred();
+    const secondTask = createDeferred();
+    const startFirst = vi.fn().mockImplementation(async () => {
+      await firstTask.promise;
+    });
+    const startSecond = vi.fn().mockImplementation(async () => {
+      await secondTask.promise;
+    });
+
+    const scheduler = createScheduler({ concurrencyLimit: 2 });
+    scheduler.register({
+      taskKey: 'book-a:first',
+      bookId: 'book-a',
+      taskType: 'book:write:chapter',
+      start: startFirst,
+    });
+    scheduler.register({
+      taskKey: 'book-a:second',
+      bookId: 'book-a',
+      taskType: 'book:write:chapter',
+      start: startSecond,
+    });
+
+    await scheduler.start('book-a:first');
+    expect(startFirst).toHaveBeenCalledTimes(1);
+
+    scheduler.unregister('book-a:first');
+    await scheduler.start('book-a:second');
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(startSecond).toHaveBeenCalledTimes(0);
+    expect(scheduler.getStatus().runningBookIds).toEqual(['book-a']);
+
+    firstTask.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(startSecond).toHaveBeenCalledTimes(1);
+
+    secondTask.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+  });
 });
