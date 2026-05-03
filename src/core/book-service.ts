@@ -596,6 +596,109 @@ export function createBookService(deps: {
       createdAt: string;
     }>;
   };
+  titleIdeaContracts?: {
+    getByBook: (bookId: string) => {
+      bookId: string;
+      title: string;
+      idea: string;
+      corePromise: string;
+      titleHooks: string[];
+      forbiddenDrift: string[];
+      createdAt: string;
+      updatedAt: string;
+    } | null;
+  };
+  endgamePlans?: {
+    getByBook: (bookId: string) => {
+      bookId: string;
+      titleIdeaContract: string;
+      protagonistEndState: string;
+      finalConflict: string;
+      finalOpponent: string;
+      worldEndState: string;
+      coreCharacterOutcomes: unknown;
+      majorPayoffs: unknown;
+      createdAt: string;
+      updatedAt: string;
+    } | null;
+  };
+  stagePlans?: {
+    listByBook: (bookId: string) => Array<{
+      stageIndex: number;
+      chapterStart: number;
+      chapterEnd: number;
+      chapterBudget: number;
+      objective: string;
+      primaryResistance: string;
+      pressureCurve: string;
+      escalation: string;
+      climax: string;
+      payoff: string;
+      irreversibleChange: string;
+      nextQuestion: string;
+      titleIdeaFocus: string;
+      compressionTrigger: string;
+      status: string;
+    }>;
+  };
+  arcPlans?: {
+    listByBook: (bookId: string) => Array<{
+      arcIndex: number;
+      stageIndex: number;
+      chapterStart: number;
+      chapterEnd: number;
+      chapterBudget: number;
+      primaryThreads: unknown;
+      characterTurns: unknown;
+      threadActions: unknown;
+      targetOutcome: string;
+      escalationMode: string;
+      turningPoint: string;
+      requiredPayoff: string;
+      resultingInstability: string;
+      titleIdeaFocus: string;
+      minChapterCount: number;
+      maxChapterCount: number;
+      status: string;
+    }>;
+  };
+  chapterPlans?: {
+    listByBook: (bookId: string) => Array<{
+      batchIndex: number;
+      chapterIndex: number;
+      arcIndex: number;
+      goal: string;
+      conflict: string;
+      pressureSource: string;
+      changeType: string;
+      threadActions: unknown;
+      reveal: string;
+      payoffOrCost: string;
+      endingHook: string;
+      titleIdeaLink: string;
+      batchGoal: string;
+      requiredPayoffs: unknown;
+      forbiddenDrift: unknown;
+      status: string;
+    }>;
+  };
+  storyStateSnapshots?: {
+    getLatestByBook: (bookId: string) => {
+      bookId: string;
+      chapterIndex: number;
+      summary: string;
+      titleIdeaAlignment: string;
+      flatnessRisk: string;
+      characterChanges: unknown;
+      relationshipChanges: unknown;
+      worldFacts: unknown;
+      threadUpdates: unknown;
+      unresolvedPromises: unknown;
+      stageProgress: string;
+      remainingChapterBudget: number;
+      createdAt: string;
+    } | null;
+  };
   progress: {
     updatePhase: (
       bookId: string,
@@ -603,7 +706,10 @@ export function createBookService(deps: {
       metadata?: {
         currentVolume?: number | null;
         currentChapter?: number | null;
+        currentStage?: number | null;
+        currentArc?: number | null;
         stepLabel?: string | null;
+        activeTaskType?: string | null;
         errorMsg?: string | null;
       }
     ) => void;
@@ -612,8 +718,11 @@ export function createBookService(deps: {
           bookId: string;
           currentVolume: number | null;
           currentChapter: number | null;
+          currentStage: number | null;
+          currentArc: number | null;
           phase: string | null;
           stepLabel: string | null;
+          activeTaskType: string | null;
           retryCount: number;
           errorMsg: string | null;
         }
@@ -840,6 +949,13 @@ export function createBookService(deps: {
       const bible = deps.storyBibles?.getByBook?.(bookId) ?? null;
       const worldRules = deps.worldRules?.listByBook(bookId) ?? [];
       const volumePlans = deps.volumePlans?.listByBook?.(bookId) ?? [];
+      const titleIdeaContract = deps.titleIdeaContracts?.getByBook(bookId) ?? null;
+      const endgamePlan = deps.endgamePlans?.getByBook(bookId) ?? null;
+      const stagePlans = deps.stagePlans?.listByBook(bookId) ?? [];
+      const arcPlans = deps.arcPlans?.listByBook(bookId) ?? [];
+      const chapterPlans = deps.chapterPlans?.listByBook(bookId) ?? [];
+      const latestStoryStateSnapshot =
+        deps.storyStateSnapshots?.getLatestByBook(bookId) ?? null;
       const chapterCards = deps.chapterCards?.listByBook?.(bookId) ?? [];
       const chapterTensionBudgets =
         deps.chapterTensionBudgets?.listByBook?.(bookId) ?? [];
@@ -952,6 +1068,12 @@ export function createBookService(deps: {
           relationshipEdges: deps.relationshipEdges?.listByBook(bookId) ?? [],
           worldRules,
           narrativeThreads: deps.narrativeThreads?.listByBook(bookId) ?? [],
+          titleIdeaContract,
+          endgamePlan,
+          stagePlans,
+          arcPlans,
+          chapterPlans,
+          latestStoryStateSnapshot,
           chapterCards,
           chapterTensionBudgets,
           narrativeCheckpoints:

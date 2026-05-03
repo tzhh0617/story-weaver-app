@@ -405,8 +405,11 @@ CREATE TABLE `writing_progress` (
 	`book_id` text PRIMARY KEY NOT NULL,
 	`current_volume` integer,
 	`current_chapter` integer,
+	`current_stage` integer,
+	`current_arc` integer,
 	`phase` text,
 	`step_label` text,
+	`active_task_type` text,
 	`retry_count` integer DEFAULT 0 NOT NULL,
 	`error_msg` text,
 	FOREIGN KEY (`book_id`) REFERENCES `books`(`id`) ON UPDATE no action ON DELETE no action

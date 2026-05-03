@@ -13,7 +13,10 @@ export function createProgressRepository(db: SqliteDatabase) {
       metadata?: {
         currentVolume?: number | null;
         currentChapter?: number | null;
+        currentStage?: number | null;
+        currentArc?: number | null;
         stepLabel?: string | null;
+        activeTaskType?: string | null;
         errorMsg?: string | null;
       }
     ) {
@@ -23,8 +26,11 @@ export function createProgressRepository(db: SqliteDatabase) {
           bookId,
           currentVolume: metadata?.currentVolume ?? null,
           currentChapter: metadata?.currentChapter ?? null,
+          currentStage: metadata?.currentStage ?? null,
+          currentArc: metadata?.currentArc ?? null,
           phase,
           stepLabel: metadata?.stepLabel ?? null,
+          activeTaskType: metadata?.activeTaskType ?? null,
           errorMsg: metadata?.errorMsg ?? null,
         })
         .onConflictDoUpdate({
@@ -32,8 +38,11 @@ export function createProgressRepository(db: SqliteDatabase) {
           set: {
             currentVolume: metadata?.currentVolume ?? null,
             currentChapter: metadata?.currentChapter ?? null,
+            currentStage: metadata?.currentStage ?? null,
+            currentArc: metadata?.currentArc ?? null,
             phase,
             stepLabel: metadata?.stepLabel ?? null,
+            activeTaskType: metadata?.activeTaskType ?? null,
             errorMsg: metadata?.errorMsg ?? null,
           },
         })
@@ -46,8 +55,11 @@ export function createProgressRepository(db: SqliteDatabase) {
           bookId: writingProgress.bookId,
           currentVolume: writingProgress.currentVolume,
           currentChapter: writingProgress.currentChapter,
+          currentStage: writingProgress.currentStage,
+          currentArc: writingProgress.currentArc,
           phase: writingProgress.phase,
           stepLabel: writingProgress.stepLabel,
+          activeTaskType: writingProgress.activeTaskType,
           retryCount: writingProgress.retryCount,
           errorMsg: writingProgress.errorMsg,
         })
@@ -58,8 +70,11 @@ export function createProgressRepository(db: SqliteDatabase) {
             bookId: string;
             currentVolume: number | null;
             currentChapter: number | null;
+            currentStage: number | null;
+            currentArc: number | null;
             phase: string | null;
             stepLabel: string | null;
+            activeTaskType: string | null;
             retryCount: number;
             errorMsg: string | null;
           }
@@ -73,8 +88,11 @@ export function createProgressRepository(db: SqliteDatabase) {
           bookId,
           currentVolume: null,
           currentChapter: null,
+          currentStage: null,
+          currentArc: null,
           phase,
           stepLabel: null,
+          activeTaskType: null,
           retryCount: 0,
           errorMsg: null,
         })
@@ -83,8 +101,11 @@ export function createProgressRepository(db: SqliteDatabase) {
           set: {
             currentVolume: null,
             currentChapter: null,
+            currentStage: null,
+            currentArc: null,
             phase,
             stepLabel: null,
+            activeTaskType: null,
             retryCount: 0,
             errorMsg: null,
           },
