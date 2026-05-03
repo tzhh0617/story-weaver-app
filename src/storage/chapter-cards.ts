@@ -103,12 +103,13 @@ export function createChapterCardRepository(db: SqliteDatabase) {
   const drizzleDb = createDrizzleDb(db);
 
   function upsert(card: ChapterCard) {
+    const planValues = chapterPlanValues(card);
     drizzleDb
       .insert(chapterPlans)
-      .values(chapterPlanValues(card))
+      .values(planValues)
       .onConflictDoUpdate({
         target: [chapterPlans.bookId, chapterPlans.chapterIndex],
-        set: chapterPlanValues(card),
+        set: planValues,
       })
       .run();
 

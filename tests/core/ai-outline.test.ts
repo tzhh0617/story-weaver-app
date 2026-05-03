@@ -432,7 +432,281 @@ describe('createAiOutlineService', () => {
         modelId: 'model-1',
       })
     ).rejects.toThrow(
-      'Invalid narrative bible: Narrative bible must include characterArcs array.'
+      'Invalid narrative bible: Narrative bible must include a protagonist.; Narrative bible must include a main thread.'
     );
+  });
+
+  it('normalizes richer real-model bible objects into the flat runtime schema', async () => {
+    const fakeModel = { id: 'model' };
+    const registry = {
+      languageModel: vi.fn().mockReturnValue(fakeModel),
+    };
+    const generateText = vi
+      .fn()
+      .mockResolvedValueOnce({
+        text: JSON.stringify({
+          premise: {
+            logline: '被逐少年得到吞噬因果的古镜。',
+            setup: '宗门污名与追杀同时降临。',
+          },
+          genreContract: {
+            primaryGenre: '东方玄幻复仇成长流',
+            mustDeliver: ['主角逆转', '规则代价'],
+          },
+          targetReaderExperience: {
+            openingEmotion: '愤懑',
+            satisfactionSources: ['逆转', '真相'],
+          },
+          themeQuestion: '人能否摆脱被写好的命运？',
+          themeAnswerDirection: '自由意味着承担代价。',
+          centralDramaticQuestion: '主角能否复仇而不异化？',
+          endingState: {
+            seriesEndVision: '主角掌握改命权柄。',
+            emotionalLanding: '他不再被污名定义。',
+            finalMoralImage: '先照见自己。',
+          },
+          voiceGuide: {
+            narrationStyle: '第三人称近距离',
+            proseDo: ['冷峻', '锋利'],
+          },
+          characterArcs: [
+            {
+              id: 'lu-zhao',
+              name: '陆照',
+              roleType: 'protagonist',
+              desire: '活下去并洗清污名',
+              fear: '变成怪物',
+              flaw: '不信任任何人',
+              misbelief: '只有更狠才能活',
+              wound: '被宗门污蔑逐出',
+              externalGoal: '查明真相',
+              internalNeed: '保留边界',
+              arcDirection: '从复仇走向承担',
+              decisionLogic: '优先活命与主动权',
+              lineWillNotCross: '不吞噬无辜者因果',
+              lineMayEventuallyCross: '会牺牲亲近者关系换更大结果',
+              currentArcPhase: '谷底反抗',
+            },
+          ],
+          worldRules: [
+            {
+              id: 'causality-visibility-rule',
+              category: 'power-system',
+              ruleText: '古镜能看见因果裂隙。',
+              cost: '消耗寿元与记忆稳定性。',
+              whoBenefits: '冷静观察者',
+              whoSuffers: '鲁莽者',
+              taboo: '窥探高阶命局',
+              violationConsequence: '神魂崩裂',
+              allowedException: '借祖祠愿力稳固',
+              currentStatus: 'active',
+            },
+          ],
+          narrativeThreads: [
+            {
+              id: 'who-framed-lu-zhao',
+              type: 'mystery',
+              promise: '查出是谁栽赃陆照。',
+              plantedAt: 'chapter-1',
+              expectedPayoff: 'chapter-12',
+              resolvedAt: 'series-end',
+              currentState: 'active',
+              importance: 'core',
+              payoffMustChange: '主角对宗门的仇恨对象会被修正',
+              ownerCharacterId: 'lu-zhao',
+              relatedRelationshipId: 'lu-zhao-han-beixuan',
+              notes: '第一章先埋追杀和伪证。',
+            },
+          ],
+          viralStoryProtocol: {
+            readerPromise: {
+              primary: '低谷反杀与因果代价并行',
+            },
+            targetEmotion: 'revenge',
+            coreDesire: {
+              want: '活下去并夺回命运',
+            },
+            protagonistDrive: ['求生', '复仇', '守住底线'],
+            hookEngine: {
+              question: '是谁把主角推进这面古镜？',
+            },
+            payoffCadence: {
+              mode: 'steady',
+              minorPayoffEveryChapters: '2',
+              majorPayoffEveryChapters: '12',
+              payoffTypes: ['truth_reveal', 'enemy_setback'],
+            },
+            tropeContract: ['revenge_payback', 'weak_to_strong'],
+            antiClicheRules: ['反转必须带代价'],
+            longTermQuestion: {
+              value: '主角能否复仇而不异化？',
+            },
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        text: JSON.stringify([
+          {
+            title: '命簿初鸣',
+            chapterStart: 1,
+            chapterEnd: 1,
+            roleInStory: '建立主线压力。',
+            mainPressure: '宗门追杀。',
+            promisedPayoff: '发现古镜裂隙。',
+            characterArcMovement: '主角从逃避转为反击。',
+            relationshipMovement: '暂时没有关系修复。',
+            worldExpansion: '展示古镜规则与代价。',
+            endingTurn: '古镜首次显威。',
+          },
+        ]),
+      })
+      .mockResolvedValueOnce({
+        text: JSON.stringify({
+          cards: [
+            {
+              volumeIndex: 1,
+              chapterIndex: 1,
+              title: '照因初醒',
+              plotFunction: '主角在被逐后第一次借古镜反杀。',
+              povCharacterId: 'lu-zhao',
+              externalConflict: '追兵逼近破庙。',
+              internalConflict: '要不要使用邪异古镜。',
+              relationshipChange: '与旧宗门彻底决裂。',
+              worldRuleUsedOrTested: 'causality-visibility-rule',
+              informationReveal: '古镜能吞裂因果。',
+              readerReward: 'truth',
+              endingHook: '主角发现真正黑手另有其人。',
+              mustChange: '主角接受自己必须反击。',
+              forbiddenMoves: [],
+            },
+          ],
+          threadActions: [
+            {
+              threadId: 'who-framed-lu-zhao',
+              action: 'plant',
+              chapterIndex: 1,
+              detail: '埋下真凶并非表面审判链条的悬念。',
+            },
+          ],
+          characterPressures: [
+            {
+              characterId: 'lu-zhao',
+              chapterIndex: 1,
+              pressures: [
+                '活下去并洗清污名',
+                '害怕自己变成怪物',
+                '不信任任何人',
+                '主角必须接受自己要反击',
+              ],
+            },
+          ],
+          relationshipActions: [
+            {
+              fromCharacterId: 'lu-zhao',
+              toCharacterId: 'han-beixuan',
+              action: 'deepen',
+              chapterIndex: 1,
+              detail: '矛盾升级到不死不休。',
+            },
+          ],
+        }),
+      })
+      .mockResolvedValueOnce({
+        text: JSON.stringify([
+          {
+            volumeIndex: 1,
+            chapterIndex: 1,
+            pressureLevel: 'high',
+            dominantTension: 'danger',
+            requiredTurn: '胜利伴随代价。',
+            forcedChoice: '用镜或死。',
+            costToPay: '神魂震荡。',
+            irreversibleChange: '主角暴露了镜的存在。',
+            readerQuestion: '谁在背后操盘？',
+            hookPressure: '更高层追兵将至。',
+            flatnessRisks: ['不要用设定说明代替冲突。'],
+          },
+        ]),
+      });
+
+    const service = createAiOutlineService({
+      registry: registry as never,
+      generateText: generateText as never,
+    });
+
+    const result = await service.generateFromIdea({
+      bookId: 'book-1',
+      idea: '一个被宗门逐出的少年，意外继承了会吞噬因果的古镜。',
+      targetChapters: 1,
+      wordsPerChapter: 1200,
+      modelId: 'openai:gpt-5.4',
+    });
+
+    expect(result.narrativeBible).toMatchObject({
+      premise: expect.stringContaining('被逐少年得到吞噬因果的古镜'),
+      genreContract: expect.stringContaining('东方玄幻复仇成长流'),
+      targetReaderExperience: expect.stringContaining('愤懑'),
+      voiceGuide: expect.stringContaining('第三人称近距离'),
+      endingState: {
+        protagonistWins: expect.any(String),
+        protagonistLoses: expect.any(String),
+        worldChange: expect.any(String),
+        relationshipOutcome: expect.any(String),
+        themeAnswer: expect.any(String),
+      },
+      relationshipEdges: [],
+      worldRules: [
+        expect.objectContaining({
+          category: 'power',
+        }),
+      ],
+      narrativeThreads: [
+        expect.objectContaining({
+          type: 'main',
+          plantedAt: 1,
+          expectedPayoff: null,
+          resolvedAt: null,
+          currentState: 'open',
+          importance: 'critical',
+          payoffMustChange: 'plot',
+          relatedRelationshipId: null,
+        }),
+      ],
+      viralStoryProtocol: expect.objectContaining({
+        readerPromise: expect.stringContaining('低谷反杀'),
+        coreDesire: expect.stringContaining('活下去并夺回命运'),
+        protagonistDrive: expect.stringContaining('求生'),
+        hookEngine: expect.stringContaining('是谁把主角推进这面古镜'),
+        payoffCadence: expect.objectContaining({
+          minorPayoffEveryChapters: 2,
+          majorPayoffEveryChapters: 12,
+        }),
+      }),
+    });
+    expect(result.volumePlans).toEqual([
+      expect.objectContaining({
+        volumeIndex: 1,
+        title: '命簿初鸣',
+      }),
+    ]);
+    expect(result.chapterThreadActions).toEqual([
+      expect.objectContaining({
+        threadId: 'who-framed-lu-zhao',
+        action: 'plant',
+        requiredEffect: expect.stringContaining('悬念'),
+      }),
+    ]);
+    expect(result.chapterCharacterPressures).toEqual([
+      expect.objectContaining({
+        characterId: 'lu-zhao',
+        expectedChoice: expect.stringContaining('主角必须'),
+      }),
+    ]);
+    expect(result.chapterRelationshipActions).toEqual([
+      expect.objectContaining({
+        relationshipId: 'lu-zhao-han-beixuan',
+        requiredChange: expect.stringContaining('不死不休'),
+      }),
+    ]);
   });
 });

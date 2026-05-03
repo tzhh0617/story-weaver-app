@@ -55,9 +55,10 @@ async function loadRuntimeServices(input: {
 async function waitForBookStatus(
   services: Awaited<ReturnType<typeof loadRuntimeServices>>,
   bookId: string,
-  status: string
+  status: string,
+  timeoutMs = 2000
 ) {
-  const deadline = Date.now() + 2000;
+  const deadline = Date.now() + timeoutMs;
 
   while (Date.now() < deadline) {
     const detail = services.bookService.getBookDetail(bookId);
@@ -394,6 +395,55 @@ describe('runtime mock fallback', () => {
     expect(writeRemainingChaptersSpy).toHaveBeenCalledTimes(2);
     expect(replanningIndex).toBeGreaterThanOrEqual(0);
     expect(nextStartedPhase).toBe('planning_init');
+    expect(generateText).not.toHaveBeenCalled();
+  });
+
+  it('continues direct write-all runs through replanning until completion', async () => {
+    const generateText = vi.fn().mockResolvedValue({
+      text: 'should not be used',
+    });
+    const services = await loadRuntimeServices({
+      tempHome,
+      generateTextImpl: generateText,
+      mockDelayMs: 0,
+    });
+    const logs: Array<{ eventType: string; phase: string | null }> = [];
+    const unsubscribe = services.subscribeExecutionLogs((log) => {
+      logs.push({
+        eventType: log.eventType,
+        phase: log.phase,
+      });
+    });
+    const originalWriteRemainingChapters =
+      services.bookService.writeRemainingChapters.bind(services.bookService);
+    const writeRemainingChaptersSpy = vi
+      .spyOn(services.bookService, 'writeRemainingChapters')
+      .mockResolvedValueOnce({
+        completedChapters: 1,
+        status: 'replanning',
+      })
+      .mockImplementation(async (bookId) => originalWriteRemainingChapters(bookId));
+
+    const bookId = services.bookService.createBook({
+      idea: '一个被宗门逐出的少年，意外继承了会吞噬因果的古镜。',
+      targetChapters: 1,
+      wordsPerChapter: 90,
+    });
+
+    await services.bookService.startBook(bookId);
+    const result = await services.writeRemainingChapters(bookId);
+    const detail = services.bookService.getBookDetail(bookId);
+    unsubscribe();
+
+    const replanningIndex = logs.findIndex(
+      (log) => log.eventType === 'book_replanning'
+    );
+
+    expect(result.status).toBe('completed');
+    expect(result.completedChapters).toBe(2);
+    expect(detail?.book.status).toBe('completed');
+    expect(writeRemainingChaptersSpy).toHaveBeenCalledTimes(2);
+    expect(replanningIndex).toBeGreaterThanOrEqual(0);
     expect(generateText).not.toHaveBeenCalled();
   });
 
@@ -735,7 +785,7 @@ describe('runtime mock fallback', () => {
     expect(detail?.book.status).toBe('error');
     expect(detail?.progress?.phase).toBe('error');
     expect(detail?.progress?.errorMsg).toContain(
-      'Invalid narrative bible: Narrative bible must include characterArcs array.'
+      'Invalid narrative bible: Narrative bible must include a protagonist.; Narrative bible must include a main thread.'
     );
     expect(events).toEqual(
       expect.arrayContaining([

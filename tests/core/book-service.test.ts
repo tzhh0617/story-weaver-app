@@ -2949,6 +2949,84 @@ describe('createBookService', () => {
     ]);
   });
 
+  it('finishes a 500-chapter planned book in one continuous run', async () => {
+    const db = createDatabase(':memory:');
+    const targetChapters = 500;
+    let writtenChapterCount = 0;
+    const writeChapter = vi.fn().mockImplementation(async () => {
+      writtenChapterCount += 1;
+
+      return {
+        content: `Generated chapter ${writtenChapterCount}`,
+        usage: { inputTokens: 10, outputTokens: 20 },
+      };
+    });
+
+    const service = createBookService({
+      books: createBookRepository(db),
+      chapters: createChapterRepository(db),
+      characters: createCharacterRepository(db),
+      plotThreads: createPlotThreadRepository(db),
+      sceneRecords: createSceneRecordRepository(db),
+      progress: createProgressRepository(db),
+      outlineService: {
+        generateFromIdea: vi.fn().mockResolvedValue({
+          worldSetting: 'World rules',
+          masterOutline: 'Master outline',
+          volumeOutlines: ['Volume 1'],
+          chapterOutlines: Array.from({ length: targetChapters }, (_, index) => ({
+            volumeIndex: 1,
+            chapterIndex: index + 1,
+            title: `Chapter ${index + 1}`,
+            outline: `Outline ${index + 1}`,
+          })),
+        }),
+      },
+      chapterWriter: {
+        writeChapter,
+      },
+      summaryGenerator: {
+        summarizeChapter: vi.fn().mockImplementation(async ({ content }) => content),
+      },
+      plotThreadExtractor: {
+        extractThreads: vi.fn().mockResolvedValue({
+          openedThreads: [],
+          resolvedThreadIds: [],
+        }),
+      },
+      characterStateExtractor: {
+        extractStates: vi.fn().mockResolvedValue([]),
+      },
+      sceneRecordExtractor: {
+        extractScene: vi.fn().mockResolvedValue(null),
+      },
+    });
+
+    const bookId = service.createBook({
+      idea: 'The moon taxes miracles.',
+      modelId: 'openai:gpt-4o-mini',
+      targetChapters,
+      wordsPerChapter: 2500,
+    });
+
+    await service.startBook(bookId);
+    const result = await service.writeRemainingChapters(bookId);
+    const detail = service.getBookDetail(bookId);
+
+    expect(result).toEqual({
+      completedChapters: 500,
+      status: 'completed',
+    });
+    expect(writeChapter).toHaveBeenCalledTimes(targetChapters);
+    expect(detail?.book.status).toBe('completed');
+    expect(detail?.progress?.phase).toBe('completed');
+    expect(detail?.chapters).toHaveLength(targetChapters);
+    expect(detail?.chapters.at(-1)).toMatchObject({
+      chapterIndex: 500,
+      content: 'Generated chapter 500',
+    });
+  });
+
   it('stops continuous writing after the current chapter when the book is paused', async () => {
     const db = createDatabase(':memory:');
     let service!: ReturnType<typeof createBookService>;

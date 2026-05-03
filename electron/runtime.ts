@@ -783,6 +783,42 @@ export function getRuntimeServices() {
     }
   }
 
+  async function continueForegroundBookRun(
+    bookId: string,
+    run: () => Promise<{
+      completedChapters: number;
+      status: 'completed' | 'paused' | 'deleted' | 'replanning';
+    }>,
+    replanningMessage: string
+  ) {
+    let completedChapters = 0;
+    let result = await run();
+
+    completedChapters += result.completedChapters;
+
+    while (result.status === 'replanning') {
+      logExecution({
+        bookId,
+        level: 'info',
+        eventType: 'book_replanning',
+        phase: 'planning_recheck',
+        message: replanningMessage,
+        debugContext: {
+          completedChapters,
+          status: result.status,
+        },
+      });
+
+      result = await bookService.resumeBook(bookId);
+      completedChapters += result.completedChapters;
+    }
+
+    return {
+      ...result,
+      completedChapters,
+    };
+  }
+
   bookService = createBookService({
     books,
     chapters,
@@ -896,7 +932,11 @@ export function getRuntimeServices() {
       });
 
       try {
-        const result = await bookService.writeRemainingChapters(bookId);
+        const result = await continueForegroundBookRun(
+          bookId,
+          () => bookService.writeRemainingChapters(bookId),
+          '手动写作进入重规划'
+        );
         if (result.status === 'completed') {
           logExecution({
             bookId,
@@ -904,19 +944,6 @@ export function getRuntimeServices() {
             eventType: 'book_completed',
             phase: 'completed',
             message: '后台执行完成',
-          });
-        }
-        if (result.status === 'replanning') {
-          logExecution({
-            bookId,
-            level: 'info',
-            eventType: 'book_replanning',
-            phase: 'planning_recheck',
-            message: '手动写作进入重规划',
-            debugContext: {
-              completedChapters: result.completedChapters,
-              status: result.status,
-            },
           });
         }
 
@@ -943,7 +970,11 @@ export function getRuntimeServices() {
         phase: 'writing',
         message: '作品已恢复后台执行',
       });
-      const result = await bookService.resumeBook(bookId);
+      const result = await continueForegroundBookRun(
+        bookId,
+        () => bookService.resumeBook(bookId),
+        '恢复执行进入重规划'
+      );
       if (result?.status === 'completed') {
         logExecution({
           bookId,
@@ -964,7 +995,11 @@ export function getRuntimeServices() {
         message: '作品已重新开始后台执行',
       });
       try {
-        const result = await bookService.restartBook(bookId);
+        const result = await continueForegroundBookRun(
+          bookId,
+          () => bookService.restartBook(bookId),
+          '重新执行进入重规划'
+        );
         if (result?.status === 'completed') {
           logExecution({
             bookId,

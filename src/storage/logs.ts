@@ -94,6 +94,10 @@ export function createExecutionLogStream(options: ExecutionLogStreamOptions = {}
       return;
     }
 
+    if (!existsSync(logDir)) {
+      return;
+    }
+
     const cutoff = new Date(currentDate);
     cutoff.setUTCDate(cutoff.getUTCDate() - (retentionDays - 1));
     const cutoffDay = cutoff.toISOString().slice(0, 10);
@@ -113,6 +117,7 @@ export function createExecutionLogStream(options: ExecutionLogStreamOptions = {}
       return null;
     }
 
+    mkdirSync(logDir, { recursive: true });
     pruneExpiredLogFiles(currentDate);
 
     for (let index = 0; index < 10_000; index += 1) {
