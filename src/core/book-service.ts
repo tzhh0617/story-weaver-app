@@ -868,6 +868,51 @@ export function createBookService(deps: {
       createdAt: string;
     } | null;
   };
+  bookContracts?: {
+    getByBook: (bookId: string) => {
+      bookId: string;
+      titlePromise: string;
+      corePremise: string;
+      mainlinePromise: string;
+      protagonistCoreDesire: string;
+      protagonistNoDriftRules: string[];
+      keyCharacterBoundaries: Array<{
+        characterId: string;
+        publicPersona: string;
+        hiddenDrive: string;
+        lineWillNotCross: string;
+        lineMayEventuallyCross: string;
+      }>;
+      mandatoryPayoffs: string[];
+      antiDriftRules: string[];
+      activeTemplate: string;
+      createdAt: string;
+      updatedAt: string;
+    } | null;
+  };
+  storyLedgers?: {
+    getLatestByBook: (bookId: string) => {
+      bookId: string;
+      chapterIndex: number;
+      mainlineProgress: string;
+      activeSubplots: unknown;
+      openPromises: unknown;
+      characterTruths: unknown;
+      relationshipDeltas: unknown;
+      worldFacts: unknown;
+      rhythmPosition: string;
+      riskFlags: unknown;
+      createdAt: string;
+    } | null;
+  };
+  storyCheckpoints?: {
+    getLatestByBook: (bookId: string) => {
+      bookId: string;
+      chapterIndex: number;
+      checkpointType: string;
+      createdAt: string;
+    } | null;
+  };
   progress: {
     updatePhase: (
       bookId: string,
@@ -880,6 +925,10 @@ export function createBookService(deps: {
         stepLabel?: string | null;
         activeTaskType?: string | null;
         errorMsg?: string | null;
+        driftLevel?: 'none' | 'light' | 'medium' | 'heavy';
+        lastHealthyCheckpointChapter?: number | null;
+        cooldownUntil?: string | null;
+        starvationScore?: number | null;
       }
     ) => void;
     getByBookId: (bookId: string) =>
@@ -894,6 +943,10 @@ export function createBookService(deps: {
           activeTaskType: string | null;
           retryCount: number;
           errorMsg: string | null;
+          driftLevel: 'none' | 'light' | 'medium' | 'heavy';
+          lastHealthyCheckpointChapter: number | null;
+          cooldownUntil: string | null;
+          starvationScore: number;
         }
       | undefined;
     reset: (bookId: string, phase: string) => void;
@@ -1305,9 +1358,14 @@ export function createBookService(deps: {
       const chapterPlans = deps.chapterPlans?.listByBook(bookId) ?? [];
       const latestStoryStateSnapshot =
         deps.storyStateSnapshots?.getLatestByBook(bookId) ?? null;
+      const bookContract = deps.bookContracts?.getByBook(bookId) ?? null;
+      const latestLedger = deps.storyLedgers?.getLatestByBook(bookId) ?? null;
+      const latestCheckpoint =
+        deps.storyCheckpoints?.getLatestByBook(bookId) ?? null;
       const chapterCards = deps.chapterCards?.listByBook?.(bookId) ?? [];
       const chapterTensionBudgets =
         deps.chapterTensionBudgets?.listByBook?.(bookId) ?? [];
+      const currentProgress = deps.progress.getByBookId(bookId) ?? null;
       const latestAudits = new Map(
         (deps.chapterAudits?.listLatestByBook?.(bookId) ?? []).map((audit) => [
           `${audit.volumeIndex}-${audit.chapterIndex}`,
@@ -1413,6 +1471,21 @@ export function createBookService(deps: {
                 viralStoryProtocol: bible.viralStoryProtocol ?? null,
               }
             : null,
+          bookContract,
+          latestLedger,
+          latestCheckpoint,
+          runState: currentProgress
+            ? {
+                phase: currentProgress.phase ?? 'creating',
+                currentChapter: currentProgress.currentChapter,
+                driftLevel: currentProgress.driftLevel,
+                starvationScore: currentProgress.starvationScore,
+                lastHealthyCheckpointChapter:
+                  currentProgress.lastHealthyCheckpointChapter,
+                latestFailureReason: currentProgress.errorMsg,
+                cooldownUntil: currentProgress.cooldownUntil,
+              }
+            : null,
           characterArcs: deps.characterArcs?.listByBook(bookId) ?? [],
           relationshipEdges: deps.relationshipEdges?.listByBook(bookId) ?? [],
           worldRules,
@@ -1429,7 +1502,7 @@ export function createBookService(deps: {
             deps.narrativeCheckpoints?.listByBook?.(bookId) ?? [],
         },
         chapters,
-        progress: deps.progress.getByBookId(bookId) ?? null,
+        progress: currentProgress,
       };
     },
 

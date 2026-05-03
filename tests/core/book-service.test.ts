@@ -379,6 +379,128 @@ describe('createBookService', () => {
     expect(detail?.progress?.phase).toBe('building_outline');
   });
 
+  it('surfaces runtime contract, ledger, checkpoint, and run-state data on book detail narrative', () => {
+    const db = createDatabase(':memory:');
+    const service = createBookService({
+      books: createBookRepository(db),
+      chapters: createChapterRepository(db),
+      characters: createCharacterRepository(db),
+      plotThreads: createPlotThreadRepository(db),
+      sceneRecords: createSceneRecordRepository(db),
+      progress: createProgressRepository(db),
+      bookContracts: {
+        getByBook: vi.fn((bookId: string) => ({
+          bookId,
+          titlePromise: 'A ledger of erased names must be restored.',
+          corePremise: 'A clerk fights a system that edits people out of history.',
+          mainlinePromise: 'Each breakthrough reveals a larger institutional cover-up.',
+          protagonistCoreDesire: 'Restore her family name.',
+          protagonistNoDriftRules: ['She cannot abandon the erased families.'],
+          keyCharacterBoundaries: [
+            {
+              characterId: 'clerk-1',
+              publicPersona: 'Obedient archive clerk',
+              hiddenDrive: 'Expose the forgery ring',
+              lineWillNotCross: 'She will not forge innocent records.',
+              lineMayEventuallyCross: 'She may destroy sanctioned records.',
+            },
+          ],
+          mandatoryPayoffs: ['Reveal who authorized the erasures.'],
+          antiDriftRules: ['Every victory must deepen the institutional risk.'],
+          activeTemplate: 'mystery_serial',
+          createdAt: '2026-05-03T08:00:00.000Z',
+          updatedAt: '2026-05-03T08:30:00.000Z',
+        })),
+      },
+      storyLedgers: {
+        getLatestByBook: vi.fn((bookId: string) => ({
+          bookId,
+          chapterIndex: 7,
+          mainlineProgress: 'The clerk links the erased names to a magistrate.',
+          activeSubplots: [{ id: 'subplot-1', status: 'open' }],
+          openPromises: [{ id: 'promise-1', targetChapter: 9 }],
+          characterTruths: [{ characterId: 'clerk-1', truth: 'Her mentor lied.' }],
+          relationshipDeltas: [{ relationshipId: 'mentor', direction: 'worse' }],
+          worldFacts: [{ factId: 'seal', fact: 'The archive seal can be cloned.' }],
+          rhythmPosition: 'twist',
+          riskFlags: [{ code: 'promise_gap', severity: 'major' }],
+          createdAt: '2026-05-03T08:45:00.000Z',
+        })),
+      },
+      storyCheckpoints: {
+        getLatestByBook: vi.fn((bookId: string) => ({
+          bookId,
+          chapterIndex: 6,
+          checkpointType: 'heavy',
+          createdAt: '2026-05-03T08:15:00.000Z',
+        })),
+      },
+      outlineService: {
+        generateFromIdea: vi.fn(),
+      },
+      chapterWriter: {
+        writeChapter: vi.fn(),
+      },
+      summaryGenerator: {
+        summarizeChapter: vi.fn(),
+      },
+      plotThreadExtractor: {
+        extractThreads: vi.fn().mockResolvedValue({
+          openedThreads: [],
+          resolvedThreadIds: [],
+        }),
+      },
+      characterStateExtractor: {
+        extractStates: vi.fn().mockResolvedValue([]),
+      },
+      sceneRecordExtractor: {
+        extractScene: vi.fn().mockResolvedValue(null),
+      },
+    });
+
+    const bookId = service.createBook({
+      idea: 'A clerk restores erased family names.',
+      targetChapters: 12,
+      wordsPerChapter: 1800,
+    });
+
+    service.pauseBook(bookId);
+    const detail = service.getBookDetail(bookId);
+
+    expect(detail?.narrative).toEqual(
+      expect.objectContaining({
+        bookContract: expect.objectContaining({
+          bookId,
+          activeTemplate: 'mystery_serial',
+        }),
+        latestLedger: expect.objectContaining({
+          bookId,
+          chapterIndex: 7,
+          rhythmPosition: 'twist',
+        }),
+        latestCheckpoint: expect.objectContaining({
+          bookId,
+          chapterIndex: 6,
+          checkpointType: 'heavy',
+        }),
+        runState: expect.objectContaining({
+          phase: 'paused',
+          currentChapter: null,
+          driftLevel: 'none',
+          starvationScore: 0,
+          lastHealthyCheckpointChapter: null,
+          latestFailureReason: null,
+          cooldownUntil: null,
+        }),
+      })
+    );
+    expect(detail?.progress).toEqual(
+      expect.objectContaining({
+        phase: 'paused',
+      })
+    );
+  });
+
   it('persists the target number of chapter outlines even when generated chapter indexes repeat', async () => {
     const db = createDatabase(':memory:');
     const service = createBookService({
