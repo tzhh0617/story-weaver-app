@@ -1,10 +1,10 @@
 import type { OutlineGenerationInput } from './types.js';
+import { buildNarrativeDraftPrompt as buildNarrativeDraftPromptBase } from './narrative/prompts.js';
 
 export {
   buildChapterAuditPrompt,
   buildChapterCardPrompt,
   buildNarrativeBiblePrompt,
-  buildNarrativeDraftPrompt,
   buildRevisionPrompt,
   buildVolumePlanPrompt,
 } from './narrative/prompts.js';
@@ -140,5 +140,30 @@ export function buildChapterDraftPrompt(input: {
     `Chapter title: ${input.chapterTitle}`,
     `Chapter outline: ${input.chapterOutline}`,
     'Return only the final chapter prose. Do not include any chapter title, heading, Markdown title, or title line in the正文.',
+  ].join('\n');
+}
+
+export function buildNarrativeDraftPrompt(input: {
+  idea: string;
+  wordsPerChapter: number;
+  commandContext: string;
+  routePlanText?: string | null;
+  viralStoryProtocol?: import('./narrative/types.js').ViralStoryProtocol | null;
+  chapterIndex?: number | null;
+  extraContextLines?: string[] | null;
+}) {
+  const basePrompt = buildNarrativeDraftPromptBase(input);
+  const extraContextLines =
+    input.extraContextLines?.map((line) => line.trim()).filter(Boolean) ?? [];
+
+  if (!extraContextLines.length) {
+    return basePrompt;
+  }
+
+  return [
+    'Autopilot template context:',
+    ...extraContextLines,
+    '',
+    basePrompt,
   ].join('\n');
 }

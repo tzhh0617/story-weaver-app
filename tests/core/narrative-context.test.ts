@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildNarrativeCommandContext } from '../../src/core/narrative/context';
+import { buildNarrativeDraftPrompt } from '../../src/core/prompt-builder';
 
 describe('buildNarrativeCommandContext', () => {
   it('keeps chapter mission and forbidden moves when trimming', () => {
@@ -183,5 +184,27 @@ describe('buildNarrativeCommandContext', () => {
     expect(result).toContain('Reader promise: 压抑后翻盘。');
     expect(result).toContain('Chapter Mission');
     expect(result.length).toBeLessThanOrEqual(900);
+  });
+
+  it('preserves template-aware extra context in the narrative draft prompt', () => {
+    const prompt = buildNarrativeDraftPrompt({
+      idea: '少年在宗门边缘靠战斗进阶逆袭。',
+      wordsPerChapter: 3200,
+      commandContext: 'Chapter Mission:\n- Win the duel without exposing the secret.',
+      extraContextLines: [
+        'Template: progression',
+        'Anti-drift: Do not let training replace competitive pressure for too long.',
+        'Anti-drift: Each mini-arc should end with a visible gain or loss.',
+        'Rhythm hint: setup -> escalation -> payoff -> cost',
+      ],
+    });
+
+    expect(prompt).toContain('Template: progression');
+    expect(prompt).toContain(
+      'Anti-drift: Do not let training replace competitive pressure for too long.'
+    );
+    expect(prompt).toContain(
+      'Rhythm hint: setup -> escalation -> payoff -> cost'
+    );
   });
 });

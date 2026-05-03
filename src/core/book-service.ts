@@ -21,6 +21,7 @@ import {
 } from './narrative/checkpoint.js';
 import { buildNarrativeCommandContext } from './narrative/context.js';
 import { buildOpeningRetentionContextLines } from './narrative/opening-retention.js';
+import { storyTemplatePresets } from './narrative/templates.js';
 import {
   calculateRemainingChapterBudget,
   detectMilestone,
@@ -203,6 +204,34 @@ function buildOutlineFromChapterCard(card: ChapterCard) {
     .map((line) => line.trim())
     .filter(Boolean)
     .join('\n');
+}
+
+function buildTemplatePromptContextLines(activeTemplate: string | null | undefined) {
+  if (!activeTemplate) {
+    return [];
+  }
+
+  const preset = storyTemplatePresets[activeTemplate as keyof typeof storyTemplatePresets];
+  if (!preset) {
+    return [`Template: ${activeTemplate}`];
+  }
+
+  const lines = [`Template: ${preset.id}`];
+  for (const warning of preset.rubric.driftWarnings.slice(0, 2)) {
+    lines.push(`Anti-drift: ${warning}`);
+  }
+
+  if (preset.rubric.rhythmPattern.length > 0) {
+    lines.push(`Rhythm hint: ${preset.rubric.rhythmPattern.join(' -> ')}`);
+  }
+
+  if (preset.rubric.maxPayoffGapChapters > 0) {
+    lines.push(
+      `Payoff hint: land a visible gain, loss, clue, or relationship turn within ${preset.rubric.maxPayoffGapChapters} chapters.`
+    );
+  }
+
+  return lines.slice(0, 5);
 }
 
 function saveChapterOutlines(
@@ -1773,6 +1802,7 @@ export function createBookService(deps: {
 
       const modelId = resolveModelId();
       const storyBible = deps.storyBibles?.getByBook?.(bookId) ?? null;
+      const bookContract = deps.bookContracts?.getByBook(bookId) ?? null;
       const effectiveChapterCard = chapterCard
         ? {
             ...chapterCard,
@@ -1889,6 +1919,9 @@ export function createBookService(deps: {
             routePlanText,
             viralStoryProtocol: storyBible?.viralStoryProtocol ?? null,
             chapterIndex: nextChapter.chapterIndex,
+            extraContextLines: buildTemplatePromptContextLines(
+              bookContract?.activeTemplate
+            ),
           })
         : buildChapterDraftPrompt({
             idea: book.idea,
