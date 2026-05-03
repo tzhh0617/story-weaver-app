@@ -21,6 +21,10 @@ import {
 } from './narrative/checkpoint.js';
 import { buildNarrativeCommandContext } from './narrative/context.js';
 import { buildOpeningRetentionContextLines } from './narrative/opening-retention.js';
+import {
+  calculateRemainingChapterBudget,
+  detectMilestone,
+} from './narrative/state.js';
 import { formatViralProtocolForPrompt } from './narrative/viral-story-protocol.js';
 import {
   formatStoryRoutePlanForPrompt,
@@ -219,6 +223,24 @@ function saveChapterOutlines(
   if (chapterOutlines.length) {
     deps.onBookUpdated?.(bookId);
   }
+}
+
+function hasPlanningBundle(
+  outlineBundle: OutlineBundle
+): outlineBundle is OutlineBundle & {
+  titleIdeaContract?: NonNullable<OutlineBundle['titleIdeaContract']>;
+  endgamePlan?: NonNullable<OutlineBundle['endgamePlan']>;
+  stagePlans?: NonNullable<OutlineBundle['stagePlans']>;
+  arcPlans?: NonNullable<OutlineBundle['arcPlans']>;
+  chapterPlans?: NonNullable<OutlineBundle['chapterPlans']>;
+} {
+  return Boolean(
+    outlineBundle.titleIdeaContract ||
+      outlineBundle.endgamePlan ||
+      outlineBundle.stagePlans?.length ||
+      outlineBundle.arcPlans?.length ||
+      outlineBundle.chapterPlans?.length
+  );
 }
 
 function isBookPaused(
@@ -597,6 +619,14 @@ export function createBookService(deps: {
     }>;
   };
   titleIdeaContracts?: {
+    save: (input: {
+      bookId: string;
+      title: string;
+      idea: string;
+      corePromise: string;
+      titleHooks: string[];
+      forbiddenDrift: string[];
+    }) => void;
     getByBook: (bookId: string) => {
       bookId: string;
       title: string;
@@ -609,6 +639,16 @@ export function createBookService(deps: {
     } | null;
   };
   endgamePlans?: {
+    save: (input: {
+      bookId: string;
+      titleIdeaContract: string;
+      protagonistEndState: string;
+      finalConflict: string;
+      finalOpponent: string;
+      worldEndState: string;
+      coreCharacterOutcomes: unknown;
+      majorPayoffs: unknown;
+    }) => void;
     getByBook: (bookId: string) => {
       bookId: string;
       titleIdeaContract: string;
@@ -623,6 +663,26 @@ export function createBookService(deps: {
     } | null;
   };
   stagePlans?: {
+    upsertMany: (
+      bookId: string,
+      plans: Array<{
+        stageIndex: number;
+        chapterStart: number;
+        chapterEnd: number;
+        chapterBudget: number;
+        objective: string;
+        primaryResistance: string;
+        pressureCurve: string;
+        escalation: string;
+        climax: string;
+        payoff: string;
+        irreversibleChange: string;
+        nextQuestion: string;
+        titleIdeaFocus: string;
+        compressionTrigger: string;
+        status?: string;
+      }>
+    ) => void;
     listByBook: (bookId: string) => Array<{
       stageIndex: number;
       chapterStart: number;
@@ -642,6 +702,28 @@ export function createBookService(deps: {
     }>;
   };
   arcPlans?: {
+    upsertMany: (
+      bookId: string,
+      plans: Array<{
+        arcIndex: number;
+        stageIndex: number;
+        chapterStart: number;
+        chapterEnd: number;
+        chapterBudget: number;
+        primaryThreads: unknown;
+        characterTurns: unknown;
+        threadActions: unknown;
+        targetOutcome: string;
+        escalationMode: string;
+        turningPoint: string;
+        requiredPayoff: string;
+        resultingInstability: string;
+        titleIdeaFocus: string;
+        minChapterCount: number;
+        maxChapterCount: number;
+        status?: string;
+      }>
+    ) => void;
     listByBook: (bookId: string) => Array<{
       arcIndex: number;
       stageIndex: number;
@@ -663,6 +745,27 @@ export function createBookService(deps: {
     }>;
   };
   chapterPlans?: {
+    upsertMany: (
+      bookId: string,
+      plans: Array<{
+        batchIndex: number;
+        chapterIndex: number;
+        arcIndex: number;
+        goal: string;
+        conflict: string;
+        pressureSource: string;
+        changeType: string;
+        threadActions: unknown;
+        reveal: string;
+        payoffOrCost: string;
+        endingHook: string;
+        titleIdeaLink: string;
+        batchGoal: string;
+        requiredPayoffs: unknown;
+        forbiddenDrift: unknown;
+        status?: string;
+      }>
+    ) => void;
     listByBook: (bookId: string) => Array<{
       batchIndex: number;
       chapterIndex: number;
@@ -683,6 +786,20 @@ export function createBookService(deps: {
     }>;
   };
   storyStateSnapshots?: {
+    save: (input: {
+      bookId: string;
+      chapterIndex: number;
+      summary: string;
+      titleIdeaAlignment: string;
+      flatnessRisk: string;
+      characterChanges: unknown;
+      relationshipChanges: unknown;
+      worldFacts: unknown;
+      threadUpdates: unknown;
+      unresolvedPromises: unknown;
+      stageProgress: string;
+      remainingChapterBudget: number;
+    }) => void;
     getLatestByBook: (bookId: string) => {
       bookId: string;
       chapterIndex: number;
@@ -877,6 +994,105 @@ export function createBookService(deps: {
     if (input.notifyBookUpdated) {
       deps.onBookUpdated?.(input.bookId);
     }
+  }
+
+  function initializePlanning(bookId: string, outlineBundle: OutlineBundle) {
+    if (!hasPlanningBundle(outlineBundle)) {
+      return false;
+    }
+
+    if (outlineBundle.titleIdeaContract) {
+      deps.titleIdeaContracts?.save(outlineBundle.titleIdeaContract);
+    }
+
+    if (outlineBundle.endgamePlan) {
+      deps.endgamePlans?.save(outlineBundle.endgamePlan);
+    }
+
+    if (outlineBundle.stagePlans?.length) {
+      deps.stagePlans?.upsertMany(bookId, outlineBundle.stagePlans);
+    }
+
+    if (outlineBundle.arcPlans?.length) {
+      deps.arcPlans?.upsertMany(bookId, outlineBundle.arcPlans);
+    }
+
+    if (outlineBundle.chapterPlans?.length) {
+      deps.chapterPlans?.upsertMany(bookId, outlineBundle.chapterPlans);
+    }
+
+    deps.progress.updatePhase(bookId, 'planning_init', {
+      currentStage: outlineBundle.stagePlans?.[0]?.stageIndex ?? 1,
+      currentArc: outlineBundle.arcPlans?.[0]?.arcIndex ?? 1,
+      stepLabel: '正在初始化规划循环',
+      activeTaskType: 'book:plan:init',
+    });
+
+    deps.onBookUpdated?.(bookId);
+
+    return true;
+  }
+
+  function markChapterPlanCompleted(bookId: string, chapterIndex: number) {
+    const chapterPlans = deps.chapterPlans?.listByBook(bookId) ?? [];
+    const targetPlan = chapterPlans.find((plan) => plan.chapterIndex === chapterIndex);
+
+    if (!targetPlan) {
+      return;
+    }
+
+    deps.chapterPlans?.upsertMany(bookId, [
+      {
+        ...targetPlan,
+        status: 'completed',
+      },
+    ]);
+  }
+
+  function saveStoryStateSnapshot(input: {
+    bookId: string;
+    chapterIndex: number;
+    summary: string;
+    titleIdeaAlignment: string;
+    flatnessRisk: string;
+  }) {
+    const book = deps.books.getById(input.bookId);
+
+    if (!book) {
+      return;
+    }
+
+    deps.storyStateSnapshots?.save({
+      bookId: input.bookId,
+      chapterIndex: input.chapterIndex,
+      summary: input.summary,
+      titleIdeaAlignment: input.titleIdeaAlignment,
+      flatnessRisk: input.flatnessRisk,
+      characterChanges: [],
+      relationshipChanges: [],
+      worldFacts: [],
+      threadUpdates: [],
+      unresolvedPromises: [],
+      stageProgress: `chapter ${input.chapterIndex} completed`,
+      remainingChapterBudget: calculateRemainingChapterBudget(
+        book.targetChapters,
+        input.chapterIndex
+      ),
+    });
+  }
+
+  function handleMilestoneReplan(bookId: string, chapterIndex: number) {
+    const milestone = detectMilestone(chapterIndex);
+
+    if (!milestone) {
+      return;
+    }
+
+    deps.progress.updatePhase(bookId, 'planning_recheck', {
+      currentChapter: chapterIndex,
+      stepLabel: `已到达 ${milestone} 章里程碑，等待后续重规划`,
+      activeTaskType: 'book:plan:rebuild-chapters',
+    });
   }
 
   return {
@@ -1255,6 +1471,8 @@ export function createBookService(deps: {
         )
       );
 
+      initializePlanning(bookId, outlineBundle);
+
       deps.books.updateStatus(bookId, 'building_outline');
       deps.progress.updatePhase(bookId, 'building_outline');
     },
@@ -1290,10 +1508,17 @@ export function createBookService(deps: {
       const context = deps.books.getContext(bookId);
       const chapters = deps.chapters.listByBook(bookId);
       const chapterCards = deps.chapterCards?.listByBook?.(bookId) ?? [];
+      const chapterPlans = deps.chapterPlans?.listByBook(bookId) ?? [];
+      const nextPlannedChapter = chapterPlans.find(
+        (plan) => plan.status !== 'completed'
+      );
       const nextChapter = chapters.find(
         (chapter) =>
           !chapter.content &&
-          (Boolean(chapter.outline?.trim()) ||
+          (nextPlannedChapter
+            ? chapter.chapterIndex === nextPlannedChapter.chapterIndex
+            : false ||
+              Boolean(chapter.outline?.trim()) ||
             chapterCards.some(
               (card) =>
                 card.volumeIndex === chapter.volumeIndex &&
@@ -1760,6 +1985,16 @@ export function createBookService(deps: {
           }
         }
       }
+
+      markChapterPlanCompleted(bookId, nextChapter.chapterIndex);
+      saveStoryStateSnapshot({
+        bookId,
+        chapterIndex: nextChapter.chapterIndex,
+        summary: chapterUpdate.summary,
+        titleIdeaAlignment: 'maintained',
+        flatnessRisk: auditScore !== null && auditScore >= 80 ? 'low' : 'medium',
+      });
+      handleMilestoneReplan(bookId, nextChapter.chapterIndex);
 
       if (
         deps.narrativeCheckpoint &&

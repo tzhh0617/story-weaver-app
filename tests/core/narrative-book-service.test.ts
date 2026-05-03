@@ -137,6 +137,203 @@ function tensionBudgets(bookId: string): ChapterTensionBudget[] {
 }
 
 describe('narrative book-service integration', () => {
+  it('persists planning bundle data and advances the planning-writing loop after a chapter is written', async () => {
+    const db = createDatabase(':memory:');
+    const repos = createRepositories(db);
+    const service = createBookService({
+      ...repos,
+      outlineService: {
+        generateFromIdea: vi.fn().mockImplementation((input) =>
+          Promise.resolve({
+            worldSetting: 'Loop world',
+            masterOutline: 'Loop outline',
+            volumeOutlines: ['Stage 1'],
+            chapterOutlines: [
+              {
+                volumeIndex: 1,
+                chapterIndex: 1,
+                title: '命簿开页',
+                outline: '林牧被迫接下第一场追查。',
+              },
+            ],
+            titleIdeaContract: {
+              bookId: input.bookId,
+              title: '命簿追猎',
+              idea: input.idea,
+              corePromise: '每次改命都要先失去一样东西。',
+              titleHooks: ['命簿', '追猎'],
+              forbiddenDrift: ['无代价升级'],
+            },
+            endgamePlan: {
+              bookId: input.bookId,
+              titleIdeaContract: '命簿追猎',
+              protagonistEndState: '林牧主动公开真相。',
+              finalConflict: '林牧必须在公开命簿和保住师门之间抉择。',
+              finalOpponent: '司命监首座',
+              worldEndState: '命簿不再由宗门垄断。',
+              coreCharacterOutcomes: {
+                linMu: '接受失去匿名的代价。',
+              },
+              majorPayoffs: ['旧案真凶现身'],
+            },
+            stagePlans: [
+              {
+                stageIndex: 1,
+                chapterStart: 1,
+                chapterEnd: 10,
+                chapterBudget: 10,
+                objective: '逼林牧接下旧案。',
+                primaryResistance: '司命监封锁线索。',
+                pressureCurve: 'ascending',
+                escalation: '身边人被卷入。',
+                climax: '林牧第一次公开违抗宗门。',
+                payoff: '确认旧案不是意外。',
+                irreversibleChange: '林牧被列入追捕名单。',
+                nextQuestion: '谁在背后删改命簿？',
+                titleIdeaFocus: '命簿代价',
+                compressionTrigger: '若追查停滞则压缩支线',
+                status: 'planned',
+              },
+            ],
+            arcPlans: [
+              {
+                arcIndex: 1,
+                stageIndex: 1,
+                chapterStart: 1,
+                chapterEnd: 5,
+                chapterBudget: 5,
+                primaryThreads: ['old-case'],
+                characterTurns: [{ characterId: 'lin-mu', turn: '停止逃避' }],
+                threadActions: [{ threadId: 'old-case', action: 'plant' }],
+                targetOutcome: '林牧决定主动追查。',
+                escalationMode: 'tightening',
+                turningPoint: '旧页上浮现林家名字。',
+                requiredPayoff: '确认命簿会吞记忆。',
+                resultingInstability: '林牧不再安全。',
+                titleIdeaFocus: '每次改命都要代价',
+                minChapterCount: 4,
+                maxChapterCount: 6,
+                status: 'planned',
+              },
+            ],
+            chapterPlans: [
+              {
+                batchIndex: 1,
+                chapterIndex: 1,
+                arcIndex: 1,
+                goal: '让林牧接下旧案。',
+                conflict: '司命监先一步搜查旧页。',
+                pressureSource: '林牧害怕再次失去记忆。',
+                changeType: 'commitment',
+                threadActions: [{ threadId: 'old-case', action: 'plant' }],
+                reveal: '旧页记录着林家名字。',
+                payoffOrCost: '林牧失去一段自保记忆。',
+                endingHook: '旧页浮现被删除的审判记录。',
+                titleIdeaLink: '每次改命都要先失去一样东西。',
+                batchGoal: '旧案起势',
+                requiredPayoffs: ['旧案入场'],
+                forbiddenDrift: ['轻松脱身'],
+                status: 'planned',
+              },
+            ],
+            narrativeBible: bible(),
+            volumePlans: volumePlans(),
+            chapterCards: chapterCards(input.bookId),
+            chapterTensionBudgets: tensionBudgets(input.bookId),
+            chapterThreadActions: [],
+            chapterCharacterPressures: [],
+            chapterRelationshipActions: [],
+          })
+        ),
+      },
+      chapterWriter: {
+        writeChapter: vi.fn().mockResolvedValue({
+          content: '林牧触碰旧页后失去一段记忆，却确认林家旧案被人刻意抹除。',
+        }),
+      },
+      chapterAuditor: {
+        auditChapter: vi.fn().mockResolvedValue({
+          passed: true,
+          score: 91,
+          decision: 'accept',
+          issues: [],
+          scoring: {
+            characterLogic: 18,
+            mainlineProgress: 14,
+            relationshipChange: 13,
+            conflictDepth: 14,
+            worldRuleCost: 10,
+            threadManagement: 9,
+            pacingReward: 9,
+            themeAlignment: 4,
+            flatness: {
+              conflictEscalation: 70,
+              choicePressure: 75,
+              consequenceVisibility: 70,
+              irreversibleChange: 75,
+              hookStrength: 70,
+            },
+          },
+          stateUpdates: {
+            characterArcUpdates: [],
+            relationshipUpdates: [],
+            threadUpdates: [],
+            worldKnowledgeUpdates: [],
+            themeUpdate: '自由来自承担代价。',
+          },
+        }),
+      },
+      narrativeStateExtractor: {
+        extractState: vi.fn().mockResolvedValue({
+          characterStates: [],
+          relationshipStates: [],
+          threadUpdates: [],
+          scene: null,
+          themeProgression: '自由来自承担代价。',
+        }),
+      },
+      summaryGenerator: {
+        summarizeChapter: vi.fn().mockResolvedValue('林牧确认旧案并决定追查。'),
+      },
+      plotThreadExtractor: {
+        extractThreads: vi.fn().mockResolvedValue({
+          openedThreads: [],
+          resolvedThreadIds: [],
+        }),
+      },
+      characterStateExtractor: {
+        extractStates: vi.fn().mockResolvedValue([]),
+      },
+      sceneRecordExtractor: {
+        extractScene: vi.fn().mockResolvedValue(null),
+      },
+      resolveModelId: () => 'mock',
+    });
+
+    const bookId = service.createBook({
+      idea: '命簿旧案追查',
+      targetChapters: 20,
+      wordsPerChapter: 2000,
+    });
+
+    await service.startBook(bookId);
+
+    expect(repos.endgamePlans.getByBook(bookId)).toMatchObject({
+      finalOpponent: '司命监首座',
+    });
+
+    await service.writeNextChapter(bookId);
+
+    expect(repos.chapterPlans.listByBook(bookId)[0]).toMatchObject({
+      chapterIndex: 1,
+      status: 'completed',
+    });
+    expect(repos.storyStateSnapshots.getLatestByBook(bookId)).toMatchObject({
+      chapterIndex: 1,
+      remainingChapterBudget: 19,
+    });
+  });
+
   it('persists non-resolving narrative thread state updates after an approved chapter', async () => {
     const db = createDatabase(':memory:');
     const repos = createRepositories(db);
