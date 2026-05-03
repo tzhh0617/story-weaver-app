@@ -1843,6 +1843,72 @@ describe('createBookService', () => {
     );
   });
 
+  it('normalizes sparse autopilot metadata into narrative run-state while preserving raw progress fields', () => {
+    const db = createDatabase(':memory:');
+    const books = createBookRepository(db);
+    const progressRecord = {
+      bookId: 'book-1',
+      phase: 'writing',
+      currentChapter: 13,
+      errorMsg: 'Checkpoint drift exceeded threshold.',
+    };
+    const service = createBookService({
+      books,
+      chapters: createChapterRepository(db),
+      characters: createCharacterRepository(db),
+      plotThreads: createPlotThreadRepository(db),
+      sceneRecords: createSceneRecordRepository(db),
+      progress: {
+        updatePhase: vi.fn(),
+        getByBookId: vi.fn(() => progressRecord),
+        reset: vi.fn(),
+        deleteByBook: vi.fn(),
+      },
+      outlineService: {
+        generateFromIdea: vi.fn(),
+      },
+      chapterWriter: {
+        writeChapter: vi.fn(),
+      },
+      summaryGenerator: {
+        summarizeChapter: vi.fn(),
+      },
+      plotThreadExtractor: {
+        extractThreads: vi.fn().mockResolvedValue({
+          openedThreads: [],
+          resolvedThreadIds: [],
+        }),
+      },
+      characterStateExtractor: {
+        extractStates: vi.fn().mockResolvedValue([]),
+      },
+      sceneRecordExtractor: {
+        extractScene: vi.fn().mockResolvedValue(null),
+      },
+    });
+
+    books.create({
+      id: 'book-1',
+      title: 'Book 1',
+      idea: 'A city remembers every promise.',
+      targetChapters: 24,
+      wordsPerChapter: 2500,
+    });
+
+    const detail = service.getBookDetail('book-1');
+
+    expect(detail?.progress).toBe(progressRecord);
+    expect(detail?.narrative?.runState).toEqual({
+      phase: 'writing',
+      currentChapter: 13,
+      driftLevel: 'none',
+      starvationScore: 0,
+      lastHealthyCheckpointChapter: null,
+      latestFailureReason: 'Checkpoint drift exceeded threshold.',
+      cooldownUntil: null,
+    });
+  });
+
   it('emits planning_init as a progress event when planning metadata is initialized', async () => {
     const db = createDatabase(':memory:');
     const events: BookGenerationEvent[] = [];

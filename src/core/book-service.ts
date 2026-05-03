@@ -1477,13 +1477,13 @@ export function createBookService(deps: {
           runState: currentProgress
             ? {
                 phase: currentProgress.phase ?? 'creating',
-                currentChapter: currentProgress.currentChapter,
-                driftLevel: currentProgress.driftLevel,
-                starvationScore: currentProgress.starvationScore,
+                currentChapter: currentProgress.currentChapter ?? null,
+                driftLevel: currentProgress.driftLevel ?? 'none',
+                starvationScore: currentProgress.starvationScore ?? 0,
                 lastHealthyCheckpointChapter:
-                  currentProgress.lastHealthyCheckpointChapter,
+                  currentProgress.lastHealthyCheckpointChapter ?? null,
                 latestFailureReason: currentProgress.errorMsg,
-                cooldownUntil: currentProgress.cooldownUntil,
+                cooldownUntil: currentProgress.cooldownUntil ?? null,
               }
             : null,
           characterArcs: deps.characterArcs?.listByBook(bookId) ?? [],
