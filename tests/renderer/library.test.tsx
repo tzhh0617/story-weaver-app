@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import Library from '../../renderer/pages/Library';
 
@@ -112,6 +112,55 @@ describe('Library', () => {
     expect(workspaceCard).toContainElement(
       screen.getByRole('button', { name: '北境遗城' })
     );
+  });
+
+  it('renders library stats from live business data instead of placeholders', () => {
+    render(
+      <Library
+        books={[
+          {
+            id: 'book-1',
+            title: '北境遗城',
+            idea: '旧王朝复苏。',
+            status: 'completed',
+            targetChapters: 500,
+            wordsPerChapter: 2500,
+            updatedAt: '2026-04-28T12:00:00.000Z',
+            createdAt: '2026-04-28T10:00:00.000Z',
+          },
+          {
+            id: 'book-2',
+            title: '南海灯塔',
+            idea: '灯塔记录每一场风暴。',
+            status: 'paused',
+            targetChapters: 500,
+            wordsPerChapter: 2500,
+            updatedAt: '2026-04-28T12:00:00.000Z',
+            createdAt: '2026-04-28T10:00:00.000Z',
+          },
+        ]}
+        scheduler={{
+          runningBookIds: ['book-3', 'book-4'],
+          queuedBookIds: ['book-5'],
+          pausedBookIds: ['book-2', 'book-6', 'book-7'],
+          concurrencyLimit: 3,
+        }}
+        onSelectBook={vi.fn()}
+        onStartAll={vi.fn()}
+        onPauseAll={vi.fn()}
+      />
+    );
+
+    const workspaceCard = screen.getByTestId('library-workspace-card');
+
+    expect(within(workspaceCard).getByText('完成')).toBeInTheDocument();
+    expect(within(workspaceCard).getByText('写作中')).toBeInTheDocument();
+    expect(within(workspaceCard).getByText('排队')).toBeInTheDocument();
+    expect(within(workspaceCard).getAllByText('已暂停').length).toBeGreaterThan(0);
+    expect(within(workspaceCard).getAllByText('1').length).toBeGreaterThan(0);
+    expect(within(workspaceCard).getByText('2')).toBeInTheDocument();
+    expect(within(workspaceCard).getByText('3')).toBeInTheDocument();
+    expect(within(workspaceCard).queryByText('1/50')).toBeNull();
   });
 
   it('shows an empty-state message when there are no books yet', () => {
