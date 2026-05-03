@@ -12,6 +12,10 @@ export const writingProgress = sqliteTable('writing_progress', {
   phase: text('phase'),
   stepLabel: text('step_label'),
   activeTaskType: text('active_task_type'),
+  driftLevel: text('drift_level').notNull().default('none'),
+  lastHealthyCheckpointChapter: integer('last_healthy_checkpoint_chapter'),
+  cooldownUntil: text('cooldown_until'),
+  starvationScore: integer('starvation_score').notNull().default(0),
   retryCount: integer('retry_count').notNull().default(0),
   errorMsg: text('error_msg'),
 });

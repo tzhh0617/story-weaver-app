@@ -21,6 +21,23 @@ export const titleIdeaContracts = sqliteTable('title_idea_contracts', {
   updatedAt: text('updated_at').notNull(),
 });
 
+export const bookContracts = sqliteTable('book_contracts', {
+  bookId: text('book_id')
+    .primaryKey()
+    .references(() => books.id),
+  titlePromise: text('title_promise').notNull(),
+  corePremise: text('core_premise').notNull(),
+  mainlinePromise: text('mainline_promise').notNull(),
+  protagonistCoreDesire: text('protagonist_core_desire').notNull(),
+  protagonistNoDriftRulesJson: text('protagonist_no_drift_rules_json').notNull(),
+  keyCharacterBoundariesJson: text('key_character_boundaries_json').notNull(),
+  mandatoryPayoffsJson: text('mandatory_payoffs_json').notNull(),
+  antiDriftRulesJson: text('anti_drift_rules_json').notNull(),
+  activeTemplate: text('active_template').notNull(),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+});
+
 export const endgamePlans = sqliteTable('endgame_plans', {
   bookId: text('book_id')
     .primaryKey()
@@ -109,6 +126,59 @@ export const characterStates = sqliteTable(
       table.volumeIndex,
       table.chapterIndex
     ),
+  })
+);
+
+export const storyLedgers = sqliteTable(
+  'story_ledgers',
+  {
+    bookId: text('book_id')
+      .notNull()
+      .references(() => books.id),
+    chapterIndex: integer('chapter_index').notNull(),
+    mainlineProgress: text('mainline_progress').notNull(),
+    activeSubplotsJson: text('active_subplots_json').notNull(),
+    openPromisesJson: text('open_promises_json').notNull(),
+    characterTruthsJson: text('character_truths_json').notNull(),
+    relationshipDeltasJson: text('relationship_deltas_json').notNull(),
+    worldFactsJson: text('world_facts_json').notNull(),
+    rhythmPosition: text('rhythm_position').notNull(),
+    riskFlagsJson: text('risk_flags_json').notNull(),
+    createdAt: text('created_at').notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.bookId, table.chapterIndex] }),
+  })
+);
+
+export const storyEvents = sqliteTable('story_events', {
+  id: text('id').primaryKey(),
+  bookId: text('book_id')
+    .notNull()
+    .references(() => books.id),
+  chapterIndex: integer('chapter_index').notNull(),
+  eventType: text('event_type').notNull(),
+  summary: text('summary').notNull(),
+  affectedIdsJson: text('affected_ids_json').notNull(),
+  irreversible: integer('irreversible', { mode: 'boolean' }).notNull(),
+  createdAt: text('created_at').notNull(),
+});
+
+export const storyCheckpoints = sqliteTable(
+  'story_checkpoints',
+  {
+    bookId: text('book_id')
+      .notNull()
+      .references(() => books.id),
+    chapterIndex: integer('chapter_index').notNull(),
+    checkpointType: text('checkpoint_type').notNull(),
+    contractDigest: text('contract_digest').notNull(),
+    planDigest: text('plan_digest').notNull(),
+    ledgerDigestJson: text('ledger_digest_json').notNull(),
+    createdAt: text('created_at').notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.bookId, table.chapterIndex, table.checkpointType] }),
   })
 );
 

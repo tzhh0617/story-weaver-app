@@ -1,6 +1,10 @@
 import type { Database as SqliteDatabase } from 'better-sqlite3';
 
 const bookScopedPlanningTables = [
+  'story_checkpoints',
+  'story_events',
+  'story_ledgers',
+  'book_contracts',
   'story_state_snapshots',
   'chapter_plans',
   'arc_plans',
