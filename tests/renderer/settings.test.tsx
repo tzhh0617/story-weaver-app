@@ -129,7 +129,7 @@ describe('Settings', () => {
     expect(settingsActions.lastElementChild).toHaveTextContent('保存设置');
   });
 
-  it('shows loading while model save is pending', async () => {
+  it('keeps the model save button pending while the async save is unresolved', async () => {
     let resolveSave: () => void = () => undefined;
     const savePromise = new Promise<void>((resolve) => {
       resolveSave = resolve;
@@ -157,6 +157,7 @@ describe('Settings', () => {
       'aria-busy',
       'true'
     );
+    expect(screen.queryByText('正在保存模型...')).toBeNull();
 
     resolveSave();
 
@@ -205,6 +206,8 @@ describe('Settings', () => {
     expect(onSaveSetting).toHaveBeenCalledWith({
       concurrencyLimit: 2,
       shortChapterReviewEnabled: true,
+      logMaxFileSizeMb: 5,
+      logRetentionDays: 14,
     });
   });
 
@@ -228,6 +231,8 @@ describe('Settings', () => {
     expect(onSaveSetting).toHaveBeenCalledWith({
       concurrencyLimit: null,
       shortChapterReviewEnabled: true,
+      logMaxFileSizeMb: 5,
+      logRetentionDays: 14,
     });
   });
 

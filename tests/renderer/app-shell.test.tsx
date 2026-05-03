@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import App from '../../renderer/App';
 
@@ -2565,7 +2565,7 @@ describe('App shell', () => {
     expect(await screen.findByRole('status')).toHaveTextContent('模型已保存');
   });
 
-  it('shows model save progress and failure feedback in toasts', async () => {
+  it('shows model save failure in a toast without page progress state', async () => {
     const saveDeferred: {
       reject?: (error: Error) => void;
     } = {};
@@ -2598,9 +2598,7 @@ describe('App shell', () => {
     });
     fireEvent.click(screen.getByText('保存模型'));
 
-    expect(await screen.findByRole('status')).toHaveTextContent(
-      '正在保存模型...'
-    );
+    expect(screen.queryByText('正在保存模型...')).toBeNull();
 
     saveDeferred.reject?.(new Error('模型保存失败'));
 
@@ -2762,7 +2760,8 @@ describe('App shell', () => {
       });
     });
 
-    expect(await screen.findByText('设置已保存')).toBeInTheDocument();
+    expect(await screen.findByRole('status')).toHaveTextContent('设置已保存');
+    expect(screen.queryByText('正在保存设置...')).toBeNull();
   });
 
   it('loads and saves log rotation settings from the settings page', async () => {
@@ -2822,7 +2821,8 @@ describe('App shell', () => {
       });
     });
 
-    expect(await screen.findByText('设置已保存')).toBeInTheDocument();
+    expect(await screen.findByRole('status')).toHaveTextContent('设置已保存');
+    expect(screen.queryByText('正在保存设置...')).toBeNull();
   });
 
   it('shows an error banner when starting a newly created book fails', async () => {
@@ -2862,12 +2862,12 @@ describe('App shell', () => {
     expect(await screen.findByText('API key invalid')).toBeInTheDocument();
   });
 
-  it('shows model testing feedback in toasts instead of the page banner', async () => {
+  it('shows model testing result in a toast without page progress state', async () => {
     const modelTestDeferred: {
       resolve?: (value: { ok: boolean; latency: number; error: string | null }) => void;
     } = {};
 
-    installIpcMock(async (channel, payload) => {
+    const { invoke } = installIpcMock(async (channel, payload) => {
       switch (channel) {
         case 'book:list':
           return [];
@@ -2897,15 +2897,22 @@ describe('App shell', () => {
     });
     fireEvent.click(screen.getByText('测试连接'));
 
-    expect(await screen.findByRole('status')).toHaveTextContent(
-      '正在测试模型连接...'
-    );
-    modelTestDeferred.resolve?.({
-      ok: true,
-      latency: 42,
-      error: null,
+    expect(screen.queryByText('正在测试模型连接...')).toBeNull();
+    await act(async () => {
+      modelTestDeferred.resolve?.({
+        ok: true,
+        latency: 42,
+        error: null,
+      });
     });
-    expect(await screen.findByRole('status')).toHaveTextContent('连接成功（42ms）');
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith('model:test', {
+        modelId: 'openai:gpt-4o-mini',
+      });
+    });
+
+    expect(screen.queryByText('正在测试模型连接...')).toBeNull();
     expect(screen.queryByRole('alert')).toBeNull();
   });
 

@@ -247,7 +247,7 @@ export default function App() {
     toastTimerRef.current = setTimeout(() => {
       setToast(null);
       toastTimerRef.current = null;
-    }, 3600);
+    }, 5000);
   }
 
   function getRenderedChapterStatus(chapter: BookDetailData['chapters'][number]) {
@@ -616,7 +616,6 @@ export default function App() {
               onSaveModel={async (input) => {
                 try {
                   clearBanner();
-                  showToast('info', '正在保存模型...');
                   await ipc.invoke(ipcChannels.modelSave, input);
                   await loadModels();
                   showToast('success', '模型已保存');
@@ -631,7 +630,6 @@ export default function App() {
               onTestModel={async (input) => {
                 try {
                   clearBanner();
-                  showToast('info', '正在测试模型连接...');
                   await ipc.invoke(ipcChannels.modelSave, input);
                   const result = await ipc.invoke(ipcChannels.modelTest, {
                     modelId: input.id,
@@ -664,12 +662,7 @@ export default function App() {
               logRetentionDays={logRetentionDays}
               onSaveSetting={async (input) => {
                 try {
-                  flushSync(() => {
-                    setBanner({
-                      tone: 'info',
-                      message: '正在保存设置...',
-                    });
-                  });
+                  clearBanner();
                   await ipc.invoke(ipcChannels.settingsSet, {
                     key: 'scheduler.concurrencyLimit',
                     value:
@@ -696,20 +689,12 @@ export default function App() {
                   );
                   setLogMaxFileSizeMb(input.logMaxFileSizeMb);
                   setLogRetentionDays(input.logRetentionDays);
-                  flushSync(() => {
-                    setBanner({
-                      tone: 'success',
-                      message: '设置已保存',
-                    });
-                  });
+                  showToast('success', '设置已保存');
                 } catch (error) {
-                  flushSync(() => {
-                    setBanner({
-                      tone: 'error',
-                      message:
-                        error instanceof Error ? error.message : 'Failed to save settings',
-                    });
-                  });
+                  showToast(
+                    'error',
+                    error instanceof Error ? error.message : 'Failed to save settings'
+                  );
                 }
               }}
             />
