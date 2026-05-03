@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { decideAuditAction } from '../../src/core/narrative/audit';
 import { shouldRunCheckpoint } from '../../src/core/narrative/checkpoint';
-import { normalizeNarrativeStateDelta } from '../../src/core/narrative/state';
+import { shouldCreateCheckpoint } from '../../src/core/narrative/checkpoints';
+import { buildIntegrityReport } from '../../src/core/narrative/integrity';
+import { bumpStarvationScore, normalizeNarrativeStateDelta } from '../../src/core/narrative/state';
 
 describe('narrative audit helpers', () => {
   it('escalates blocker audits to rewrite', () => {
@@ -372,11 +374,45 @@ describe('normalizeNarrativeStateDelta', () => {
       themeProgression: '',
     });
   });
+
+  it('bumps starvation score more aggressively for heavier drift', () => {
+    expect(bumpStarvationScore(2, 'none')).toBe(2);
+    expect(bumpStarvationScore(2, 'light')).toBe(3);
+    expect(bumpStarvationScore(2, 'medium')).toBe(4);
+    expect(bumpStarvationScore(2, 'heavy')).toBe(5);
+  });
 });
 
 describe('shouldRunCheckpoint', () => {
   it('runs on configured chapter intervals', () => {
     expect(shouldRunCheckpoint({ chapterIndex: 10, interval: 5 })).toBe(true);
     expect(shouldRunCheckpoint({ chapterIndex: 11, interval: 5 })).toBe(false);
+  });
+});
+
+describe('autopilot integrity helpers', () => {
+  it('upgrades mainline and payoff drift into chapter-window rebuild guidance', () => {
+    expect(
+      buildIntegrityReport({
+        mainlineProblems: ['Mainline promise has stalled for three chapters.'],
+        payoffProblems: ['Two mandatory promises are now past their payoff window.'],
+        characterProblems: [],
+        subplotProblems: [],
+        rhythmProblems: [],
+      })
+    ).toEqual(
+      expect.objectContaining({
+        driftLevel: 'medium',
+        repairAction: 'rebuild_chapter_window',
+      })
+    );
+  });
+});
+
+describe('autopilot checkpoint cadence', () => {
+  it('returns checkpoint intensity based on chapter milestones', () => {
+    expect(shouldCreateCheckpoint(10)).toBe('light');
+    expect(shouldCreateCheckpoint(50)).toBe('heavy');
+    expect(shouldCreateCheckpoint(11)).toBeNull();
   });
 });

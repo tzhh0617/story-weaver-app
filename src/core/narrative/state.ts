@@ -1,4 +1,4 @@
-import type { NarrativeStateDelta } from './types.js';
+import type { DriftLevel, NarrativeStateDelta } from './types.js';
 
 export function detectMilestone(chapterIndex: number) {
   if (chapterIndex <= 0) {
@@ -41,4 +41,18 @@ export function normalizeNarrativeStateDelta(
     scene: input.scene ?? null,
     themeProgression: input.themeProgression ?? '',
   };
+}
+
+export function bumpStarvationScore(
+  currentScore: number,
+  driftLevel: DriftLevel
+) {
+  const bumpByDrift: Record<DriftLevel, number> = {
+    none: 0,
+    light: 1,
+    medium: 2,
+    heavy: 3,
+  };
+
+  return Math.max(0, currentScore) + bumpByDrift[driftLevel];
 }
