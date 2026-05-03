@@ -228,6 +228,54 @@ describe('runtime mock fallback', () => {
     expect(generateText).not.toHaveBeenCalled();
   });
 
+  it('does not expose the same started book in both running and queued scheduler status', async () => {
+    vi.useFakeTimers();
+    const generateText = vi.fn().mockResolvedValue({
+      text: 'should not be used',
+    });
+    const services = await loadRuntimeServices({
+      tempHome,
+      generateTextImpl: generateText,
+      mockDelayMs: 0,
+      mockStreamTokensPerSecond: 100,
+    });
+    const statuses: Array<{
+      runningBookIds: string[];
+      queuedBookIds: string[];
+    }> = [];
+    const unsubscribe = services.subscribeSchedulerStatus((status) => {
+      statuses.push({
+        runningBookIds: status.runningBookIds,
+        queuedBookIds: status.queuedBookIds,
+      });
+    });
+
+    const bookId = services.bookService.createBook({
+      idea: '一个被宗门逐出的少年，意外继承了会吞噬因果的古镜。',
+      targetChapters: 1,
+      wordsPerChapter: 90,
+    });
+
+    const startPromise = services.startBook(bookId);
+    await vi.advanceTimersByTimeAsync(5);
+    await startPromise;
+    await vi.advanceTimersByTimeAsync(50);
+    unsubscribe();
+
+    expect(
+      statuses.some(
+        (status) =>
+          status.runningBookIds.includes(bookId) &&
+          status.queuedBookIds.includes(bookId)
+      )
+    ).toBe(false);
+    expect(statuses).toContainEqual({
+      runningBookIds: [bookId],
+      queuedBookIds: [],
+    });
+    expect(generateText).not.toHaveBeenCalled();
+  });
+
   it('emits deterministic mock chapter stream events through runtime subscriptions', async () => {
     const generateText = vi.fn().mockResolvedValue({
       text: 'should not be used',
