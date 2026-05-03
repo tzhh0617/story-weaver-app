@@ -53,6 +53,35 @@ function getQueueTask(taskKey: string, runners: Map<string, Runner>) {
   };
 }
 
+function compareTaskKeys(
+  leftTaskKey: string,
+  rightTaskKey: string,
+  runners: Map<string, Runner>
+) {
+  const leftRunner = runners.get(leftTaskKey);
+  const rightRunner = runners.get(rightTaskKey);
+
+  if (!leftRunner || !rightRunner) {
+    return 0;
+  }
+
+  if (leftRunner.bookId === rightRunner.bookId) {
+    const leftIsPlanning = isPlanningTask(leftRunner.taskType);
+    const rightIsPlanning = isPlanningTask(rightRunner.taskType);
+
+    if (leftIsPlanning !== rightIsPlanning) {
+      return leftIsPlanning ? -1 : 1;
+    }
+  }
+
+  const scoreDelta = getTaskScore(rightRunner) - getTaskScore(leftRunner);
+  if (scoreDelta !== 0) {
+    return scoreDelta;
+  }
+
+  return 0;
+}
+
 export function createScheduler({
   concurrencyLimit,
   onStatusChange,
@@ -82,8 +111,30 @@ export function createScheduler({
     }
   }
 
-  function emitStatus() {
-    const queuedTasks = queue
+  function getQueuedTasksForStatus() {
+    const queuedTaskKeys = [...queue].sort((leftTaskKey, rightTaskKey) =>
+      compareTaskKeys(leftTaskKey, rightTaskKey, runners)
+    );
+    const runnableTaskKeys: string[] = [];
+    const blockedTaskKeys: string[] = [];
+    const blockedBookIds = new Set<string>(runningBooksByTaskKey.values());
+
+    for (const taskKey of queuedTaskKeys) {
+      const runner = runners.get(taskKey);
+      if (!runner) {
+        continue;
+      }
+
+      if (blockedBookIds.has(runner.bookId)) {
+        blockedTaskKeys.push(taskKey);
+        continue;
+      }
+
+      runnableTaskKeys.push(taskKey);
+      blockedBookIds.add(runner.bookId);
+    }
+
+    return [...runnableTaskKeys, ...blockedTaskKeys]
       .map((taskKey) => getQueueTask(taskKey, runners))
       .filter(
         (
@@ -95,6 +146,10 @@ export function createScheduler({
           score: number;
         } => Boolean(task)
       );
+  }
+
+  function emitStatus() {
+    const queuedTasks = getQueuedTasksForStatus();
 
     onStatusChange?.({
       runningBookIds: [...new Set(runningBooksByTaskKey.values())],
@@ -109,21 +164,7 @@ export function createScheduler({
   }
 
   function sortQueue() {
-    queue.sort((leftTaskKey, rightTaskKey) => {
-      const leftRunner = runners.get(leftTaskKey);
-      const rightRunner = runners.get(rightTaskKey);
-
-      if (!leftRunner || !rightRunner) {
-        return 0;
-      }
-
-      const scoreDelta = getTaskScore(rightRunner) - getTaskScore(leftRunner);
-      if (scoreDelta !== 0) {
-        return scoreDelta;
-      }
-
-      return 0;
-    });
+    queue.sort((leftTaskKey, rightTaskKey) => compareTaskKeys(leftTaskKey, rightTaskKey, runners));
   }
 
   function pumpQueue() {
@@ -237,18 +278,7 @@ export function createScheduler({
     },
 
     getStatus() {
-      const queuedTasks = queue
-        .map((taskKey) => getQueueTask(taskKey, runners))
-        .filter(
-          (
-            task
-          ): task is {
-            taskKey: string;
-            bookId: string;
-            taskType: SchedulerTaskType;
-            score: number;
-          } => Boolean(task)
-        );
+      const queuedTasks = getQueuedTasksForStatus();
 
       return {
         runningBookIds: [...new Set(runningBooksByTaskKey.values())],

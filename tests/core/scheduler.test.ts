@@ -318,19 +318,19 @@ describe('createScheduler', () => {
 
     expect(events).toEqual(['book-a:first:start', 'book-c:write:start']);
     expect(scheduler.getStatus().runningBookIds.sort()).toEqual(['book-a', 'book-c']);
-    expect(scheduler.getStatus().queuedBookIds).toEqual(['book-a', 'book-b']);
+    expect(scheduler.getStatus().queuedBookIds).toEqual(['book-b', 'book-a']);
     expect(scheduler.getStatus().queuedTasks).toEqual([
-      {
-        taskKey: 'book-a:second',
-        bookId: 'book-a',
-        taskType: 'book:write:chapter',
-        score: 14,
-      },
       {
         taskKey: 'book-b:write',
         bookId: 'book-b',
         taskType: 'book:write:chapter',
         score: 1,
+      },
+      {
+        taskKey: 'book-a:second',
+        bookId: 'book-a',
+        taskType: 'book:write:chapter',
+        score: 14,
       },
     ]);
 
@@ -358,6 +358,140 @@ describe('createScheduler', () => {
     bookASecond.resolve();
     bookB.resolve();
     bookC.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+
+  it('reports queued status in the same order the scheduler would pick next', async () => {
+    const runningBookA = createDeferred();
+    const queuedBookB = createDeferred();
+    const queuedBookC = createDeferred();
+
+    const scheduler = createScheduler({ concurrencyLimit: 1 });
+    scheduler.register({
+      taskKey: 'book-a:write',
+      bookId: 'book-a',
+      taskType: 'book:write:chapter',
+      priority: { urgency: 2 },
+      start: vi.fn().mockImplementation(async () => {
+        await runningBookA.promise;
+      }),
+    });
+    scheduler.register({
+      taskKey: 'book-b:write',
+      bookId: 'book-b',
+      taskType: 'book:write:chapter',
+      priority: { urgency: 1 },
+      start: vi.fn().mockImplementation(async () => {
+        await queuedBookB.promise;
+      }),
+    });
+    scheduler.register({
+      taskKey: 'book-c:write',
+      bookId: 'book-c',
+      taskType: 'book:write:chapter',
+      priority: { urgency: 8 },
+      start: vi.fn().mockImplementation(async () => {
+        await queuedBookC.promise;
+      }),
+    });
+
+    await scheduler.start('book-b:write');
+    await scheduler.start('book-a:write');
+    await scheduler.start('book-c:write');
+
+    expect(scheduler.getStatus().runningBookIds).toEqual(['book-b']);
+    expect(scheduler.getStatus().queuedBookIds).toEqual(['book-c', 'book-a']);
+    expect(scheduler.getStatus().queuedTasks).toEqual([
+      {
+        taskKey: 'book-c:write',
+        bookId: 'book-c',
+        taskType: 'book:write:chapter',
+        score: 8,
+      },
+      {
+        taskKey: 'book-a:write',
+        bookId: 'book-a',
+        taskType: 'book:write:chapter',
+        score: 2,
+      },
+    ]);
+
+    queuedBookB.resolve();
+    runningBookA.resolve();
+    queuedBookC.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+
+  it('keeps a book planning task ahead of its own higher-scored writing task', async () => {
+    const events: string[] = [];
+    const planA = createDeferred();
+    const writeA = createDeferred();
+    const writeB = createDeferred();
+
+    const scheduler = createScheduler({ concurrencyLimit: 2 });
+    scheduler.register({
+      taskKey: 'book-a:plan',
+      bookId: 'book-a',
+      taskType: 'book:plan:init',
+      priority: { urgency: 1 },
+      start: vi.fn().mockImplementation(async () => {
+        events.push('book-a:plan:start');
+        await planA.promise;
+        events.push('book-a:plan:done');
+      }),
+    });
+    scheduler.register({
+      taskKey: 'book-a:write',
+      bookId: 'book-a',
+      taskType: 'book:write:chapter',
+      priority: { urgency: 50, starvationBoost: 10 },
+      start: vi.fn().mockImplementation(async () => {
+        events.push('book-a:write:start');
+        await writeA.promise;
+        events.push('book-a:write:done');
+      }),
+    });
+    scheduler.register({
+      taskKey: 'book-b:write',
+      bookId: 'book-b',
+      taskType: 'book:write:chapter',
+      priority: { urgency: 5 },
+      start: vi.fn().mockImplementation(async () => {
+        events.push('book-b:write:start');
+        await writeB.promise;
+        events.push('book-b:write:done');
+      }),
+    });
+
+    await scheduler.start('book-a:write');
+    await scheduler.start('book-b:write');
+
+    expect(events).toEqual(['book-a:plan:start', 'book-b:write:start']);
+    expect(scheduler.getStatus().queuedBookIds).toEqual(['book-a']);
+    expect(scheduler.getStatus().queuedTasks).toEqual([
+      {
+        taskKey: 'book-a:write',
+        bookId: 'book-a',
+        taskType: 'book:write:chapter',
+        score: 60,
+      },
+    ]);
+
+    planA.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(events).toEqual([
+      'book-a:plan:start',
+      'book-b:write:start',
+      'book-a:plan:done',
+      'book-a:write:start',
+    ]);
+
+    writeA.resolve();
+    writeB.resolve();
     await Promise.resolve();
     await Promise.resolve();
   });
