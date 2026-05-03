@@ -4,6 +4,13 @@
 
 Add a global Logs section that shows realtime background execution events from the current app run.
 
+> Note
+>
+> This document captures the original realtime-only UI logging design from 2026-04-30.
+> The current runtime has since been extended by
+> [2026-05-03-debug-log-hardening-design.md](/Users/admin/Works/story-weaver-app/docs/superpowers/specs/2026-05-03-debug-log-hardening-design.md)
+> to also persist structured debug logs to `~/.story-weaver/logs`.
+
 ## Scope
 
 - Add a sidebar menu item named `日志`.
@@ -11,7 +18,7 @@ Add a global Logs section that shows realtime background execution events from t
 - Stream background execution records from the main process to the renderer.
 - Record scheduler and book-generation lifecycle events, including queued work, starts, progress, chapter completion, pause, restart, completion, and errors.
 - Keep prompt text, generated chapter content, API keys, and other large or sensitive payloads out of the log records.
-- Do not persist logs to SQLite or load logs from past app sessions.
+- Do not persist logs to SQLite or load logs from past app sessions through the renderer.
 - Support filtering the realtime event list by book.
 
 ## Data Model
@@ -36,7 +43,7 @@ The runtime stream exposes `emit` and `subscribe`. It has no history query API.
 
 Runtime services receive an execution log stream. Scheduler entry points emit command-level events for start, start all, pause all, resume, restart, direct write-next, direct write-all, and delete-adjacent lifecycle work. Existing `BookGenerationEvent` emissions also emit realtime log records for progress, chapter completion, and errors.
 
-Because logs are not persisted, deleting a book does not need log cleanup.
+Because logs are not persisted in SQLite or tied to book lifecycle storage, deleting a book does not need repository log cleanup. File logs remain append-only runtime diagnostics.
 
 ## Renderer Flow
 

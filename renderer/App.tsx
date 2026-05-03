@@ -12,6 +12,8 @@ import {
   SHORT_CHAPTER_REVIEW_ENABLED_KEY,
 } from '../src/core/chapter-review';
 import {
+  LOG_MAX_FILE_SIZE_BYTES_KEY,
+  LOG_RETENTION_DAYS_KEY,
   ipcChannels,
   type BookExportFormat,
   type ExecutionLogRecord,
@@ -76,6 +78,8 @@ export default function App() {
   const [executionLogs, setExecutionLogs] = useState<ExecutionLogRecord[]>([]);
   const [shortChapterReviewEnabled, setShortChapterReviewEnabled] =
     useState(true);
+  const [logMaxFileSizeMb, setLogMaxFileSizeMb] = useState(5);
+  const [logRetentionDays, setLogRetentionDays] = useState(14);
   const {
     books,
     selectedBookId,
@@ -121,10 +125,34 @@ export default function App() {
       ipcChannels.settingsGet,
       SHORT_CHAPTER_REVIEW_ENABLED_KEY
     );
+    const nextLogMaxFileSizeBytes = await ipc.invoke(
+      ipcChannels.settingsGet,
+      LOG_MAX_FILE_SIZE_BYTES_KEY
+    );
+    const nextLogRetentionDays = await ipc.invoke(
+      ipcChannels.settingsGet,
+      LOG_RETENTION_DAYS_KEY
+    );
 
     setShortChapterReviewEnabled(
       parseBooleanSetting(typeof nextValue === 'string' ? nextValue : null)
     );
+    setLogMaxFileSizeMb(() => {
+      const parsed =
+        typeof nextLogMaxFileSizeBytes === 'string'
+          ? Number(nextLogMaxFileSizeBytes)
+          : NaN;
+      return Number.isInteger(parsed) && parsed >= 1024 * 1024
+        ? Math.max(1, Math.round(parsed / (1024 * 1024)))
+        : 5;
+    });
+    setLogRetentionDays(() => {
+      const parsed =
+        typeof nextLogRetentionDays === 'string'
+          ? Number(nextLogRetentionDays)
+          : NaN;
+      return Number.isInteger(parsed) && parsed >= 1 ? parsed : 14;
+    });
   }
 
   useEffect(() => {
@@ -632,6 +660,8 @@ export default function App() {
               }))}
               concurrencyLimit={progress?.concurrencyLimit ?? null}
               shortChapterReviewEnabled={shortChapterReviewEnabled}
+              logMaxFileSizeMb={logMaxFileSizeMb}
+              logRetentionDays={logRetentionDays}
               onSaveSetting={async (input) => {
                 try {
                   flushSync(() => {
@@ -653,9 +683,19 @@ export default function App() {
                       input.shortChapterReviewEnabled
                     ),
                   });
+                  await ipc.invoke(ipcChannels.settingsSet, {
+                    key: LOG_MAX_FILE_SIZE_BYTES_KEY,
+                    value: String(input.logMaxFileSizeMb * 1024 * 1024),
+                  });
+                  await ipc.invoke(ipcChannels.settingsSet, {
+                    key: LOG_RETENTION_DAYS_KEY,
+                    value: String(input.logRetentionDays),
+                  });
                   setShortChapterReviewEnabled(
                     input.shortChapterReviewEnabled
                   );
+                  setLogMaxFileSizeMb(input.logMaxFileSizeMb);
+                  setLogRetentionDays(input.logRetentionDays);
                   flushSync(() => {
                     setBanner({
                       tone: 'success',

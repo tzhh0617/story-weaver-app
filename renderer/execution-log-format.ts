@@ -3,12 +3,23 @@ import type { ExecutionLogLevel } from '../src/shared/contracts';
 import { getStatusLabel } from './status-labels';
 
 export const executionLogLevelLabels: Record<ExecutionLogLevel, string> = {
+  debug: '调试',
   info: '信息',
   success: '成功',
   error: '错误',
 };
 
 export const executionEventLabels: Record<string, string> = {
+  scheduler_task_registered: '注册任务',
+  scheduler_status_snapshot: '调度快照',
+  scheduler_task_started: '任务开始',
+  scheduler_task_completed: '任务完成',
+  scheduler_task_failed: '任务失败',
+  ai_operation_started: 'AI 调用开始',
+  ai_operation_completed: 'AI 调用完成',
+  ai_operation_failed: 'AI 调用失败',
+  runtime_mode_resolved: '运行模式解析',
+  generation_event_received: '生成事件映射',
   scheduler_start_all: '批量开始',
   scheduler_pause_all: '批量暂停',
   book_queued: '加入队列',
@@ -44,6 +55,10 @@ export function getExecutionPhaseLabel(phase: string | null) {
 }
 
 export function getExecutionLogLevelIcon(level: ExecutionLogLevel) {
+  if (level === 'debug') {
+    return Info;
+  }
+
   if (level === 'success') {
     return CheckCircle2;
   }
@@ -56,6 +71,10 @@ export function getExecutionLogLevelIcon(level: ExecutionLogLevel) {
 }
 
 export function getExecutionLogLevelClassName(level: ExecutionLogLevel) {
+  if (level === 'debug') {
+    return 'border-sky-500/30 bg-sky-500/10 text-sky-700';
+  }
+
   if (level === 'success') {
     return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700';
   }

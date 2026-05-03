@@ -332,10 +332,14 @@ export type BookGenerationEvent =
       currentChapter?: number | null;
     };
 
-export type ExecutionLogLevel = 'info' | 'success' | 'error';
+export type ExecutionLogLevel = 'debug' | 'info' | 'success' | 'error';
+
+export type ExecutionLogDebugContext = Record<string, unknown>;
 
 export type ExecutionLogRecord = {
   id: number;
+  sequence?: number;
+  runId?: string;
   bookId: string | null;
   bookTitle: string | null;
   level: ExecutionLogLevel;
@@ -345,10 +349,16 @@ export type ExecutionLogRecord = {
   volumeIndex: number | null;
   chapterIndex: number | null;
   errorMessage: string | null;
+  errorStack?: string | null;
+  durationMs?: number | null;
+  debugContext?: ExecutionLogDebugContext | null;
   createdAt: string;
 };
 
 export type BookExportFormat = 'txt' | 'md';
+
+export const LOG_MAX_FILE_SIZE_BYTES_KEY = 'logs.maxFileSizeBytes';
+export const LOG_RETENTION_DAYS_KEY = 'logs.retentionDays';
 
 export const ipcChannels = {
   bookCreate: 'book:create',

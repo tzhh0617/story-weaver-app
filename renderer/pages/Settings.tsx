@@ -26,6 +26,8 @@ export default function Settings({
   models,
   concurrencyLimit,
   shortChapterReviewEnabled = true,
+  logMaxFileSizeMb = 5,
+  logRetentionDays = 14,
   onSaveSetting,
 }: {
   onSaveModel: (input: ModelSavePayload) => void;
@@ -40,9 +42,13 @@ export default function Settings({
   }>;
   concurrencyLimit: number | null;
   shortChapterReviewEnabled?: boolean;
+  logMaxFileSizeMb?: number;
+  logRetentionDays?: number;
   onSaveSetting: (input: {
     concurrencyLimit: number | null;
     shortChapterReviewEnabled: boolean;
+    logMaxFileSizeMb: number;
+    logRetentionDays: number;
   }) => void;
 }) {
   const syncedValue = concurrencyLimit?.toString() ?? '';
@@ -51,18 +57,38 @@ export default function Settings({
     shortChapterReviewValue,
     setShortChapterReviewValue,
   ] = useState(shortChapterReviewEnabled);
+  const [logMaxFileSizeValue, setLogMaxFileSizeValue] = useState(
+    String(logMaxFileSizeMb)
+  );
+  const [logRetentionDaysValue, setLogRetentionDaysValue] = useState(
+    String(logRetentionDays)
+  );
   const selectedModel = models[0] ?? null;
   const trimmedConcurrencyValue = concurrencyValue.trim();
+  const trimmedLogMaxFileSizeValue = logMaxFileSizeValue.trim();
+  const trimmedLogRetentionDaysValue = logRetentionDaysValue.trim();
   const parsedConcurrencyValue = trimmedConcurrencyValue
     ? Number(trimmedConcurrencyValue)
     : null;
+  const parsedLogMaxFileSizeValue = Number(trimmedLogMaxFileSizeValue);
+  const parsedLogRetentionDaysValue = Number(trimmedLogRetentionDaysValue);
   const isConcurrencyValid =
     parsedConcurrencyValue === null ||
     (Number.isInteger(parsedConcurrencyValue) && parsedConcurrencyValue >= 1);
+  const isLogMaxFileSizeValid =
+    Number.isInteger(parsedLogMaxFileSizeValue) && parsedLogMaxFileSizeValue >= 1;
+  const isLogRetentionDaysValid =
+    Number.isInteger(parsedLogRetentionDaysValue) && parsedLogRetentionDaysValue >= 1;
   const hasSettingChanges =
     trimmedConcurrencyValue !== syncedValue ||
-    shortChapterReviewValue !== shortChapterReviewEnabled;
-  const canSaveSettings = hasSettingChanges && isConcurrencyValid;
+    shortChapterReviewValue !== shortChapterReviewEnabled ||
+    trimmedLogMaxFileSizeValue !== String(logMaxFileSizeMb) ||
+    trimmedLogRetentionDaysValue !== String(logRetentionDays);
+  const canSaveSettings =
+    hasSettingChanges &&
+    isConcurrencyValid &&
+    isLogMaxFileSizeValid &&
+    isLogRetentionDaysValid;
 
   useEffect(() => {
     setConcurrencyValue((currentValue) =>
@@ -73,6 +99,14 @@ export default function Settings({
   useEffect(() => {
     setShortChapterReviewValue(shortChapterReviewEnabled);
   }, [shortChapterReviewEnabled]);
+
+  useEffect(() => {
+    setLogMaxFileSizeValue(String(logMaxFileSizeMb));
+  }, [logMaxFileSizeMb]);
+
+  useEffect(() => {
+    setLogRetentionDaysValue(String(logRetentionDays));
+  }, [logRetentionDays]);
 
   return (
     <section className="grid gap-6">
@@ -148,6 +182,32 @@ export default function Settings({
               />
               <span>短章节自动审查重做</span>
             </label>
+            <div className="grid gap-2">
+              <Label htmlFor="settings-log-max-file-size">
+                日志单文件上限（MB）
+              </Label>
+              <Input
+                id="settings-log-max-file-size"
+                type="number"
+                min="1"
+                value={logMaxFileSizeValue}
+                onChange={(event) => {
+                  setLogMaxFileSizeValue(event.target.value);
+                }}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="settings-log-retention-days">日志保留天数</Label>
+              <Input
+                id="settings-log-retention-days"
+                type="number"
+                min="1"
+                value={logRetentionDaysValue}
+                onChange={(event) => {
+                  setLogRetentionDaysValue(event.target.value);
+                }}
+              />
+            </div>
             <div
               data-testid="settings-actions"
               className="flex justify-end"
@@ -160,6 +220,8 @@ export default function Settings({
                   onSaveSetting({
                     concurrencyLimit: parsedConcurrencyValue,
                     shortChapterReviewEnabled: shortChapterReviewValue,
+                    logMaxFileSizeMb: parsedLogMaxFileSizeValue,
+                    logRetentionDays: parsedLogRetentionDaysValue,
                   })
                 }
               >

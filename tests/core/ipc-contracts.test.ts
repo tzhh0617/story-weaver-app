@@ -144,6 +144,18 @@ describe('ipcChannels', () => {
         value: 2,
       })
     ).toThrow('Invalid payload for settings:set');
+    expect(() =>
+      assertIpcPayload(ipcChannels.settingsSet, {
+        key: 'logs.maxFileSizeBytes',
+        value: '1048576',
+      })
+    ).not.toThrow();
+    expect(() =>
+      assertIpcPayload(ipcChannels.settingsSet, {
+        key: 'logs.retentionDays',
+        value: '14',
+      })
+    ).not.toThrow();
   });
 
   it('accepts optional viral strategy in book creation payloads', () => {

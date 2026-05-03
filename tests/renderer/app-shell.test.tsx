@@ -353,6 +353,60 @@ describe('App shell', () => {
     expect(screen.queryByText('后台写作失败')).toBeNull();
   });
 
+  it('renders and filters debug level realtime logs', async () => {
+    const ipc = installIpcMock(async (channel) => {
+      switch (channel) {
+        case 'book:list':
+          return [];
+        case 'model:list':
+          return [];
+        default:
+          return null;
+      }
+    });
+
+    render(<App />);
+
+    await openLogsView();
+    ipc.emitExecutionLog({
+      id: 1,
+      bookId: 'book-1',
+      bookTitle: 'Archive',
+      level: 'debug',
+      eventType: 'scheduler_task_registered',
+      phase: 'planning_init',
+      message: '注册后台规划任务',
+      volumeIndex: null,
+      chapterIndex: null,
+      errorMessage: null,
+      debugContext: {
+        schedulerTaskKey: 'book:book-1:plan',
+      },
+      createdAt: '2026-05-03T01:00:00.000Z',
+    });
+    ipc.emitExecutionLog({
+      id: 2,
+      bookId: 'book-1',
+      bookTitle: 'Archive',
+      level: 'info',
+      eventType: 'book_started',
+      phase: 'writing',
+      message: '开始后台写作',
+      volumeIndex: null,
+      chapterIndex: null,
+      errorMessage: null,
+      createdAt: '2026-05-03T01:01:00.000Z',
+    });
+
+    fireEvent.change(await screen.findByLabelText('动态级别'), {
+      target: { value: 'debug' },
+    });
+
+    expect(await screen.findByText('注册后台规划任务')).toBeInTheDocument();
+    expect(screen.getAllByText('调试').length).toBeGreaterThan(0);
+    expect(screen.queryByText('开始后台写作')).toBeNull();
+  });
+
   it('keeps the new-book form open and explains when IPC is unavailable', async () => {
     delete window.storyWeaver;
 
@@ -1023,11 +1077,11 @@ describe('App shell', () => {
     });
 
     expect(await screen.findByText('完成')).toBeInTheDocument();
-    expect(await screen.findByText('0/50')).toBeInTheDocument();
     expect(await screen.findByText('写作中')).toBeInTheDocument();
     expect(await screen.findByText('排队')).toBeInTheDocument();
     expect(await screen.findByText('已暂停')).toBeInTheDocument();
     expect(screen.getAllByText('1')).toHaveLength(3);
+    expect(screen.getByText('0')).toBeInTheDocument();
   });
 
   it('refreshes the selected book detail when progress pings for the same running book', async () => {
@@ -2705,6 +2759,66 @@ describe('App shell', () => {
       expect(invoke).toHaveBeenCalledWith('settings:set', {
         key: 'scheduler.concurrencyLimit',
         value: '2',
+      });
+    });
+
+    expect(await screen.findByText('设置已保存')).toBeInTheDocument();
+  });
+
+  it('loads and saves log rotation settings from the settings page', async () => {
+    const { invoke } = installIpcMock(async (channel, payload) => {
+      switch (channel) {
+        case 'book:list':
+          return [];
+        case 'model:list':
+          return [];
+        case 'scheduler:status':
+          return {
+            runningBookIds: [],
+            queuedBookIds: [],
+            pausedBookIds: [],
+            concurrencyLimit: 1,
+          };
+        case 'settings:get':
+          if (payload === 'logs.maxFileSizeBytes') {
+            return '1048576';
+          }
+          if (payload === 'logs.retentionDays') {
+            return '30';
+          }
+          return null;
+        case 'settings:set':
+          return payload ?? null;
+        default:
+          return null;
+      }
+    });
+
+    render(<App />);
+
+    await openSettingsView();
+
+    expect(await screen.findByLabelText('日志单文件上限（MB）')).toHaveValue(1);
+    expect(screen.getByLabelText('日志保留天数')).toHaveValue(30);
+
+    fireEvent.change(screen.getByLabelText('日志单文件上限（MB）'), {
+      target: { value: '8' },
+    });
+    fireEvent.change(screen.getByLabelText('日志保留天数'), {
+      target: { value: '21' },
+    });
+    fireEvent.click(screen.getByText('保存设置'));
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith('settings:set', {
+        key: 'logs.maxFileSizeBytes',
+        value: String(8 * 1024 * 1024),
+      });
+    });
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith('settings:set', {
+        key: 'logs.retentionDays',
+        value: '21',
       });
     });
 

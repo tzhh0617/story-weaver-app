@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -19,7 +20,12 @@ import { createExecutionLogStream } from '../src/storage/logs.js';
 import type {
   BookExportFormat,
   BookGenerationEvent,
+  ExecutionLogDebugContext,
   ExecutionLogRecord,
+} from '../src/shared/contracts.js';
+import {
+  LOG_MAX_FILE_SIZE_BYTES_KEY,
+  LOG_RETENTION_DAYS_KEY,
 } from '../src/shared/contracts.js';
 import { createSettingsRepository } from '../src/storage/settings.js';
 import { createRuntimeAiServices } from './runtime-ai-services.js';
@@ -88,6 +94,19 @@ function parseConcurrencyLimit(value: string | null) {
   return parsed;
 }
 
+function parsePositiveIntegerSetting(value: string | null, fallback: number) {
+  if (!value) {
+    return fallback;
+  }
+
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    return fallback;
+  }
+
+  return parsed;
+}
+
 export function getRuntimeServices() {
   if (runtimeServices) {
     return runtimeServices;
@@ -110,8 +129,19 @@ export function getRuntimeServices() {
   const progress = repositories.progress;
   const modelConfigs = repositories.modelConfigs;
   const settings = repositories.settings;
-  const logs = createExecutionLogStream();
-  const aiServices = createRuntimeAiServices({ modelConfigs });
+  const runtimeRunId = randomUUID();
+  const logs = createExecutionLogStream({
+    logDir: appPaths.logDir,
+    runId: runtimeRunId,
+    maxFileSizeBytes: parsePositiveIntegerSetting(
+      settings.get(LOG_MAX_FILE_SIZE_BYTES_KEY),
+      5 * 1024 * 1024
+    ),
+    retentionDays: parsePositiveIntegerSetting(
+      settings.get(LOG_RETENTION_DAYS_KEY),
+      14
+    ),
+  });
   const schedulerListeners = new Set<
     (status: {
       runningBookIds: string[];
@@ -136,13 +166,16 @@ export function getRuntimeServices() {
 
   function logExecution(input: {
     bookId?: string | null;
-    level: 'info' | 'success' | 'error';
+    level: 'debug' | 'info' | 'success' | 'error';
     eventType: string;
     phase?: string | null;
     message: string;
     volumeIndex?: number | null;
     chapterIndex?: number | null;
     errorMessage?: string | null;
+    errorStack?: string | null;
+    durationMs?: number | null;
+    debugContext?: ExecutionLogDebugContext | null;
   }) {
     logs.emit({
       ...(input.bookId ? getBookSnapshot(input.bookId) : {}),
@@ -153,8 +186,31 @@ export function getRuntimeServices() {
       volumeIndex: input.volumeIndex ?? null,
       chapterIndex: input.chapterIndex ?? null,
       errorMessage: input.errorMessage ?? null,
+      errorStack: input.errorStack ?? null,
+      durationMs: input.durationMs ?? null,
+      debugContext: input.debugContext ?? null,
     });
   }
+
+  function getErrorStack(error: unknown) {
+    return error instanceof Error ? error.stack ?? null : null;
+  }
+
+  const aiServices = createRuntimeAiServices({
+    modelConfigs,
+    onDebugLog: (entry) => {
+      logExecution({
+        level: entry.level,
+        eventType: entry.eventType,
+        phase: entry.phase ?? null,
+        message: entry.message,
+        errorMessage: entry.errorMessage ?? null,
+        errorStack: entry.errorStack ?? null,
+        durationMs: entry.durationMs ?? null,
+        debugContext: entry.debugContext ?? null,
+      });
+    },
+  });
 
   function classifyProgressEvent(event: Extract<BookGenerationEvent, { type: 'progress' }>) {
     if (/重写第 \d+ 章/.test(event.stepLabel)) {
@@ -207,6 +263,30 @@ export function getRuntimeServices() {
   }
 
   function logGenerationEvent(event: BookGenerationEvent) {
+    logExecution({
+      bookId: event.bookId,
+      level: 'debug',
+      eventType: 'generation_event_received',
+      phase:
+        event.type === 'progress' || event.type === 'error' ? event.phase : null,
+      message: `收到生成事件: ${event.type}`,
+      volumeIndex:
+        'currentVolume' in event
+          ? event.currentVolume ?? null
+          : 'volumeIndex' in event
+            ? event.volumeIndex ?? null
+            : null,
+      chapterIndex:
+        'currentChapter' in event
+          ? event.currentChapter ?? null
+          : 'chapterIndex' in event
+            ? event.chapterIndex ?? null
+            : null,
+      debugContext: {
+        generationEventType: event.type,
+      },
+    });
+
     if (event.type === 'progress') {
       logExecution({
         bookId: event.bookId,
@@ -277,6 +357,12 @@ export function getRuntimeServices() {
 
   function emitSchedulerStatus() {
     const status = currentSchedulerStatus();
+    logExecution({
+      level: 'debug',
+      eventType: 'scheduler_status_snapshot',
+      message: '调度状态已更新',
+      debugContext: status,
+    });
     for (const listener of schedulerListeners) {
       listener(status);
     }
@@ -334,18 +420,41 @@ export function getRuntimeServices() {
 
   function registerRuntimeTasks(bookId: string) {
     const taskKeys = taskKeysForBook(bookId);
+    const planningTaskType = inferPlanningTaskType(bookId);
 
     scheduler.register({
       taskKey: taskKeys.planning,
       bookId,
-      taskType: inferPlanningTaskType(bookId),
+      taskType: planningTaskType,
       start: async () => runPlanningTask(bookId),
+    });
+    logExecution({
+      bookId,
+      level: 'debug',
+      eventType: 'scheduler_task_registered',
+      phase: 'planning_init',
+      message: '注册后台规划任务',
+      debugContext: {
+        schedulerTaskKey: taskKeys.planning,
+        taskType: planningTaskType,
+      },
     });
     scheduler.register({
       taskKey: taskKeys.writing,
       bookId,
       taskType: 'book:write:chapter',
       start: async () => runWritingTask(bookId),
+    });
+    logExecution({
+      bookId,
+      level: 'debug',
+      eventType: 'scheduler_task_registered',
+      phase: 'writing',
+      message: '注册后台写作任务',
+      debugContext: {
+        schedulerTaskKey: taskKeys.writing,
+        taskType: 'book:write:chapter',
+      },
     });
 
     return taskKeys;
@@ -375,6 +484,18 @@ export function getRuntimeServices() {
       currentVolume: currentProgress?.currentVolume ?? null,
       currentChapter: currentProgress?.currentChapter ?? null,
     });
+    logExecution({
+      bookId,
+      level: 'debug',
+      eventType: 'scheduler_task_failed',
+      phase: currentProgress?.phase ?? 'error',
+      message: '后台任务进入错误状态',
+      errorMessage,
+      errorStack: getErrorStack(error),
+      debugContext: {
+        stepLabel,
+      },
+    });
     emitSchedulerStatus();
   }
 
@@ -395,6 +516,17 @@ export function getRuntimeServices() {
         return;
       }
 
+      logExecution({
+        bookId,
+        level: 'debug',
+        eventType: 'scheduler_task_registered',
+        phase: 'writing',
+        message: '规划完成后准备排入写作任务',
+        debugContext: {
+          schedulerTaskKey: taskKeys.writing,
+          trigger: 'planning_complete',
+        },
+      });
       void scheduler.start(taskKeys.writing).catch((error) => {
         markBookErrored(bookId, error);
       });
@@ -402,7 +534,18 @@ export function getRuntimeServices() {
   }
 
   async function runPlanningTask(bookId: string) {
+    const startedAt = Date.now();
     try {
+      logExecution({
+        bookId,
+        level: 'debug',
+        eventType: 'scheduler_task_started',
+        phase: 'planning_init',
+        message: '开始执行后台规划任务',
+        debugContext: {
+          taskKey: taskKeysForBook(bookId).planning,
+        },
+      });
       logExecution({
         bookId,
         level: 'info',
@@ -422,13 +565,35 @@ export function getRuntimeServices() {
       }
 
       await queueWritingTaskAfterPlanning(bookId);
+      logExecution({
+        bookId,
+        level: 'debug',
+        eventType: 'scheduler_task_completed',
+        phase: 'planning_init',
+        message: '后台规划任务完成',
+        durationMs: Date.now() - startedAt,
+        debugContext: {
+          taskKey: taskKeysForBook(bookId).planning,
+        },
+      });
     } catch (error) {
       markBookErrored(bookId, error);
     }
   }
 
   async function runWritingTask(bookId: string) {
+    const startedAt = Date.now();
     try {
+      logExecution({
+        bookId,
+        level: 'debug',
+        eventType: 'scheduler_task_started',
+        phase: 'writing',
+        message: '开始执行后台写作任务',
+        debugContext: {
+          taskKey: taskKeysForBook(bookId).writing,
+        },
+      });
       logExecution({
         bookId,
         level: 'info',
@@ -447,6 +612,19 @@ export function getRuntimeServices() {
           message: '后台执行完成',
         });
       }
+      logExecution({
+        bookId,
+        level: 'debug',
+        eventType: 'scheduler_task_completed',
+        phase: 'writing',
+        message: '后台写作任务完成',
+        durationMs: Date.now() - startedAt,
+        debugContext: {
+          taskKey: taskKeysForBook(bookId).writing,
+          resultStatus: result.status,
+          completedChapters: result.completedChapters,
+        },
+      });
     } catch (error) {
       markBookErrored(bookId, error);
     }
@@ -549,6 +727,7 @@ export function getRuntimeServices() {
           phase: currentProgress?.phase ?? null,
           message: currentProgress?.stepLabel ?? '手动写下一章失败',
           errorMessage: error instanceof Error ? error.message : String(error),
+          errorStack: getErrorStack(error),
         });
         throw error;
       }
@@ -584,6 +763,7 @@ export function getRuntimeServices() {
           phase: currentProgress?.phase ?? null,
           message: currentProgress?.stepLabel ?? '手动写完剩余章节失败',
           errorMessage: error instanceof Error ? error.message : String(error),
+          errorStack: getErrorStack(error),
         });
         throw error;
       }

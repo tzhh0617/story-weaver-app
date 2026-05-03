@@ -228,6 +228,68 @@ describe('runtime mock fallback', () => {
     expect(generateText).not.toHaveBeenCalled();
   });
 
+  it('persists realtime debug logs with structured context to the app log directory', async () => {
+    const generateText = vi.fn().mockResolvedValue({
+      text: 'should not be used',
+    });
+    const services = await loadRuntimeServices({
+      tempHome,
+      generateTextImpl: generateText,
+      mockDelayMs: 0,
+    });
+
+    const seenDebugLogs: Array<{
+      eventType: string;
+      level: string;
+      debugContext: Record<string, unknown> | null | undefined;
+    }> = [];
+    const unsubscribe = services.subscribeExecutionLogs((log) => {
+      if (log.level === 'debug') {
+        seenDebugLogs.push({
+          eventType: log.eventType,
+          level: log.level,
+          debugContext: log.debugContext,
+        });
+      }
+    });
+
+    const bookId = services.bookService.createBook({
+      idea: '一个被宗门逐出的少年，意外继承了会吞噬因果的古镜。',
+      targetChapters: 1,
+      wordsPerChapter: 90,
+    });
+
+    await services.startBook(bookId);
+    const detail = await waitForBookStatus(services, bookId, 'completed');
+    unsubscribe();
+
+    expect(detail?.book.status).toBe('completed');
+    expect(
+      seenDebugLogs.some(
+        (log) =>
+          log.eventType === 'scheduler_task_registered' &&
+          log.level === 'debug'
+      )
+    ).toBe(true);
+    expect(
+      seenDebugLogs.some(
+        (log) =>
+          log.eventType === 'ai_operation_completed' &&
+          log.debugContext &&
+          typeof log.debugContext.operation === 'string'
+      )
+    ).toBe(true);
+
+    const logDir = path.join(tempHome, '.story-weaver', 'logs');
+    const files = fs.readdirSync(logDir);
+    expect(files.length).toBeGreaterThan(0);
+    const raw = fs.readFileSync(path.join(logDir, files[0]), 'utf8');
+    expect(raw).toContain('"level":"debug"');
+    expect(raw).toContain('"eventType":"scheduler_task_registered"');
+    expect(raw).toContain('"runId"');
+    expect(raw).toContain('"debugContext"');
+  });
+
   it('does not expose the same started book in both running and queued scheduler status', async () => {
     vi.useFakeTimers();
     const generateText = vi.fn().mockResolvedValue({

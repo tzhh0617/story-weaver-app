@@ -3,6 +3,8 @@ import { SHORT_CHAPTER_REVIEW_ENABLED_KEY } from '../../src/core/chapter-review.
 import {
   assertIpcPayload,
   ipcChannels,
+  LOG_MAX_FILE_SIZE_BYTES_KEY,
+  LOG_RETENTION_DAYS_KEY,
 } from '../../src/shared/contracts.js';
 import { getRuntimeServices } from '../runtime.js';
 
@@ -27,6 +29,20 @@ export function registerSettingsHandlers() {
 
         if (trimmed && (!/^\d+$/.test(trimmed) || Number(trimmed) < 1)) {
           throw new Error('Concurrency limit must be a positive integer');
+        }
+      }
+
+      if (payload.key === LOG_MAX_FILE_SIZE_BYTES_KEY) {
+        const trimmed = payload.value.trim();
+        if (!/^\d+$/.test(trimmed) || Number(trimmed) < 1) {
+          throw new Error('Log max file size must be a positive integer');
+        }
+      }
+
+      if (payload.key === LOG_RETENTION_DAYS_KEY) {
+        const trimmed = payload.value.trim();
+        if (!/^\d+$/.test(trimmed) || Number(trimmed) < 1) {
+          throw new Error('Log retention days must be a positive integer');
         }
       }
 
