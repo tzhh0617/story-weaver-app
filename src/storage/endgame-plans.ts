@@ -10,7 +10,7 @@ type CompatibleCoreCharacterOutcomes = {
 };
 
 type CompatibleMajorPayoffs = {
-  themeAnswer: string;
+  themeAnswer: string | null;
   plannerMajorPayoffs: unknown;
 };
 
@@ -51,7 +51,7 @@ function encodeMajorPayoffs(input: { majorPayoffs: unknown; worldEndState: strin
     themeAnswer:
       typeof plannerRecord?.themeAnswer === 'string'
         ? plannerRecord.themeAnswer
-        : input.worldEndState,
+        : null,
     plannerMajorPayoffs: plannerValue,
   };
 

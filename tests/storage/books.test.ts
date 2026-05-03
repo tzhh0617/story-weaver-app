@@ -283,12 +283,14 @@ describe('book repository', () => {
 
     expect(repos.storyBibles.getByBook('book-planning')).toMatchObject({
       premise: 'A city remembers every promise.',
+      themeAnswerDirection: 'Every bargain leaves a visible scar.',
       centralDramaticQuestion: 'The Promise Archive',
       endingState: {
         protagonistWins: 'She tells the truth publicly.',
         protagonistLoses: 'Expose the archive or save her brother.',
         worldChange: 'Public memory becomes shared property.',
         relationshipOutcome: 'The city registrar',
+        themeAnswer: 'Every bargain leaves a visible scar.',
       },
     });
     expect(repos.volumePlans.listByBook('book-planning')).toEqual([
@@ -312,7 +314,11 @@ describe('book repository', () => {
         volumeIndex: 1,
         chapterIndex: 3,
         title: 'Break into the archive',
+        povCharacterId: null,
+        worldRuleUsedOrTested: 'Promises have weight.',
+        informationReveal: 'The key responds only after she confesses a broken vow.',
         readerReward: 'ledger clue',
+        forbiddenMoves: ['easy win'],
       }),
     ]);
   });
