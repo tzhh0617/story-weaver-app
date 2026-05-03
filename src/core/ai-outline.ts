@@ -31,6 +31,7 @@ import type {
   NarrativeThreadState,
   NarrativeThreadType,
   PayoffChangeTarget,
+  ReaderReward,
   RelationshipAction,
   ThreadImportance,
   ThreadAction,
@@ -556,6 +557,58 @@ function normalizeVolumePlansShape(
   }));
 }
 
+function normalizeReaderReward(value: unknown): ReaderReward {
+  const normalized = toPlainText(value);
+
+  switch (normalized) {
+    case 'reversal':
+    case 'breakthrough':
+    case 'failure':
+    case 'truth':
+    case 'upgrade':
+    case 'confession':
+    case 'dread':
+    case 'relief':
+      return normalized;
+    default:
+      return 'truth';
+  }
+}
+
+function normalizeChapterCardsShape(input: {
+  bookId: string;
+  cards: Array<Omit<ChapterCard, 'bookId'> & { bookId?: string }>;
+}): ChapterCard[] {
+  return (Array.isArray(input.cards) ? input.cards : []).map((card, index) => ({
+    bookId: input.bookId,
+    volumeIndex:
+      typeof card.volumeIndex === 'number' && Number.isFinite(card.volumeIndex)
+        ? card.volumeIndex
+        : 1,
+    chapterIndex:
+      typeof card.chapterIndex === 'number' && Number.isFinite(card.chapterIndex)
+        ? card.chapterIndex
+        : index + 1,
+    title: toPlainText(card.title),
+    plotFunction: toPlainText(card.plotFunction),
+    povCharacterId: firstNonEmptyString([toPlainText(card.povCharacterId)]) || null,
+    externalConflict: toPlainText(card.externalConflict),
+    internalConflict: toPlainText(card.internalConflict),
+    relationshipChange: toPlainText(card.relationshipChange),
+    worldRuleUsedOrTested: toPlainText(card.worldRuleUsedOrTested),
+    informationReveal: toPlainText(card.informationReveal),
+    readerReward: normalizeReaderReward(card.readerReward),
+    endingHook: toPlainText(card.endingHook),
+    mustChange: toPlainText(card.mustChange),
+    forbiddenMoves: (Array.isArray(card.forbiddenMoves)
+      ? card.forbiddenMoves
+      : [card.forbiddenMoves]
+    )
+      .map((item) => toPlainText(item))
+      .filter(Boolean),
+  }));
+}
+
 function normalizeThreadActionType(value: unknown): ThreadAction {
   switch (value) {
     case 'plant':
@@ -943,14 +996,10 @@ export function createAiOutlineService(deps: {
             })
           ).text
         );
-        const chapterCards = (cardBundle.cards ?? []).map((card) => ({
-          ...card,
-          volumeIndex:
-            typeof card.volumeIndex === 'number' && Number.isFinite(card.volumeIndex)
-              ? card.volumeIndex
-              : 1,
+        const chapterCards = normalizeChapterCardsShape({
           bookId: input.bookId,
-        })) as ChapterCard[];
+          cards: cardBundle.cards ?? [],
+        });
         const cardValidation = validateChapterCards(chapterCards, {
           targetChapters: input.targetChapters,
         });
