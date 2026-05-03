@@ -55,13 +55,70 @@ function makeBookDetailContractFixture(): BookDetail {
         bookId: 'book-1',
         chapterIndex: 12,
         mainlineProgress: '林牧确认命簿缺页与林家旧案有关。',
-        activeSubplots: ['师门调查', '旧档案追查'],
-        openPromises: ['缺页下落', '幕后删除者身份'],
-        characterTruths: ['林牧知道父亲死因可能是伪造。'],
-        relationshipDeltas: ['林牧与沈砚暂时结盟。'],
-        worldFacts: ['命簿能删除存在痕迹，但会留下反噬。'],
+        activeSubplots: [
+          {
+            threadId: 'sect-investigation',
+            label: '师门调查',
+            status: 'active',
+            lastMovedChapter: 11,
+            targetPayoffChapter: 15,
+          },
+          {
+            threadId: 'archive-trail',
+            label: '旧档案追查',
+            status: 'cooling',
+            lastMovedChapter: 10,
+            targetPayoffChapter: null,
+          },
+        ],
+        openPromises: [
+          {
+            promiseId: 'missing-pages',
+            promise: '缺页下落',
+            introducedAtChapter: 1,
+            targetPayoffChapter: 14,
+            priority: 'critical',
+          },
+          {
+            promiseId: 'eraser-identity',
+            promise: '幕后删除者身份',
+            introducedAtChapter: 3,
+            targetPayoffChapter: 20,
+            priority: 'normal',
+          },
+        ],
+        characterTruths: [
+          {
+            characterId: 'lin-mu',
+            truth: '林牧知道父亲死因可能是伪造。',
+            sourceChapter: 12,
+            stability: 'volatile',
+          },
+        ],
+        relationshipDeltas: [
+          {
+            relationshipId: 'linmu-shenyan',
+            summary: '林牧与沈砚暂时结盟。',
+            direction: 'improving',
+            sourceChapter: 12,
+          },
+        ],
+        worldFacts: [
+          {
+            factId: 'ledger-backlash',
+            fact: '命簿能删除存在痕迹，但会留下反噬。',
+            sourceChapter: 8,
+            scope: 'systemic',
+          },
+        ],
         rhythmPosition: 'twist',
-        riskFlags: ['连续两章未兑现师门线索'],
+        riskFlags: [
+          {
+            code: 'payoff_gap',
+            message: '连续两章未兑现师门线索',
+            severity: 'major',
+          },
+        ],
         createdAt: '2026-04-30T00:12:00.000Z',
       },
       latestCheckpoint: {
@@ -71,10 +128,13 @@ function makeBookDetailContractFixture(): BookDetail {
         createdAt: '2026-04-30T00:10:00.000Z',
       },
       runState: {
-        phase: 'drafting',
+        phase: 'chapter_window_ready',
         driftLevel: 'light',
-        starvationScore: 0.25,
+        currentChapter: 12,
+        starvationScore: 2,
         lastHealthyCheckpointChapter: 10,
+        latestFailureReason: null,
+        cooldownUntil: null,
       },
       chapterCards: [
         {
@@ -245,17 +305,53 @@ describe('ipcChannels', () => {
       activeTemplate: 'mystery_serial',
       mainlinePromise: expect.any(String),
     });
+    expect(detail.narrative?.bookContract?.keyCharacterBoundaries[0]).toMatchObject({
+      characterId: 'lin-mu',
+      publicPersona: '沉静的抄录员',
+      lineWillNotCross: '不会主动献祭无辜者',
+    });
     expect(detail.narrative?.latestLedger).toMatchObject({
       chapterIndex: 12,
       rhythmPosition: 'twist',
     });
+    expect(detail.narrative?.latestLedger?.activeSubplots[0]).toMatchObject({
+      threadId: 'sect-investigation',
+      status: 'active',
+      targetPayoffChapter: 15,
+    });
+    expect(detail.narrative?.latestLedger?.characterTruths[0]).toMatchObject({
+      characterId: 'lin-mu',
+      stability: 'volatile',
+    });
+    expect(detail.narrative?.latestLedger?.worldFacts[0]).toMatchObject({
+      factId: 'ledger-backlash',
+      scope: 'systemic',
+    });
+    expect(detail.narrative?.latestLedger?.openPromises[0]).toMatchObject({
+      promiseId: 'missing-pages',
+      priority: 'critical',
+    });
+    expect(detail.narrative?.latestLedger?.relationshipDeltas[0]).toMatchObject({
+      direction: 'improving',
+      sourceChapter: 12,
+    });
+    expect(detail.narrative?.latestLedger?.riskFlags[0]).toMatchObject({
+      code: 'payoff_gap',
+      severity: 'major',
+    });
     expect(detail.narrative?.latestCheckpoint).toMatchObject({
+      bookId: 'book-1',
       chapterIndex: 10,
       checkpointType: 'heavy',
+      createdAt: '2026-04-30T00:10:00.000Z',
     });
     expect(detail.narrative?.runState).toMatchObject({
-      phase: 'drafting',
+      phase: 'chapter_window_ready',
+      currentChapter: 12,
       driftLevel: 'light',
+      starvationScore: 2,
+      latestFailureReason: null,
+      cooldownUntil: null,
     });
     expect(Array.isArray(detail.narrative?.chapterCards)).toBe(true);
     expect(detail.narrative?.chapterTensionBudgets[0]).toMatchObject({

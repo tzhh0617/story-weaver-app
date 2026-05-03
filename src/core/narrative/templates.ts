@@ -1,13 +1,19 @@
-import type { StoryTemplatePreset } from './types.js';
+import type {
+  StoryTemplateId,
+  StoryTemplatePreset,
+} from './types.js';
 
-export const narrativeTemplatePresets: Record<string, StoryTemplatePreset> = {
+export const storyTemplatePresets: Record<
+  StoryTemplateId,
+  StoryTemplatePreset
+> = {
   progression: {
     id: 'progression',
     label: 'Progression',
     summary: 'Escalate growth, cost, and visible advancement on a steady loop.',
     rubric: {
       subplotLimit: 3,
-      payoffGapWarningAt: 4,
+      maxPayoffGapChapters: 4,
       rhythmPattern: ['setup', 'escalation', 'payoff', 'cost'],
       driftWarnings: [
         'Do not let training replace competitive pressure for too long.',
@@ -21,7 +27,7 @@ export const narrativeTemplatePresets: Record<string, StoryTemplatePreset> = {
     summary: 'Balance emotional intimacy, misalignment, and earned relationship turns.',
     rubric: {
       subplotLimit: 2,
-      payoffGapWarningAt: 3,
+      maxPayoffGapChapters: 3,
       rhythmPattern: ['setup', 'escalation', 'twist', 'payoff'],
       driftWarnings: [
         'Do not stall the central relationship with repetitive almost-confessions.',
@@ -35,7 +41,7 @@ export const narrativeTemplatePresets: Record<string, StoryTemplatePreset> = {
     summary: 'Feed clue chains, reversals, and answer pacing without collapsing suspense.',
     rubric: {
       subplotLimit: 4,
-      payoffGapWarningAt: 3,
+      maxPayoffGapChapters: 3,
       rhythmPattern: ['setup', 'escalation', 'twist', 'payoff', 'cost'],
       driftWarnings: [
         'Each reveal should open a sharper follow-up question.',
@@ -44,5 +50,3 @@ export const narrativeTemplatePresets: Record<string, StoryTemplatePreset> = {
     },
   },
 };
-
-export const storyTemplatePresets = narrativeTemplatePresets;

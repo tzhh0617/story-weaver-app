@@ -569,6 +569,39 @@ export type StoryRhythmPosition =
 
 export type StoryCheckpointType = 'light' | 'heavy';
 
+export type StoryRunPhase =
+  | 'bootstrapping'
+  | 'planning_ready'
+  | 'chapter_window_ready'
+  | 'writing'
+  | 'auditing'
+  | 'patching'
+  | 'replanning'
+  | 'blocked'
+  | 'cooldown'
+  | 'completed';
+
+export type StoryRepairAction =
+  | 'continue'
+  | 'patch_scene'
+  | 'rebalance_subplots'
+  | 'refresh_payoff_plan'
+  | 'rebuild_chapter_window'
+  | 'escalate_replanning'
+  | 'pause_and_review';
+
+export type StoryEventType =
+  | 'mainline_advance'
+  | 'subplot_shift'
+  | 'promise_opened'
+  | 'promise_paid'
+  | 'character_turn'
+  | 'relationship_turn'
+  | 'world_change'
+  | 'cost_paid';
+
+export type StorySchedulerPriority = number;
+
 export type BookContractCharacterBoundary = {
   characterId: string;
   publicPersona: string;
@@ -596,30 +629,70 @@ export type StoryLedger = {
   bookId: string;
   chapterIndex: number;
   mainlineProgress: string;
-  activeSubplots: unknown;
-  openPromises: unknown;
-  characterTruths: unknown;
-  relationshipDeltas: unknown;
-  worldFacts: unknown;
+  activeSubplots: Array<{
+    threadId: string;
+    label: string;
+    status: 'active' | 'cooling' | 'payoff_due' | 'resolved';
+    lastMovedChapter: number;
+    targetPayoffChapter: number | null;
+  }>;
+  openPromises: Array<{
+    promiseId: string;
+    promise: string;
+    introducedAtChapter: number;
+    targetPayoffChapter: number | null;
+    priority: ThreadImportance;
+  }>;
+  characterTruths: Array<{
+    characterId: string;
+    truth: string;
+    sourceChapter: number;
+    stability: 'stable' | 'volatile' | 'contested';
+  }>;
+  relationshipDeltas: Array<{
+    relationshipId: string;
+    summary: string;
+    direction: 'improving' | 'fracturing' | 'volatile' | 'revealed';
+    sourceChapter: number;
+  }>;
+  worldFacts: Array<{
+    factId: string;
+    fact: string;
+    sourceChapter: number;
+    scope: 'local' | 'faction' | 'systemic';
+  }>;
   rhythmPosition: StoryRhythmPosition;
-  riskFlags: unknown;
+  riskFlags: Array<{
+    code: 'drift_risk' | 'payoff_gap' | 'subplot_overload' | 'pacing_stall';
+    message: string;
+    severity: Exclude<AuditSeverity, 'blocker'>;
+  }>;
   createdAt: string;
 };
 
 export type StoryLedgerDigest = {
   mainlineProgress: string;
-  openPromises: unknown;
+  openPromises: StoryLedger['openPromises'];
   rhythmPosition: StoryRhythmPosition;
-  riskFlags: unknown;
+  riskFlags: StoryLedger['riskFlags'];
 };
 
 export type IntegrityReport = {
-  checkpointType: StoryCheckpointType;
+  mainlineAlignmentScore: number;
+  characterStabilityScore: number;
+  subplotControlScore: number;
+  payoffProgressScore: number;
+  rhythmFitScore: number;
   driftLevel: DriftLevel;
-  starvationScore: number;
+  repairAction: StoryRepairAction;
   findings: string[];
-  warnings: string[];
+};
+
+export type CheckpointSummary = {
+  checkpointType: StoryCheckpointType;
+  ledgerDigest: StoryLedgerDigest;
   tensionCheckpoint?: TensionCheckpoint | null;
+  notes: string[];
 };
 
 export type StoryCheckpoint = {
@@ -629,6 +702,7 @@ export type StoryCheckpoint = {
   contractDigest: string;
   planDigest: string;
   ledgerDigest: StoryLedgerDigest;
+  checkpointSummary?: CheckpointSummary | null;
   integrityReport?: IntegrityReport | null;
   createdAt: string;
 };
@@ -639,15 +713,18 @@ export type LatestStoryCheckpoint = Pick<
 >;
 
 export type StoryRunState = {
-  phase: string;
+  phase: StoryRunPhase;
+  currentChapter: number | null;
   driftLevel: DriftLevel;
   starvationScore: number;
   lastHealthyCheckpointChapter: number | null;
+  latestFailureReason: string | null;
+  cooldownUntil: string | null;
 };
 
 export type StoryTemplateRubric = {
   subplotLimit: number;
-  payoffGapWarningAt: number;
+  maxPayoffGapChapters: number;
   rhythmPattern: StoryRhythmPosition[];
   driftWarnings: string[];
 };
@@ -657,4 +734,15 @@ export type StoryTemplatePreset = {
   label: string;
   summary: string;
   rubric: StoryTemplateRubric;
+};
+
+export type StoryEvent = {
+  id: string;
+  bookId: string;
+  chapterIndex: number;
+  eventType: StoryEventType;
+  summary: string;
+  affectedIds: string[];
+  irreversible: boolean;
+  createdAt: string;
 };
