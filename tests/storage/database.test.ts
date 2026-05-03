@@ -4,7 +4,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { createSqliteConnection } from '../../src/db/client';
 import { runDrizzleMigrations } from '../../src/db/migrate';
-import { createDatabase } from '../../src/storage/database';
+import { createDatabase, createRepositories } from '../../src/storage/database';
 
 describe('createDatabase', () => {
   it('creates the expected tables on first boot', () => {
@@ -27,6 +27,16 @@ describe('createDatabase', () => {
       .get() as { name: string } | undefined;
 
     expect(row?.name).toBe('__drizzle_migrations');
+  });
+
+  it('exposes autopilot runtime repositories from the central factory', () => {
+    const db = createDatabase(':memory:');
+    const repositories = createRepositories(db);
+
+    expect(repositories.bookContracts).toBeDefined();
+    expect(repositories.storyLedgers).toBeDefined();
+    expect(repositories.storyEvents).toBeDefined();
+    expect(repositories.storyCheckpoints).toBeDefined();
   });
 
   it('upgrades an existing 0000 database with follow-up writing progress columns', () => {

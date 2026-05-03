@@ -8,6 +8,7 @@ import { createChapterPlanRepository } from './chapter-plans.js';
 import { createChapterTensionBudgetRepository } from './chapter-tension-budgets.js';
 import { createChapterRepository } from './chapters.js';
 import { createArcPlanRepository } from './arc-plans.js';
+import { createBookContractRepository } from './book-contracts.js';
 import { createCharacterArcRepository } from './character-arcs.js';
 import { createCharacterRepository } from './characters.js';
 import { createEndgamePlanRepository } from './endgame-plans.js';
@@ -22,6 +23,9 @@ import { createSceneRecordRepository } from './scene-records.js';
 import { createSettingsRepository } from './settings.js';
 import { createStagePlanRepository } from './stage-plans.js';
 import { createStoryBibleRepository } from './story-bibles.js';
+import { createStoryCheckpointRepository } from './story-checkpoints.js';
+import { createStoryEventRepository } from './story-events.js';
+import { createStoryLedgerRepository } from './story-ledgers.js';
 import { createStoryStateSnapshotRepository } from './story-state-snapshots.js';
 import { createTitleIdeaContractRepository } from './title-idea-contracts.js';
 import { createVolumePlanRepository } from './volume-plans.js';
@@ -58,11 +62,15 @@ export function createRepositories(db: SqliteDatabase) {
     narrativeThreads,
     volumePlans: createVolumePlanRepository(db),
     titleIdeaContracts: createTitleIdeaContractRepository(db),
+    bookContracts: createBookContractRepository(db),
     endgamePlans: createEndgamePlanRepository(db),
     stagePlans: createStagePlanRepository(db),
     arcPlans: createArcPlanRepository(db),
     chapterPlans: createChapterPlanRepository(db),
     storyStateSnapshots: createStoryStateSnapshotRepository(db),
+    storyLedgers: createStoryLedgerRepository(db),
+    storyEvents: createStoryEventRepository(db),
+    storyCheckpoints: createStoryCheckpointRepository(db),
     chapterCards: createChapterCardRepository(db),
     chapterTensionBudgets: createChapterTensionBudgetRepository(db),
     chapterAudits: createChapterAuditRepository(db),
