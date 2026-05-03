@@ -986,14 +986,48 @@ export function createBookService(deps: {
     notifyBookUpdated?: boolean;
   }) {
     deps.progress.updatePhase(input.bookId, input.phase, {
-      currentVolume: input.currentVolume ?? null,
-      currentChapter: input.currentChapter ?? null,
-      stepLabel: input.stepLabel,
+      ...preservePlanningMetadata(input.bookId, {
+        currentVolume: input.currentVolume ?? null,
+        currentChapter: input.currentChapter ?? null,
+        stepLabel: input.stepLabel,
+      }),
     });
     emitProgress(input);
     if (input.notifyBookUpdated) {
       deps.onBookUpdated?.(input.bookId);
     }
+  }
+
+  function getProgressState(bookId: string) {
+    return deps.progress.getByBookId(bookId) ?? null;
+  }
+
+  function hasPersistedPlanning(bookId: string) {
+    return Boolean(
+      deps.titleIdeaContracts?.getByBook(bookId) ||
+        deps.endgamePlans?.getByBook(bookId) ||
+        deps.stagePlans?.listByBook(bookId).length ||
+        deps.arcPlans?.listByBook(bookId).length ||
+        deps.chapterPlans?.listByBook(bookId).length
+    );
+  }
+
+  function preservePlanningMetadata(bookId: string, metadata?: {
+    currentVolume?: number | null;
+    currentChapter?: number | null;
+    stepLabel?: string | null;
+  }) {
+    const current = getProgressState(bookId);
+    const keepPlanningMetadata = hasPersistedPlanning(bookId);
+
+    return {
+      currentVolume: metadata?.currentVolume ?? current?.currentVolume ?? null,
+      currentChapter: metadata?.currentChapter ?? current?.currentChapter ?? null,
+      currentStage: keepPlanningMetadata ? current?.currentStage ?? null : null,
+      currentArc: keepPlanningMetadata ? current?.currentArc ?? null : null,
+      stepLabel: metadata?.stepLabel ?? current?.stepLabel ?? null,
+      activeTaskType: keepPlanningMetadata ? current?.activeTaskType ?? null : null,
+    };
   }
 
   function initializePlanning(bookId: string, outlineBundle: OutlineBundle) {
@@ -1474,7 +1508,9 @@ export function createBookService(deps: {
       initializePlanning(bookId, outlineBundle);
 
       deps.books.updateStatus(bookId, 'building_outline');
-      deps.progress.updatePhase(bookId, 'building_outline');
+      if (!hasPersistedPlanning(bookId)) {
+        deps.progress.updatePhase(bookId, 'building_outline');
+      }
     },
 
     pauseBook(bookId: string) {
@@ -1512,19 +1548,24 @@ export function createBookService(deps: {
       const nextPlannedChapter = chapterPlans.find(
         (plan) => plan.status !== 'completed'
       );
-      const nextChapter = chapters.find(
+      const plannedChapterRow = nextPlannedChapter
+        ? chapters.find(
+            (chapter) =>
+              !chapter.content &&
+              chapter.chapterIndex === nextPlannedChapter.chapterIndex
+          )
+        : null;
+      const fallbackChapter = chapters.find(
         (chapter) =>
           !chapter.content &&
-          (nextPlannedChapter
-            ? chapter.chapterIndex === nextPlannedChapter.chapterIndex
-            : false ||
-              Boolean(chapter.outline?.trim()) ||
+          (Boolean(chapter.outline?.trim()) ||
             chapterCards.some(
               (card) =>
                 card.volumeIndex === chapter.volumeIndex &&
                 card.chapterIndex === chapter.chapterIndex
             ))
       );
+      const nextChapter = plannedChapterRow ?? fallbackChapter;
 
       if (!nextChapter) {
         throw new Error('No outlined chapter available to write');
@@ -1678,9 +1719,11 @@ export function createBookService(deps: {
       const writingStepLabel = `正在写第 ${nextChapter.chapterIndex} 章`;
 
       deps.progress.updatePhase(bookId, 'writing', {
-        currentVolume: nextChapter.volumeIndex,
-        currentChapter: nextChapter.chapterIndex,
-        stepLabel: writingStepLabel,
+        ...preservePlanningMetadata(bookId, {
+          currentVolume: nextChapter.volumeIndex,
+          currentChapter: nextChapter.chapterIndex,
+          stepLabel: writingStepLabel,
+        }),
       });
       deps.onGenerationEvent?.({
         bookId,
@@ -1731,9 +1774,11 @@ export function createBookService(deps: {
       ) {
         const rewriteStepLabel = `正在重写第 ${nextChapter.chapterIndex} 章`;
         deps.progress.updatePhase(bookId, 'writing', {
-          currentVolume: nextChapter.volumeIndex,
-          currentChapter: nextChapter.chapterIndex,
-          stepLabel: rewriteStepLabel,
+          ...preservePlanningMetadata(bookId, {
+            currentVolume: nextChapter.volumeIndex,
+            currentChapter: nextChapter.chapterIndex,
+            stepLabel: rewriteStepLabel,
+          }),
         });
         deps.onGenerationEvent?.({
           bookId,
@@ -1994,8 +2039,6 @@ export function createBookService(deps: {
         titleIdeaAlignment: 'maintained',
         flatnessRisk: auditScore !== null && auditScore >= 80 ? 'low' : 'medium',
       });
-      handleMilestoneReplan(bookId, nextChapter.chapterIndex);
-
       if (
         deps.narrativeCheckpoint &&
         deps.narrativeCheckpoints &&
@@ -2047,6 +2090,8 @@ export function createBookService(deps: {
         });
       }
 
+      handleMilestoneReplan(bookId, nextChapter.chapterIndex);
+
       const latestBook = deps.books.getById(bookId);
       if (!latestBook) {
         return {
@@ -2061,11 +2106,16 @@ export function createBookService(deps: {
       }
 
       deps.books.updateStatus(bookId, 'writing');
-      deps.progress.updatePhase(bookId, 'writing', {
-        currentVolume: nextChapter.volumeIndex,
-        currentChapter: nextChapter.chapterIndex,
-        stepLabel: postChapterStepLabel,
-      });
+      const progressAfterReplan = getProgressState(bookId);
+      if (progressAfterReplan?.phase !== 'planning_recheck') {
+        deps.progress.updatePhase(bookId, 'writing', {
+          ...preservePlanningMetadata(bookId, {
+            currentVolume: nextChapter.volumeIndex,
+            currentChapter: nextChapter.chapterIndex,
+            stepLabel: postChapterStepLabel,
+          }),
+        });
+      }
       deps.onGenerationEvent?.({
         bookId,
         type: 'chapter-complete',
@@ -2097,15 +2147,21 @@ export function createBookService(deps: {
           };
         }
 
-        const nextChapter = deps.chapters
-          .listByBook(bookId)
-          .find((chapter) => !chapter.content);
+        const nextChapterResult = await this.writeNextChapter(bookId).catch((error) => {
+          if (
+            error instanceof Error &&
+            error.message === 'No outlined chapter available to write'
+          ) {
+            return null;
+          }
 
-        if (!nextChapter) {
+          throw error;
+        });
+
+        if (!nextChapterResult) {
           break;
         }
-
-        const result = await this.writeNextChapter(bookId);
+        const result = nextChapterResult;
         if (!deps.books.getById(bookId)) {
           return {
             completedChapters,
@@ -2137,7 +2193,13 @@ export function createBookService(deps: {
       }
 
       deps.books.updateStatus(bookId, 'completed');
-      deps.progress.updatePhase(bookId, 'completed');
+      const finalProgress = getProgressState(bookId);
+      if (
+        finalProgress?.phase !== 'planning_recheck' ||
+        !hasPersistedPlanning(bookId)
+      ) {
+        deps.progress.updatePhase(bookId, 'completed');
+      }
       deps.onBookUpdated?.(bookId);
 
       return {

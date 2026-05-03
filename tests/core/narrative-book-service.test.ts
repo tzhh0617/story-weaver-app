@@ -321,16 +321,163 @@ describe('narrative book-service integration', () => {
     expect(repos.endgamePlans.getByBook(bookId)).toMatchObject({
       finalOpponent: '司命监首座',
     });
+    expect(repos.progress.getByBookId(bookId)).toMatchObject({
+      phase: 'planning_init',
+      currentStage: 1,
+      currentArc: 1,
+      activeTaskType: 'book:plan:init',
+    });
 
     await service.writeNextChapter(bookId);
 
-    expect(repos.chapterPlans.listByBook(bookId)[0]).toMatchObject({
+    const plans = repos.chapterPlans.listByBook(bookId);
+    expect(plans.find((plan) => plan.chapterIndex === 1)).toMatchObject({
       chapterIndex: 1,
       status: 'completed',
     });
     expect(repos.storyStateSnapshots.getLatestByBook(bookId)).toMatchObject({
       chapterIndex: 1,
       remainingChapterBudget: 19,
+    });
+    expect(service.getBookDetail(bookId)?.chapters[0]?.content).toBeTruthy();
+    expect(repos.progress.getByBookId(bookId)).toMatchObject({
+      currentStage: 1,
+      currentArc: 1,
+      activeTaskType: 'book:plan:init',
+    });
+  });
+
+  it('falls back to another writable outlined chapter when the next chapter plan drifts', async () => {
+    const db = createDatabase(':memory:');
+    const repos = createRepositories(db);
+    const service = createBookService({
+      ...repos,
+      outlineService: {
+        generateFromIdea: vi.fn().mockImplementation((input) =>
+          Promise.resolve({
+            worldSetting: 'Loop world',
+            masterOutline: 'Loop outline',
+            volumeOutlines: ['Stage 1'],
+            chapterOutlines: [
+              {
+                volumeIndex: 1,
+                chapterIndex: 1,
+                title: '命簿开页',
+                outline: '林牧被迫接下第一场追查。',
+              },
+            ],
+            chapterPlans: [
+              {
+                batchIndex: 1,
+                chapterIndex: 99,
+                arcIndex: 1,
+                goal: '一个已经漂移的旧计划。',
+                conflict: '该章节当前没有可写的章节行。',
+                pressureSource: '计划已过期。',
+                changeType: 'drift',
+                threadActions: [{ threadId: 'old-case', action: 'misdirect' }],
+                reveal: '这条计划已经失效。',
+                payoffOrCost: '如果强绑会导致停滞。',
+                endingHook: '无',
+                titleIdeaLink: '每次改命都要先失去一样东西。',
+                batchGoal: '失效计划',
+                requiredPayoffs: ['不要阻塞写作'],
+                forbiddenDrift: ['卡死在失效计划上'],
+                status: 'planned',
+              },
+            ],
+            narrativeBible: bible(),
+            volumePlans: volumePlans(),
+            chapterCards: chapterCards(input.bookId),
+            chapterTensionBudgets: tensionBudgets(input.bookId),
+            chapterThreadActions: [],
+            chapterCharacterPressures: [],
+            chapterRelationshipActions: [],
+          })
+        ),
+      },
+      chapterWriter: {
+        writeChapter: vi.fn().mockResolvedValue({
+          content: '林牧没有被失效计划卡住，仍然推进了第一章。',
+        }),
+      },
+      chapterAuditor: {
+        auditChapter: vi.fn().mockResolvedValue({
+          passed: true,
+          score: 88,
+          decision: 'accept',
+          issues: [],
+          scoring: {
+            characterLogic: 18,
+            mainlineProgress: 13,
+            relationshipChange: 13,
+            conflictDepth: 14,
+            worldRuleCost: 9,
+            threadManagement: 8,
+            pacingReward: 9,
+            themeAlignment: 4,
+            flatness: {
+              conflictEscalation: 65,
+              choicePressure: 75,
+              consequenceVisibility: 65,
+              irreversibleChange: 75,
+              hookStrength: 65,
+            },
+          },
+          stateUpdates: {
+            characterArcUpdates: [],
+            relationshipUpdates: [],
+            threadUpdates: [],
+            worldKnowledgeUpdates: [],
+            themeUpdate: '自由需要承担代价。',
+          },
+        }),
+      },
+      narrativeStateExtractor: {
+        extractState: vi.fn().mockResolvedValue({
+          characterStates: [],
+          relationshipStates: [],
+          threadUpdates: [],
+          scene: null,
+          themeProgression: '自由需要承担代价。',
+        }),
+      },
+      summaryGenerator: {
+        summarizeChapter: vi.fn().mockResolvedValue('林牧仍然推进了第一章。'),
+      },
+      plotThreadExtractor: {
+        extractThreads: vi.fn().mockResolvedValue({
+          openedThreads: [],
+          resolvedThreadIds: [],
+        }),
+      },
+      characterStateExtractor: {
+        extractStates: vi.fn().mockResolvedValue([]),
+      },
+      sceneRecordExtractor: {
+        extractScene: vi.fn().mockResolvedValue(null),
+      },
+      resolveModelId: () => 'mock',
+    });
+
+    const bookId = service.createBook({
+      idea: '命簿旧案追查',
+      targetChapters: 1,
+      wordsPerChapter: 2000,
+    });
+
+    await service.startBook(bookId);
+    await service.writeNextChapter(bookId);
+
+    expect(service.getBookDetail(bookId)?.chapters[0]).toMatchObject({
+      chapterIndex: 1,
+      content: '林牧没有被失效计划卡住，仍然推进了第一章。',
+    });
+    expect(
+      repos.chapterPlans.listByBook(bookId).find((plan) => plan.chapterIndex === 99)
+    ).toMatchObject({
+      chapterIndex: 99,
+      status: 'planned',
     });
   });
 
@@ -710,6 +857,11 @@ describe('narrative book-service integration', () => {
           ),
         },
       ],
+    });
+    expect(repos.progress.getByBookId(bookId)).toMatchObject({
+      phase: 'planning_recheck',
+      currentChapter: 10,
+      activeTaskType: 'book:plan:rebuild-chapters',
     });
   });
 });
