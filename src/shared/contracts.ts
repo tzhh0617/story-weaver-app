@@ -1,3 +1,11 @@
+import type {
+  BookContract,
+  LatestStoryCheckpoint,
+  StoryLedger,
+  StoryRunState,
+  ViralStoryProtocol,
+} from '../core/narrative/types.js';
+
 export type BookStatus =
   | 'creating'
   | 'building_world'
@@ -89,23 +97,12 @@ export type BookDetail = {
       themeQuestion: string;
       themeAnswerDirection: string;
       centralDramaticQuestion: string;
-      viralStoryProtocol?: {
-        readerPromise: string;
-        targetEmotion: string;
-        coreDesire: string;
-        protagonistDrive: string;
-        hookEngine: string;
-        payoffCadence: {
-          mode: string;
-          minorPayoffEveryChapters: number;
-          majorPayoffEveryChapters: number;
-          payoffTypes: string[];
-        };
-        tropeContract: string[];
-        antiClicheRules: string[];
-        longTermQuestion: string;
-      } | null;
+      viralStoryProtocol?: ViralStoryProtocol | null;
     } | null;
+    bookContract?: BookContract | null;
+    latestLedger?: StoryLedger | null;
+    latestCheckpoint?: LatestStoryCheckpoint | null;
+    runState?: StoryRunState | null;
     titleIdeaContract?: {
       bookId: string;
       title: string;

@@ -29,6 +29,53 @@ function makeBookDetailContractFixture(): BookDetail {
         themeAnswerDirection: '自由来自承担代价。',
         centralDramaticQuestion: '林牧能否改写命簿？',
       },
+      bookContract: {
+        bookId: 'book-1',
+        titlePromise: '命簿现世，改命必有代价。',
+        corePremise: '修复命簿的人发现家族被删除。',
+        mainlinePromise: '林牧必须在保住至亲和改写命簿之间做选择。',
+        protagonistCoreDesire: '夺回林家被删除的人生。',
+        protagonistNoDriftRules: ['不能放弃改命主线。'],
+        keyCharacterBoundaries: [
+          {
+            characterId: 'lin-mu',
+            publicPersona: '沉静的抄录员',
+            hiddenDrive: '夺回家族存在',
+            lineWillNotCross: '不会主动献祭无辜者',
+            lineMayEventuallyCross: '会牺牲自身寿命',
+          },
+        ],
+        mandatoryPayoffs: ['揭开林家被删除真相。'],
+        antiDriftRules: ['每卷推进命簿删除真相。'],
+        activeTemplate: 'mystery_serial',
+        createdAt: '2026-04-30T00:00:00.000Z',
+        updatedAt: '2026-04-30T00:00:00.000Z',
+      },
+      latestLedger: {
+        bookId: 'book-1',
+        chapterIndex: 12,
+        mainlineProgress: '林牧确认命簿缺页与林家旧案有关。',
+        activeSubplots: ['师门调查', '旧档案追查'],
+        openPromises: ['缺页下落', '幕后删除者身份'],
+        characterTruths: ['林牧知道父亲死因可能是伪造。'],
+        relationshipDeltas: ['林牧与沈砚暂时结盟。'],
+        worldFacts: ['命簿能删除存在痕迹，但会留下反噬。'],
+        rhythmPosition: 'twist',
+        riskFlags: ['连续两章未兑现师门线索'],
+        createdAt: '2026-04-30T00:12:00.000Z',
+      },
+      latestCheckpoint: {
+        bookId: 'book-1',
+        chapterIndex: 10,
+        checkpointType: 'heavy',
+        createdAt: '2026-04-30T00:10:00.000Z',
+      },
+      runState: {
+        phase: 'drafting',
+        driftLevel: 'light',
+        starvationScore: 0.25,
+        lastHealthyCheckpointChapter: 10,
+      },
       chapterCards: [
         {
           volumeIndex: 1,
@@ -194,6 +241,22 @@ describe('ipcChannels', () => {
     expect(detail.context?.worldSetting).toEqual(expect.any(String));
     expect(detail.context?.outline).toEqual(expect.any(String));
     expect(detail.narrative?.storyBible?.themeQuestion).toEqual(expect.any(String));
+    expect(detail.narrative?.bookContract).toMatchObject({
+      activeTemplate: 'mystery_serial',
+      mainlinePromise: expect.any(String),
+    });
+    expect(detail.narrative?.latestLedger).toMatchObject({
+      chapterIndex: 12,
+      rhythmPosition: 'twist',
+    });
+    expect(detail.narrative?.latestCheckpoint).toMatchObject({
+      chapterIndex: 10,
+      checkpointType: 'heavy',
+    });
+    expect(detail.narrative?.runState).toMatchObject({
+      phase: 'drafting',
+      driftLevel: 'light',
+    });
     expect(Array.isArray(detail.narrative?.chapterCards)).toBe(true);
     expect(detail.narrative?.chapterTensionBudgets[0]).toMatchObject({
       chapterIndex: 1,

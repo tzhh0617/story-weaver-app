@@ -552,3 +552,109 @@ export type ValidationResult = {
   valid: boolean;
   issues: string[];
 };
+
+export type StoryTemplateId =
+  | 'progression'
+  | 'romance_growth'
+  | 'mystery_serial';
+
+export type DriftLevel = 'none' | 'light' | 'medium' | 'heavy';
+
+export type StoryRhythmPosition =
+  | 'setup'
+  | 'escalation'
+  | 'payoff'
+  | 'twist'
+  | 'cost';
+
+export type StoryCheckpointType = 'light' | 'heavy';
+
+export type BookContractCharacterBoundary = {
+  characterId: string;
+  publicPersona: string;
+  hiddenDrive: string;
+  lineWillNotCross: string;
+  lineMayEventuallyCross: string;
+};
+
+export type BookContract = {
+  bookId: string;
+  titlePromise: string;
+  corePremise: string;
+  mainlinePromise: string;
+  protagonistCoreDesire: string;
+  protagonistNoDriftRules: string[];
+  keyCharacterBoundaries: BookContractCharacterBoundary[];
+  mandatoryPayoffs: string[];
+  antiDriftRules: string[];
+  activeTemplate: StoryTemplateId;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type StoryLedger = {
+  bookId: string;
+  chapterIndex: number;
+  mainlineProgress: string;
+  activeSubplots: unknown;
+  openPromises: unknown;
+  characterTruths: unknown;
+  relationshipDeltas: unknown;
+  worldFacts: unknown;
+  rhythmPosition: StoryRhythmPosition;
+  riskFlags: unknown;
+  createdAt: string;
+};
+
+export type StoryLedgerDigest = {
+  mainlineProgress: string;
+  openPromises: unknown;
+  rhythmPosition: StoryRhythmPosition;
+  riskFlags: unknown;
+};
+
+export type IntegrityReport = {
+  checkpointType: StoryCheckpointType;
+  driftLevel: DriftLevel;
+  starvationScore: number;
+  findings: string[];
+  warnings: string[];
+  tensionCheckpoint?: TensionCheckpoint | null;
+};
+
+export type StoryCheckpoint = {
+  bookId: string;
+  chapterIndex: number;
+  checkpointType: StoryCheckpointType;
+  contractDigest: string;
+  planDigest: string;
+  ledgerDigest: StoryLedgerDigest;
+  integrityReport?: IntegrityReport | null;
+  createdAt: string;
+};
+
+export type LatestStoryCheckpoint = Pick<
+  StoryCheckpoint,
+  'bookId' | 'chapterIndex' | 'checkpointType' | 'createdAt'
+>;
+
+export type StoryRunState = {
+  phase: string;
+  driftLevel: DriftLevel;
+  starvationScore: number;
+  lastHealthyCheckpointChapter: number | null;
+};
+
+export type StoryTemplateRubric = {
+  subplotLimit: number;
+  payoffGapWarningAt: number;
+  rhythmPattern: StoryRhythmPosition[];
+  driftWarnings: string[];
+};
+
+export type StoryTemplatePreset = {
+  id: StoryTemplateId;
+  label: string;
+  summary: string;
+  rubric: StoryTemplateRubric;
+};
