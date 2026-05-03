@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createBookService } from '../../src/core/book-service';
 import { createDatabase, createRepositories } from '../../src/storage/database';
+import type { BookGenerationEvent } from '../../src/shared/contracts';
 import type {
   ChapterCard,
   ChapterTensionBudget,
@@ -140,6 +141,7 @@ describe('narrative book-service integration', () => {
   it('persists planning bundle data and advances the planning-writing loop after a chapter is written', async () => {
     const db = createDatabase(':memory:');
     const repos = createRepositories(db);
+    const events: BookGenerationEvent[] = [];
     const service = createBookService({
       ...repos,
       outlineService: {
@@ -308,6 +310,9 @@ describe('narrative book-service integration', () => {
         extractScene: vi.fn().mockResolvedValue(null),
       },
       resolveModelId: () => 'mock',
+      onGenerationEvent: (event) => {
+        events.push(event);
+      },
     });
 
     const bookId = service.createBook({
@@ -327,6 +332,13 @@ describe('narrative book-service integration', () => {
       currentArc: 1,
       activeTaskType: 'book:plan:init',
     });
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        bookId,
+        type: 'progress',
+        phase: 'planning_init',
+      })
+    );
 
     await service.writeNextChapter(bookId);
 

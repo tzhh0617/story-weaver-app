@@ -180,6 +180,9 @@ export function getRuntimeServices() {
     if (event.phase === 'planning_recheck') {
       return 'chapter_replanning';
     }
+    if (event.phase === 'writing') {
+      return 'chapter_writing';
+    }
     if (event.phase === 'auditing_chapter') {
       return 'chapter_auditing';
     }
@@ -247,10 +250,16 @@ export function getRuntimeServices() {
 
   function currentSchedulerStatus() {
     const schedulerStatus = scheduler.getStatus();
+    const runningBookIds = [...new Set(schedulerStatus.runningBookIds)];
+    const runningBookIdSet = new Set(runningBookIds);
+    const queuedBookIds = [...new Set(schedulerStatus.queuedBookIds)].filter(
+      (bookId) => !runningBookIdSet.has(bookId)
+    );
+
     return {
       ...schedulerStatus,
-      runningBookIds: [...new Set(schedulerStatus.runningBookIds)],
-      queuedBookIds: [...new Set(schedulerStatus.queuedBookIds)],
+      runningBookIds,
+      queuedBookIds,
       pausedBookIds: bookService
         .listBooks()
         .filter((book) => book.status === 'paused')

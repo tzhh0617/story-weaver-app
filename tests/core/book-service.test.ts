@@ -1661,6 +1661,104 @@ describe('createBookService', () => {
     );
   });
 
+  it('emits planning_init as a progress event when planning metadata is initialized', async () => {
+    const db = createDatabase(':memory:');
+    const events: BookGenerationEvent[] = [];
+    const service = createBookService({
+      books: createBookRepository(db),
+      chapters: createChapterRepository(db),
+      characters: createCharacterRepository(db),
+      plotThreads: createPlotThreadRepository(db),
+      sceneRecords: createSceneRecordRepository(db),
+      progress: createProgressRepository(db),
+      outlineService: {
+        generateFromIdea: vi.fn().mockResolvedValue({
+          worldSetting: 'World rules',
+          masterOutline: 'Master outline',
+          volumeOutlines: ['Volume 1'],
+          chapterOutlines: [],
+          stagePlans: [
+            {
+              stageIndex: 1,
+              chapterStart: 1,
+              chapterEnd: 10,
+              chapterBudget: 10,
+              objective: 'Start the case.',
+              primaryResistance: 'Hidden censors.',
+              pressureCurve: 'ascending',
+              escalation: 'Allies are implicated.',
+              climax: 'Truth becomes public.',
+              payoff: 'The real conspiracy is exposed.',
+              irreversibleChange: 'The protagonist loses cover.',
+              nextQuestion: 'Who benefits next?',
+              titleIdeaFocus: 'Truth costs safety.',
+              compressionTrigger: 'Compress side quests if momentum stalls.',
+              status: 'planned',
+            },
+          ],
+          arcPlans: [
+            {
+              arcIndex: 1,
+              stageIndex: 1,
+              chapterStart: 1,
+              chapterEnd: 5,
+              chapterBudget: 5,
+              primaryThreads: [],
+              characterTurns: [],
+              threadActions: [],
+              targetOutcome: 'Commit to the investigation.',
+              escalationMode: 'tightening',
+              turningPoint: 'Evidence points inward.',
+              requiredPayoff: 'The cost of truth is visible.',
+              resultingInstability: 'No safe retreat remains.',
+              titleIdeaFocus: 'Truth costs safety.',
+              minChapterCount: 4,
+              maxChapterCount: 6,
+              status: 'planned',
+            },
+          ],
+        }),
+      },
+      chapterWriter: {
+        writeChapter: vi.fn(),
+      },
+      summaryGenerator: {
+        summarizeChapter: vi.fn(),
+      },
+      plotThreadExtractor: {
+        extractThreads: vi.fn().mockResolvedValue({
+          openedThreads: [],
+          resolvedThreadIds: [],
+        }),
+      },
+      characterStateExtractor: {
+        extractStates: vi.fn().mockResolvedValue([]),
+      },
+      sceneRecordExtractor: {
+        extractScene: vi.fn().mockResolvedValue(null),
+      },
+      onGenerationEvent: (event) => {
+        events.push(event);
+      },
+    });
+
+    const bookId = service.createBook({
+      idea: 'A city remembers every promise.',
+      targetChapters: 10,
+      wordsPerChapter: 2500,
+    });
+
+    await service.startBook(bookId);
+
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        bookId,
+        type: 'progress',
+        phase: 'planning_init',
+      })
+    );
+  });
+
   it('preserves generated chapter content when it exceeds the soft words-per-chapter target', async () => {
     const db = createDatabase(':memory:');
     const service = createBookService({

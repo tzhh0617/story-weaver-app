@@ -1102,6 +1102,11 @@ export function createBookService(deps: {
       stepLabel: '正在初始化规划循环',
       activeTaskType: 'book:plan:init',
     });
+    emitProgress({
+      bookId,
+      phase: 'planning_init',
+      stepLabel: '正在初始化规划循环',
+    });
 
     deps.onBookUpdated?.(bookId);
 
