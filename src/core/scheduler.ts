@@ -4,15 +4,53 @@ export type SchedulerTaskType =
   | 'book:plan:rebuild-chapters'
   | 'book:write:chapter';
 
+export type SchedulerTaskPriority = {
+  urgency?: number;
+  health?: number;
+  driftRisk?: number;
+  starvationBoost?: number;
+  cooldownPenalty?: number;
+  noveltyBalance?: number;
+};
+
 type Runner = {
   taskKey: string;
   bookId: string;
   taskType: SchedulerTaskType;
+  priority?: SchedulerTaskPriority;
   start: () => Promise<void>;
 };
 
 function isPlanningTask(taskType: SchedulerTaskType) {
   return taskType.startsWith('book:plan:');
+}
+
+function getTaskScore(runner: Runner) {
+  const priority = runner.priority;
+  const explicitScore =
+    (priority?.urgency ?? 0) +
+    (priority?.health ?? 0) +
+    (priority?.driftRisk ?? 0) +
+    (priority?.starvationBoost ?? 0) -
+    (priority?.cooldownPenalty ?? 0) +
+    (priority?.noveltyBalance ?? 0);
+  const planningBias = isPlanningTask(runner.taskType) ? 2 : 0;
+
+  return explicitScore + planningBias;
+}
+
+function getQueueTask(taskKey: string, runners: Map<string, Runner>) {
+  const runner = runners.get(taskKey);
+  if (!runner) {
+    return null;
+  }
+
+  return {
+    taskKey: runner.taskKey,
+    bookId: runner.bookId,
+    taskType: runner.taskType,
+    score: getTaskScore(runner),
+  };
 }
 
 export function createScheduler({
@@ -23,6 +61,12 @@ export function createScheduler({
   onStatusChange?: (status: {
     runningBookIds: string[];
     queuedBookIds: string[];
+    queuedTasks?: Array<{
+      taskKey: string;
+      bookId: string;
+      taskType: SchedulerTaskType;
+      score: number;
+    }>;
     concurrencyLimit: number | null;
   }) => void;
 }) {
@@ -39,11 +83,23 @@ export function createScheduler({
   }
 
   function emitStatus() {
+    const queuedTasks = queue
+      .map((taskKey) => getQueueTask(taskKey, runners))
+      .filter(
+        (
+          task
+        ): task is {
+          taskKey: string;
+          bookId: string;
+          taskType: SchedulerTaskType;
+          score: number;
+        } => Boolean(task)
+      );
+
     onStatusChange?.({
       runningBookIds: [...new Set(runningBooksByTaskKey.values())],
-      queuedBookIds: queue
-        .map((taskKey) => runners.get(taskKey)?.bookId)
-        .filter((bookId): bookId is string => Boolean(bookId)),
+      queuedBookIds: queuedTasks.map((task) => task.bookId),
+      queuedTasks,
       concurrencyLimit: currentConcurrencyLimit,
     });
   }
@@ -61,10 +117,12 @@ export function createScheduler({
         return 0;
       }
 
-      const leftPriority = isPlanningTask(leftRunner.taskType) ? 0 : 1;
-      const rightPriority = isPlanningTask(rightRunner.taskType) ? 0 : 1;
+      const scoreDelta = getTaskScore(rightRunner) - getTaskScore(leftRunner);
+      if (scoreDelta !== 0) {
+        return scoreDelta;
+      }
 
-      return leftPriority - rightPriority;
+      return 0;
     });
   }
 
@@ -179,11 +237,23 @@ export function createScheduler({
     },
 
     getStatus() {
+      const queuedTasks = queue
+        .map((taskKey) => getQueueTask(taskKey, runners))
+        .filter(
+          (
+            task
+          ): task is {
+            taskKey: string;
+            bookId: string;
+            taskType: SchedulerTaskType;
+            score: number;
+          } => Boolean(task)
+        );
+
       return {
         runningBookIds: [...new Set(runningBooksByTaskKey.values())],
-        queuedBookIds: queue
-          .map((taskKey) => runners.get(taskKey)?.bookId)
-          .filter((bookId): bookId is string => Boolean(bookId)),
+        queuedBookIds: queuedTasks.map((task) => task.bookId),
+        queuedTasks,
         concurrencyLimit: currentConcurrencyLimit,
       };
     },

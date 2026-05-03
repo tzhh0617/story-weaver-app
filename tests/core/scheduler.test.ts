@@ -255,6 +255,113 @@ describe('createScheduler', () => {
     await Promise.resolve();
   });
 
+  it('schedules higher run-score tasks first while respecting same-book exclusion', async () => {
+    const events: string[] = [];
+    const bookAFirst = createDeferred();
+    const bookASecond = createDeferred();
+    const bookB = createDeferred();
+    const bookC = createDeferred();
+
+    const scheduler = createScheduler({ concurrencyLimit: 1 });
+    scheduler.register({
+      taskKey: 'book-a:first',
+      bookId: 'book-a',
+      taskType: 'book:write:chapter',
+      start: vi.fn().mockImplementation(async () => {
+        events.push('book-a:first:start');
+        await bookAFirst.promise;
+        events.push('book-a:first:done');
+      }),
+    });
+    scheduler.register({
+      taskKey: 'book-a:second',
+      bookId: 'book-a',
+      taskType: 'book:write:chapter',
+      priority: { urgency: 10, starvationBoost: 4 },
+      start: vi.fn().mockImplementation(async () => {
+        events.push('book-a:second:start');
+        await bookASecond.promise;
+        events.push('book-a:second:done');
+      }),
+    });
+    scheduler.register({
+      taskKey: 'book-b:write',
+      bookId: 'book-b',
+      taskType: 'book:write:chapter',
+      priority: { urgency: 1 },
+      start: vi.fn().mockImplementation(async () => {
+        events.push('book-b:write:start');
+        await bookB.promise;
+        events.push('book-b:write:done');
+      }),
+    });
+    scheduler.register({
+      taskKey: 'book-c:write',
+      bookId: 'book-c',
+      taskType: 'book:write:chapter',
+      priority: { urgency: 5, noveltyBalance: 1 },
+      start: vi.fn().mockImplementation(async () => {
+        events.push('book-c:write:start');
+        await bookC.promise;
+        events.push('book-c:write:done');
+      }),
+    });
+
+    await scheduler.start('book-a:first');
+    await scheduler.start('book-a:second');
+    await scheduler.start('book-b:write');
+    await scheduler.start('book-c:write');
+
+    scheduler.setConcurrencyLimit(2);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(events).toEqual(['book-a:first:start', 'book-c:write:start']);
+    expect(scheduler.getStatus().runningBookIds.sort()).toEqual(['book-a', 'book-c']);
+    expect(scheduler.getStatus().queuedBookIds).toEqual(['book-a', 'book-b']);
+    expect(scheduler.getStatus().queuedTasks).toEqual([
+      {
+        taskKey: 'book-a:second',
+        bookId: 'book-a',
+        taskType: 'book:write:chapter',
+        score: 14,
+      },
+      {
+        taskKey: 'book-b:write',
+        bookId: 'book-b',
+        taskType: 'book:write:chapter',
+        score: 1,
+      },
+    ]);
+
+    bookAFirst.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(events).toEqual([
+      'book-a:first:start',
+      'book-c:write:start',
+      'book-a:first:done',
+      'book-a:second:start',
+    ]);
+    expect(scheduler.getStatus().runningBookIds.sort()).toEqual(['book-a', 'book-c']);
+    expect(scheduler.getStatus().queuedBookIds).toEqual(['book-b']);
+    expect(scheduler.getStatus().queuedTasks).toEqual([
+      {
+        taskKey: 'book-b:write',
+        bookId: 'book-b',
+        taskType: 'book:write:chapter',
+        score: 1,
+      },
+    ]);
+
+    bookASecond.resolve();
+    bookB.resolve();
+    bookC.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+
   it('keeps the book locked until a running unregistered task settles', async () => {
     const firstTask = createDeferred();
     const secondTask = createDeferred();
