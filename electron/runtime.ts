@@ -271,7 +271,7 @@ export function getRuntimeServices() {
   function createEngineForBook(bookId: string) {
     return createNovelEngine({
       bookId,
-      buildOutline: async (id) => {
+      initializePlanning: async (id) => {
         await bookService.startBook(id);
       },
       continueWriting: async (id) => bookService.writeRemainingChapters(id),
@@ -402,10 +402,12 @@ export function getRuntimeServices() {
         message: '作品已加入后台执行队列',
       });
       scheduler.register({
+        taskKey: `book:${bookId}:write`,
         bookId,
+        taskType: 'book:write:chapter',
         start: async () => runBook(bookId),
       });
-      await scheduler.start(bookId);
+      await scheduler.start(`book:${bookId}:write`);
     },
     pauseBook: (bookId: string) => {
       bookService.pauseBook(bookId);
@@ -566,7 +568,9 @@ export function getRuntimeServices() {
           message: '作品已加入后台执行队列',
         });
         scheduler.register({
+          taskKey: `book:${book.id}:write`,
           bookId: book.id,
+          taskType: 'book:write:chapter',
           start: async () => runBook(book.id),
         });
       }

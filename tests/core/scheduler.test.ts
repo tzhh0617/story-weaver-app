@@ -1,6 +1,19 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createScheduler } from '../../src/core/scheduler';
 
+type Deferred = {
+  promise: Promise<void>;
+  resolve: () => void;
+};
+
+function createDeferred(): Deferred {
+  let resolve = () => {};
+  const promise = new Promise<void>((nextResolve) => {
+    resolve = nextResolve;
+  });
+  return { promise, resolve };
+}
+
 describe('createScheduler', () => {
   it('starts only up to the concurrency limit', async () => {
     let resolveA: (() => void) | null = null;
@@ -28,9 +41,9 @@ describe('createScheduler', () => {
       );
     const scheduler = createScheduler({ concurrencyLimit: 2 });
 
-    scheduler.register({ bookId: 'a', start });
-    scheduler.register({ bookId: 'b', start });
-    scheduler.register({ bookId: 'c', start });
+    scheduler.register({ taskKey: 'a:write', bookId: 'a', taskType: 'book:write:chapter', start });
+    scheduler.register({ taskKey: 'b:write', bookId: 'b', taskType: 'book:write:chapter', start });
+    scheduler.register({ taskKey: 'c:write', bookId: 'c', taskType: 'book:write:chapter', start });
 
     await scheduler.startAll();
 
@@ -68,9 +81,9 @@ describe('createScheduler', () => {
     );
 
     const scheduler = createScheduler({ concurrencyLimit: 1 });
-    scheduler.register({ bookId: 'a', start: startA });
-    scheduler.register({ bookId: 'b', start: startB });
-    scheduler.register({ bookId: 'c', start: startC });
+    scheduler.register({ taskKey: 'a:write', bookId: 'a', taskType: 'book:write:chapter', start: startA });
+    scheduler.register({ taskKey: 'b:write', bookId: 'b', taskType: 'book:write:chapter', start: startB });
+    scheduler.register({ taskKey: 'c:write', bookId: 'c', taskType: 'book:write:chapter', start: startC });
 
     await scheduler.startAll();
 
@@ -106,8 +119,8 @@ describe('createScheduler', () => {
     const startB = vi.fn().mockResolvedValue(undefined);
 
     const scheduler = createScheduler({ concurrencyLimit: 1 });
-    scheduler.register({ bookId: 'a', start: startA });
-    scheduler.register({ bookId: 'b', start: startB });
+    scheduler.register({ taskKey: 'a:write', bookId: 'a', taskType: 'book:write:chapter', start: startA });
+    scheduler.register({ taskKey: 'b:write', bookId: 'b', taskType: 'book:write:chapter', start: startB });
 
     await scheduler.startAll();
 
@@ -140,11 +153,11 @@ describe('createScheduler', () => {
     const startC = vi.fn().mockResolvedValue(undefined);
 
     const scheduler = createScheduler({ concurrencyLimit: 1 });
-    scheduler.register({ bookId: 'a', start: startA });
-    scheduler.register({ bookId: 'b', start: startB });
-    scheduler.register({ bookId: 'c', start: startC });
+    scheduler.register({ taskKey: 'a:write', bookId: 'a', taskType: 'book:write:chapter', start: startA });
+    scheduler.register({ taskKey: 'b:write', bookId: 'b', taskType: 'book:write:chapter', start: startB });
+    scheduler.register({ taskKey: 'c:write', bookId: 'c', taskType: 'book:write:chapter', start: startC });
 
-    await scheduler.start('a');
+    await scheduler.start('a:write');
     expect(scheduler.getStatus().runningBookIds).toEqual(['a']);
 
     scheduler.setConcurrencyLimit(2);
@@ -169,8 +182,8 @@ describe('createScheduler', () => {
     const startB = vi.fn().mockResolvedValue(undefined);
 
     const scheduler = createScheduler({ concurrencyLimit: 1 });
-    scheduler.register({ bookId: 'a', start: startA });
-    scheduler.register({ bookId: 'b', start: startB });
+    scheduler.register({ taskKey: 'a:write', bookId: 'a', taskType: 'book:write:chapter', start: startA });
+    scheduler.register({ taskKey: 'b:write', bookId: 'b', taskType: 'book:write:chapter', start: startB });
 
     await scheduler.startAll();
     expect(scheduler.getStatus().queuedBookIds).toEqual(['b']);
@@ -180,5 +193,65 @@ describe('createScheduler', () => {
     expect(scheduler.getStatus().queuedBookIds).toEqual([]);
 
     (resolveA as null | (() => void))?.();
+  });
+
+  it('prioritizes planning tasks and prevents concurrent tasks for the same book', async () => {
+    const events: string[] = [];
+    const planA = createDeferred();
+    const writeA = createDeferred();
+    const writeB = createDeferred();
+
+    const scheduler = createScheduler({ concurrencyLimit: 2 });
+    scheduler.register({
+      taskKey: 'book-a:plan',
+      bookId: 'book-a',
+      taskType: 'book:plan:init',
+      start: vi.fn().mockImplementation(async () => {
+        events.push('plan-a:start');
+        await planA.promise;
+        events.push('plan-a:done');
+      }),
+    });
+    scheduler.register({
+      taskKey: 'book-a:write',
+      bookId: 'book-a',
+      taskType: 'book:write:chapter',
+      start: vi.fn().mockImplementation(async () => {
+        events.push('write-a:start');
+        await writeA.promise;
+        events.push('write-a:done');
+      }),
+    });
+    scheduler.register({
+      taskKey: 'book-b:write',
+      bookId: 'book-b',
+      taskType: 'book:write:chapter',
+      start: vi.fn().mockImplementation(async () => {
+        events.push('write-b:start');
+        await writeB.promise;
+        events.push('write-b:done');
+      }),
+    });
+
+    await scheduler.start('book-a:write');
+    await scheduler.start('book-b:write');
+    await scheduler.start('book-a:plan');
+
+    expect(events).toEqual(['plan-a:start', 'write-b:start']);
+    expect(scheduler.getStatus().runningBookIds.sort()).toEqual(['book-a', 'book-b']);
+    expect(scheduler.getStatus().queuedBookIds).toEqual(['book-a']);
+
+    planA.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(events).toEqual(['plan-a:start', 'write-b:start', 'plan-a:done', 'write-a:start']);
+    expect(scheduler.getStatus().runningBookIds.sort()).toEqual(['book-a', 'book-b']);
+    expect(scheduler.getStatus().queuedBookIds).toEqual([]);
+
+    writeA.resolve();
+    writeB.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
   });
 });

@@ -4,7 +4,7 @@ type EngineResultStatus = 'completed' | 'paused' | 'deleted';
 
 export function createNovelEngine(deps: {
   bookId: string;
-  buildOutline: (bookId: string) => Promise<void>;
+  initializePlanning: (bookId: string) => Promise<void>;
   continueWriting: (bookId: string) => Promise<{
     completedChapters: number;
     status: EngineResultStatus;
@@ -21,8 +21,8 @@ export function createNovelEngine(deps: {
   return {
     async start() {
       status = 'building_world';
-      deps.repositories.progress.updatePhase(deps.bookId, status);
-      await deps.buildOutline(deps.bookId);
+      deps.repositories.progress.updatePhase(deps.bookId, 'planning_init');
+      await deps.initializePlanning(deps.bookId);
 
       if (deps.isBookActive && !deps.isBookActive(deps.bookId)) {
         status = 'deleted';
@@ -31,7 +31,6 @@ export function createNovelEngine(deps: {
 
       status = 'writing';
       deps.repositories.progress.updatePhase(deps.bookId, status);
-
       const result = await deps.continueWriting(deps.bookId);
 
       if (result.status === 'deleted') {
