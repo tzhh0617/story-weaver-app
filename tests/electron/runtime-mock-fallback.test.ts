@@ -338,6 +338,65 @@ describe('runtime mock fallback', () => {
     expect(generateText).not.toHaveBeenCalled();
   });
 
+  it('routes background replanning back through planning before continuing', async () => {
+    const generateText = vi.fn().mockResolvedValue({
+      text: 'should not be used',
+    });
+    const services = await loadRuntimeServices({
+      tempHome,
+      generateTextImpl: generateText,
+      mockDelayMs: 0,
+    });
+    const logs: Array<{ eventType: string; phase: string | null }> = [];
+    const unsubscribe = services.subscribeExecutionLogs((log) => {
+      logs.push({
+        eventType: log.eventType,
+        phase: log.phase,
+      });
+    });
+    const originalWriteRemainingChapters =
+      services.bookService.writeRemainingChapters.bind(services.bookService);
+    const writeRemainingChaptersSpy = vi
+      .spyOn(services.bookService, 'writeRemainingChapters')
+      .mockResolvedValueOnce({
+        completedChapters: 1,
+        status: 'replanning',
+      })
+      .mockImplementation(async (bookId) => originalWriteRemainingChapters(bookId));
+
+    const bookId = services.bookService.createBook({
+      idea: '一个被宗门逐出的少年，意外继承了会吞噬因果的古镜。',
+      targetChapters: 1,
+      wordsPerChapter: 90,
+    });
+
+    await services.startBook(bookId);
+    const deadline = Date.now() + 2000;
+    while (
+      writeRemainingChaptersSpy.mock.calls.length < 2 &&
+      Date.now() < deadline
+    ) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+
+    const detail = await waitForBookStatus(services, bookId, 'completed');
+    unsubscribe();
+
+    const replanningIndex = logs.findIndex(
+      (log) => log.eventType === 'book_replanning'
+    );
+    const nextStartedPhase =
+      logs
+        .slice(replanningIndex + 1)
+        .find((log) => log.eventType === 'book_started')?.phase ?? null;
+
+    expect(detail?.book.status).toBe('completed');
+    expect(writeRemainingChaptersSpy).toHaveBeenCalledTimes(2);
+    expect(replanningIndex).toBeGreaterThanOrEqual(0);
+    expect(nextStartedPhase).toBe('planning_init');
+    expect(generateText).not.toHaveBeenCalled();
+  });
+
   it('does not schedule follow-on writing for a batch-started book whose planning fails', async () => {
     const generateText = vi
       .fn()

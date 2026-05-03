@@ -1619,7 +1619,9 @@ export function createBookService(deps: {
       }
 
       deps.books.updateStatus(bookId, 'paused');
-      deps.progress.updatePhase(bookId, 'paused');
+      deps.progress.updatePhase(bookId, 'paused', {
+        ...preservePlanningMetadata(bookId),
+      });
     },
 
     async resumeBook(bookId: string) {
@@ -1628,8 +1630,35 @@ export function createBookService(deps: {
         throw new Error(`Book not found: ${bookId}`);
       }
 
+      const currentProgress = getProgressState(bookId);
+      const shouldResumePlanning =
+        currentProgress?.activeTaskType === 'book:plan:rebuild-arc' ||
+        currentProgress?.activeTaskType === 'book:plan:rebuild-chapters' ||
+        currentProgress?.phase === 'planning_recheck';
+
+      if (shouldResumePlanning) {
+        deps.books.updateStatus(bookId, 'building_outline');
+        await this.startBook(bookId);
+
+        if (!deps.books.getById(bookId)) {
+          return {
+            completedChapters: 0,
+            status: 'deleted' as const,
+          };
+        }
+
+        deps.books.updateStatus(bookId, 'writing');
+        deps.progress.updatePhase(bookId, 'writing', {
+          ...preservePlanningMetadata(bookId),
+        });
+
+        return this.writeRemainingChapters(bookId);
+      }
+
       deps.books.updateStatus(bookId, 'writing');
-      deps.progress.updatePhase(bookId, 'writing');
+      deps.progress.updatePhase(bookId, 'writing', {
+        ...preservePlanningMetadata(bookId),
+      });
 
       return this.writeRemainingChapters(bookId);
     },

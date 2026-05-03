@@ -3,6 +3,7 @@ import { createDatabase } from '../../src/storage/database';
 import { createBookRepository } from '../../src/storage/books';
 import { createChapterAuditRepository } from '../../src/storage/chapter-audits';
 import { createChapterCardRepository } from '../../src/storage/chapter-cards';
+import { createChapterPlanRepository } from '../../src/storage/chapter-plans';
 import { createChapterRepository } from '../../src/storage/chapters';
 import { createCharacterRepository } from '../../src/storage/characters';
 import { createPlotThreadRepository } from '../../src/storage/plot-threads';
@@ -2918,6 +2919,140 @@ describe('createBookService', () => {
         summary: 'Resumed summary',
       })
     );
+  });
+
+  it('resumes planning_recheck books by replanning before writing again', async () => {
+    const db = createDatabase(':memory:');
+    const progress = createProgressRepository(db);
+    const generateFromIdea = vi
+      .fn()
+      .mockResolvedValueOnce({
+        worldSetting: 'Initial world rules',
+        masterOutline: 'Initial master outline',
+        volumeOutlines: ['Volume 1'],
+        chapterOutlines: [
+          {
+            volumeIndex: 1,
+            chapterIndex: 1,
+            title: 'Initial Chapter 1',
+            outline: 'Initial opening conflict',
+          },
+        ],
+        chapterPlans: [
+          {
+            batchIndex: 1,
+            chapterIndex: 1,
+            arcIndex: 1,
+            goal: 'Initial goal',
+            conflict: 'Initial conflict',
+            pressureSource: 'Initial pressure',
+            changeType: 'Initial change',
+            threadActions: [],
+            reveal: 'Initial reveal',
+            payoffOrCost: 'Initial payoff',
+            endingHook: 'Initial hook',
+            titleIdeaLink: 'Initial title link',
+            batchGoal: 'Initial batch goal',
+            requiredPayoffs: [],
+            forbiddenDrift: [],
+            status: 'pending',
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        worldSetting: 'Replanned world rules',
+        masterOutline: 'Replanned master outline',
+        volumeOutlines: ['Volume 1'],
+        chapterOutlines: [
+          {
+            volumeIndex: 1,
+            chapterIndex: 1,
+            title: 'Replanned Chapter 1',
+            outline: 'Replanned opening conflict',
+          },
+        ],
+        chapterPlans: [
+          {
+            batchIndex: 1,
+            chapterIndex: 1,
+            arcIndex: 1,
+            goal: 'Replanned goal',
+            conflict: 'Replanned conflict',
+            pressureSource: 'Replanned pressure',
+            changeType: 'Replanned change',
+            threadActions: [],
+            reveal: 'Replanned reveal',
+            payoffOrCost: 'Replanned payoff',
+            endingHook: 'Replanned hook',
+            titleIdeaLink: 'Replanned title link',
+            batchGoal: 'Replanned batch goal',
+            requiredPayoffs: [],
+            forbiddenDrift: [],
+            status: 'pending',
+          },
+        ],
+      });
+    const writeChapter = vi.fn().mockResolvedValue({
+      content: 'Replanned chapter content',
+      usage: { inputTokens: 90, outputTokens: 280 },
+    });
+
+    const service = createBookService({
+      books: createBookRepository(db),
+      chapters: createChapterRepository(db),
+      chapterPlans: createChapterPlanRepository(db),
+      characters: createCharacterRepository(db),
+      plotThreads: createPlotThreadRepository(db),
+      sceneRecords: createSceneRecordRepository(db),
+      progress,
+      outlineService: {
+        generateFromIdea,
+      },
+      chapterWriter: { writeChapter },
+      summaryGenerator: {
+        summarizeChapter: vi.fn().mockResolvedValue('Replanned summary'),
+      },
+      plotThreadExtractor: {
+        extractThreads: vi.fn().mockResolvedValue({
+          openedThreads: [],
+          resolvedThreadIds: [],
+        }),
+      },
+      characterStateExtractor: {
+        extractStates: vi.fn().mockResolvedValue([]),
+      },
+      sceneRecordExtractor: {
+        extractScene: vi.fn().mockResolvedValue(null),
+      },
+    });
+
+    const bookId = service.createBook({
+      idea: 'The moon taxes miracles.',
+      modelId: 'openai:gpt-4o-mini',
+      targetChapters: 1,
+      wordsPerChapter: 2500,
+    });
+
+    await service.startBook(bookId);
+    progress.updatePhase(bookId, 'planning_recheck', {
+      currentChapter: 1,
+      stepLabel: '需要重新规划后续章节',
+      activeTaskType: 'book:plan:rebuild-chapters',
+    });
+    service.pauseBook(bookId);
+    await service.resumeBook(bookId);
+    const detail = service.getBookDetail(bookId);
+
+    expect(generateFromIdea).toHaveBeenCalledTimes(2);
+    expect(writeChapter).toHaveBeenCalledTimes(1);
+    expect(detail?.chapters[0]).toEqual(
+      expect.objectContaining({
+        title: 'Replanned Chapter 1',
+        content: 'Replanned chapter content',
+        summary: 'Replanned summary',
+      })
+    );
+    expect(detail?.progress?.phase).toBe('completed');
   });
 
   it('writes planned chapter cards even when the legacy outline field is blank', async () => {

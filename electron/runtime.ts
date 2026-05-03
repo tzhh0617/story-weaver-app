@@ -637,6 +637,41 @@ export function getRuntimeServices() {
     });
   }
 
+  async function queuePlanningTask(bookId: string, trigger: 'replanning') {
+    const taskKeys = registerRuntimeTasks(bookId);
+
+    queueMicrotask(() => {
+      const detail = bookService.getBookDetail(bookId);
+      if (!detail) {
+        return;
+      }
+
+      if (
+        detail.book.status === 'paused' ||
+        detail.book.status === 'completed' ||
+        detail.book.status === 'error'
+      ) {
+        return;
+      }
+
+      logExecution({
+        bookId,
+        level: 'debug',
+        eventType: 'scheduler_task_registered',
+        phase: 'planning_recheck',
+        message: '重规划后准备重新排入规划任务',
+        debugContext: {
+          schedulerTaskKey: taskKeys.planning,
+          trigger,
+          taskType: inferPlanningTaskType(bookId),
+        },
+      });
+      void scheduler.start(taskKeys.planning).catch((error) => {
+        markBookErrored(bookId, error);
+      });
+    });
+  }
+
   async function runPlanningTask(bookId: string) {
     const startedAt = Date.now();
     try {
@@ -728,7 +763,7 @@ export function getRuntimeServices() {
             status: result.status,
           },
         });
-        await queueWritingTaskAfterPlanning(bookId);
+        await queuePlanningTask(bookId, 'replanning');
       }
       logExecution({
         bookId,
