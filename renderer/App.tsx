@@ -7,6 +7,14 @@ import {
 } from 'react';
 import { flushSync } from 'react-dom';
 import {
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+  useParams,
+} from 'react-router-dom';
+import {
   parseBooleanSetting,
   serializeBooleanSetting,
   SHORT_CHAPTER_REVIEW_ENABLED_KEY,
@@ -60,21 +68,66 @@ type SelectedBookActionChannel =
   | typeof ipcChannels.bookPause
   | typeof ipcChannels.bookDelete;
 
+const libraryRoute = '/';
+const logsRoute = '/logs';
+const settingsRoute = '/settings';
+const newBookRoute = '/books/new';
+
+function getSidebarView(pathname: string): AppView {
+  if (pathname === logsRoute) {
+    return 'logs';
+  }
+
+  if (pathname === settingsRoute) {
+    return 'settings';
+  }
+
+  return 'library';
+}
+
+function isBookDetailPath(pathname: string) {
+  return pathname.startsWith('/books/') && pathname !== newBookRoute;
+}
+
+function BookDetailRouteSync({
+  selectedBookId,
+  onOpenBook,
+}: {
+  selectedBookId: string | null;
+  onOpenBook: (bookId: string) => Promise<void>;
+}) {
+  const { bookId } = useParams<{ bookId: string }>();
+
+  useEffect(() => {
+    if (!bookId || selectedBookId === bookId) {
+      return;
+    }
+
+    void onOpenBook(bookId);
+  }, [bookId, onOpenBook, selectedBookId]);
+
+  return null;
+}
+
 export default function App() {
   const ipc = useIpc();
+  const navigate = useNavigate();
+  const location = useLocation();
   const progress = useProgress();
   const [modelConfigs, setModelConfigs] = useState<ModelConfigView[]>([]);
   const [banner, setBanner] = useState<{
     tone: BannerTone;
     message: string;
   } | null>(null);
+  const [pendingCreatedBookRouteId, setPendingCreatedBookRouteId] = useState<
+    string | null
+  >(null);
   const [toast, setToast] = useState<{
     id: number;
     tone: ToastTone;
     message: string;
   } | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [currentView, setCurrentView] = useState<AppView>('library');
   const [executionLogs, setExecutionLogs] = useState<ExecutionLogRecord[]>([]);
   const [shortChapterReviewEnabled, setShortChapterReviewEnabled] =
     useState(true);
@@ -84,23 +137,23 @@ export default function App() {
     books,
     selectedBookId,
     selectedBookIdRef,
+    setSelectedBookId,
     selectedBookDetail,
     setSelectedBookDetail,
     loadBooks,
     loadBookDetail: loadBookDetailRecord,
     clearSelectedBook,
   } = useBooksController(ipc);
+  const currentView = getSidebarView(location.pathname);
 
   const loadBookDetail = useCallback(
     async (
       bookId: string,
       options?: { openView?: boolean; preserveExistingOnMissing?: boolean }
     ) => {
-      const shouldOpenView = await loadBookDetailRecord(bookId, options);
+      await loadBookDetailRecord(bookId, options);
 
-      if (shouldOpenView) {
-        setCurrentView('book-detail');
-      }
+      return options?.openView ?? true;
     },
     [loadBookDetailRecord]
   );
@@ -193,14 +246,28 @@ export default function App() {
   }, [ipc]);
 
   useEffect(() => {
+    if (location.pathname !== newBookRoute && pendingCreatedBookRouteId) {
+      setPendingCreatedBookRouteId(null);
+    }
+  }, [location.pathname, pendingCreatedBookRouteId]);
+
+  useEffect(() => {
+    const routeBookId = isBookDetailPath(location.pathname)
+      ? location.pathname.slice('/books/'.length)
+      : null;
+
     if (!books.length) {
-      if (currentView === 'book-detail' && selectedBookDetail) {
+      if (
+        routeBookId &&
+        (selectedBookDetail?.book.id === routeBookId ||
+          selectedBookId === routeBookId)
+      ) {
         return;
       }
 
       clearSelectedBook();
-      if (currentView === 'book-detail') {
-        setCurrentView('library');
+      if (routeBookId) {
+        navigate(libraryRoute, { replace: true });
       }
       return;
     }
@@ -213,8 +280,9 @@ export default function App() {
   }, [
     books,
     clearSelectedBook,
-    currentView,
     loadBookDetail,
+    location.pathname,
+    navigate,
     selectedBookDetail,
     selectedBookId,
   ]);
@@ -335,7 +403,7 @@ export default function App() {
   }
 
   const isBookDetailWorkbench =
-    currentView === 'book-detail' && Boolean(selectedBookDetail);
+    isBookDetailPath(location.pathname) && Boolean(selectedBookDetail);
   const selectedBookListItem = selectedBookId
     ? books.find((book) => book.id === selectedBookId) ?? null
     : null;
@@ -347,7 +415,22 @@ export default function App() {
       className="app-paper-background relative h-svh overflow-hidden"
     >
       <div aria-hidden="true" className="app-titlebar-drag-region" />
-      <AppSidebar currentView={currentView} onSelectView={setCurrentView} />
+      <AppSidebar
+        currentView={currentView}
+        onSelectView={(view) => {
+          if (view === 'logs') {
+            navigate(logsRoute);
+            return;
+          }
+
+          if (view === 'settings') {
+            navigate(settingsRoute);
+            return;
+          }
+
+          navigate(libraryRoute);
+        }}
+      />
       {toast ? (
         <div
           role={toast.tone === 'error' ? 'alert' : 'status'}
@@ -372,333 +455,391 @@ export default function App() {
                 : 'grid content-start'
             }`}
           >
-          {banner ? <Alert tone={banner.tone}>{banner.message}</Alert> : null}
-          {currentView === 'library' ? (
-            <Library
-              books={books}
-              scheduler={progress ?? defaultScheduler}
-              onSelectBook={(bookId) => {
-                void loadBookDetail(bookId, { openView: true });
-              }}
-              onCreateBook={() => setCurrentView('new-book')}
-              onStartAll={async () => {
-                try {
-                  flushSync(() => {
-                    setBanner({
-                      tone: 'info',
-                      message: '正在批量推进书籍写作...',
-                    });
-                  });
-                  await ipc.invoke(ipcChannels.schedulerStartAll);
-                  await loadBooks();
-                  flushSync(() => {
-                    setBanner({
-                      tone: 'success',
-                      message: '批量写作已开始',
-                    });
-                  });
-                } catch (error) {
-                  flushSync(() => {
-                    setBanner({
-                      tone: 'error',
-                      message:
-                        error instanceof Error
-                          ? error.message
-                          : 'Failed to start all books',
-                    });
-                  });
-                }
-              }}
-              onPauseAll={async () => {
-                try {
-                  flushSync(() => {
-                    setBanner({
-                      tone: 'info',
-                      message: '正在暂停所有书籍...',
-                    });
-                  });
-                  await ipc.invoke(ipcChannels.schedulerPauseAll);
-                  await loadBooks();
-                  if (selectedBookId) {
-                    await loadBookDetail(selectedBookId, { openView: false });
-                  }
-                  flushSync(() => {
-                    setBanner({
-                      tone: 'success',
-                      message: '全部书籍已暂停',
-                    });
-                  });
-                } catch (error) {
-                  flushSync(() => {
-                    setBanner({
-                      tone: 'error',
-                      message:
-                        error instanceof Error
-                          ? error.message
-                          : 'Failed to pause all books',
-                    });
-                  });
-                }
-              }}
-            />
-          ) : null}
-          {currentView === 'book-detail' && selectedBookDetail ? (
-            <BookDetail
-              book={{
-                title: selectedBookDetail.book?.title ?? 'Unknown Book',
-                status: selectedBookDetail.book?.status ?? 'error',
-                wordCount: selectedBookDetail.chapters.reduce(
-                  (sum, chapter) => sum + chapter.wordCount,
-                  0
-                ),
-              }}
-              bookListSummary={selectedBookListItem}
-              context={selectedBookDetail.context}
-              latestScene={selectedBookDetail.latestScene}
-              narrative={selectedBookDetail.narrative}
-              characterStates={selectedBookDetail.characterStates}
-              plotThreads={selectedBookDetail.plotThreads}
-              progress={selectedBookDetail.progress}
-              liveOutput={
-                liveOutput && liveOutput.bookId === selectedBookDetail.book.id
-                  ? liveOutput
-                  : null
-              }
-              executionLogs={executionLogs.filter(
-                (log) => log.bookId === selectedBookDetail.book.id
-              )}
-              onBackToLibrary={() => setCurrentView('library')}
-              onResume={async () => {
-                await runSelectedBookAction({
-                  startMessage: '正在恢复写作...',
-                  errorMessage: 'Failed to resume book',
-                  channel: ipcChannels.bookResume,
-                  successMessage: '作品已恢复写作',
-                });
-              }}
-              onRestart={async () => {
-                await runSelectedBookAction({
-                  startMessage: '正在重新开始写作...',
-                  errorMessage: 'Failed to restart book',
-                  channel: ipcChannels.bookRestart,
-                  successMessage: '作品已重新开始',
-                });
-              }}
-              chapters={selectedBookDetail.chapters.map((chapter) => ({
-                id: `${chapter.volumeIndex}-${chapter.chapterIndex}`,
-                volumeIndex: chapter.volumeIndex,
-                chapterIndex: chapter.chapterIndex,
-                title:
-                  chapter.title ??
-                  `Chapter ${chapter.volumeIndex}.${chapter.chapterIndex}`,
-                wordCount: chapter.wordCount,
-                status: getRenderedChapterStatus(chapter),
-                content: chapter.content,
-                summary: chapter.summary,
-                outline: chapter.outline,
-                auditScore: chapter.auditScore,
-                auditFlatnessScore: chapter.auditFlatnessScore,
-                auditFlatnessIssues: chapter.auditFlatnessIssues,
-                draftAttempts: chapter.draftAttempts,
-              }))}
-              onPause={async () => {
-                await runSelectedBookAction({
-                  startMessage: '正在暂停作品...',
-                  errorMessage: 'Failed to pause book',
-                  channel: ipcChannels.bookPause,
-                  successMessage: '作品已暂停',
-                });
-              }}
-              onExport={async (format: BookExportFormat) => {
-                if (!selectedBookId) {
-                  return;
-                }
-
-                try {
-                  showBanner('info', `正在导出 ${format.toUpperCase()}...`);
-                  const filePath = await ipc.invoke(ipcChannels.bookExport, {
-                    bookId: selectedBookId,
-                    format,
-                  });
-                  showBanner('success', `导出完成：${filePath}`);
-                } catch (error) {
-                  showBanner(
-                    'error',
-                    error instanceof Error ? error.message : 'Failed to export book'
-                  );
-                }
-              }}
-              onDelete={async () => {
-                await runSelectedBookAction({
-                  startMessage: '正在删除作品...',
-                  errorMessage: 'Failed to delete book',
-                  channel: ipcChannels.bookDelete,
-                  successMessage: '作品已删除',
-                  clearSelection: true,
-                });
-                setCurrentView('library');
-              }}
-            />
-          ) : null}
-          {currentView === 'logs' ? (
-            <Logs
-              logs={executionLogs}
-              books={books}
-            />
-          ) : null}
-          {currentView === 'new-book' ? (
-            <NewBook
-              onCreate={async (input) => {
-                if (!ipc.isAvailable) {
-                  showBanner('error', '请在桌面应用中创建作品。');
-                  return;
-                }
-
-                try {
-                  flushSync(() => {
-                    setBanner({
-                      tone: 'info',
-                      message: '正在创建作品...',
-                    });
-                  });
-                  const bookId = await ipc.invoke(
-                    ipcChannels.bookCreate,
-                    input
-                  );
-                  await loadBooks();
-                  await loadBookDetail(bookId, { openView: true });
-                  flushSync(() => {
-                    setBanner({
-                      tone: 'info',
-                      message: '书本已创建，正在生成书名...',
-                    });
-                  });
-
-                  void (async () => {
-                    try {
-                      await ipc.invoke(ipcChannels.bookStart, { bookId });
-                      await loadBooks();
-                      await loadBookDetail(bookId, {
-                        openView: false,
-                        preserveExistingOnMissing: true,
-                      });
-                      flushSync(() => {
-                        setBanner(null);
-                      });
-                    } catch (error) {
-                      flushSync(() => {
-                        setBanner({
-                          tone: 'error',
-                          message:
-                            error instanceof Error
-                              ? error.message
-                              : 'Failed to start book',
+            {banner ? <Alert tone={banner.tone}>{banner.message}</Alert> : null}
+            <Routes>
+              <Route
+                path={libraryRoute}
+                element={
+                  <Library
+                    books={books}
+                    scheduler={progress ?? defaultScheduler}
+                    onSelectBook={(bookId) => {
+                      void loadBookDetail(bookId, { openView: false });
+                      navigate(`/books/${bookId}`);
+                    }}
+                    onCreateBook={() => navigate(newBookRoute)}
+                    onStartAll={async () => {
+                      try {
+                        flushSync(() => {
+                          setBanner({
+                            tone: 'info',
+                            message: '正在批量推进书籍写作...',
+                          });
                         });
-                      });
-                    }
-                  })();
-                } catch (error) {
-                  flushSync(() => {
-                    setBanner({
-                      tone: 'error',
-                      message:
-                        error instanceof Error
-                          ? error.message
-                          : 'Failed to start book',
-                    });
-                  });
+                        await ipc.invoke(ipcChannels.schedulerStartAll);
+                        await loadBooks();
+                        flushSync(() => {
+                          setBanner({
+                            tone: 'success',
+                            message: '批量写作已开始',
+                          });
+                        });
+                      } catch (error) {
+                        flushSync(() => {
+                          setBanner({
+                            tone: 'error',
+                            message:
+                              error instanceof Error
+                                ? error.message
+                                : 'Failed to start all books',
+                          });
+                        });
+                      }
+                    }}
+                    onPauseAll={async () => {
+                      try {
+                        flushSync(() => {
+                          setBanner({
+                            tone: 'info',
+                            message: '正在暂停所有书籍...',
+                          });
+                        });
+                        await ipc.invoke(ipcChannels.schedulerPauseAll);
+                        await loadBooks();
+                        if (selectedBookId) {
+                          await loadBookDetail(selectedBookId, {
+                            openView: false,
+                          });
+                        }
+                        flushSync(() => {
+                          setBanner({
+                            tone: 'success',
+                            message: '全部书籍已暂停',
+                          });
+                        });
+                      } catch (error) {
+                        flushSync(() => {
+                          setBanner({
+                            tone: 'error',
+                            message:
+                              error instanceof Error
+                                ? error.message
+                                : 'Failed to pause all books',
+                          });
+                        });
+                      }
+                    }}
+                  />
                 }
-              }}
-            />
-          ) : null}
-          {currentView === 'settings' ? (
-            <Settings
-              onSaveModel={async (input) => {
-                try {
-                  clearBanner();
-                  await ipc.invoke(ipcChannels.modelSave, input);
-                  await loadModels();
-                  showToast('success', '模型已保存');
-                } catch (error) {
-                  showToast(
-                    'error',
-                    error instanceof Error ? error.message : 'Failed to save model'
-                  );
-                  throw error;
-                }
-              }}
-              onTestModel={async (input) => {
-                try {
-                  clearBanner();
-                  await ipc.invoke(ipcChannels.modelSave, input);
-                  const result = await ipc.invoke(ipcChannels.modelTest, {
-                    modelId: input.id,
-                  });
+              />
+              <Route
+                path={newBookRoute}
+                element={
+                  pendingCreatedBookRouteId ? (
+                    <Navigate
+                      to={`/books/${pendingCreatedBookRouteId}`}
+                      replace
+                    />
+                  ) : (
+                    <NewBook
+                      onCreate={async (input) => {
+                        if (!ipc.isAvailable) {
+                          showBanner('error', '请在桌面应用中创建作品。');
+                          return;
+                        }
 
-                  if (!result.ok) {
-                    showToast('error', result.error ?? 'Model test failed');
-                  } else {
-                    showToast('success', `连接成功（${result.latency}ms）`);
-                  }
-                } catch (error) {
-                  showToast(
-                    'error',
-                    error instanceof Error ? error.message : 'Model test failed'
-                  );
+                        try {
+                          flushSync(() => {
+                            setBanner({
+                              tone: 'info',
+                              message: '正在创建作品...',
+                            });
+                          });
+                          const bookId = await ipc.invoke(
+                            ipcChannels.bookCreate,
+                            input
+                          );
+                          setPendingCreatedBookRouteId(bookId);
+                          flushSync(() => {
+                            setSelectedBookId(bookId);
+                            navigate(`/books/${bookId}`);
+                          });
+                          await loadBooks();
+                          await loadBookDetail(bookId, {
+                            openView: false,
+                            preserveExistingOnMissing: true,
+                          });
+                          flushSync(() => {
+                            setBanner({
+                              tone: 'info',
+                              message: '书本已创建，正在生成书名...',
+                            });
+                          });
+
+                          void (async () => {
+                            try {
+                              await ipc.invoke(ipcChannels.bookStart, {
+                                bookId,
+                              });
+                              await loadBooks();
+                              await loadBookDetail(bookId, {
+                                openView: false,
+                                preserveExistingOnMissing: true,
+                              });
+                              flushSync(() => {
+                                setBanner(null);
+                              });
+                            } catch (error) {
+                              flushSync(() => {
+                                setBanner({
+                                  tone: 'error',
+                                  message:
+                                    error instanceof Error
+                                      ? error.message
+                                      : 'Failed to start book',
+                                });
+                              });
+                            }
+                          })();
+                        } catch (error) {
+                          flushSync(() => {
+                            setBanner({
+                              tone: 'error',
+                              message:
+                                error instanceof Error
+                                  ? error.message
+                                  : 'Failed to start book',
+                            });
+                          });
+                        }
+                      }}
+                    />
+                  )
                 }
-                await loadModels();
-              }}
-              models={modelConfigs.map((config) => ({
-                id: config.id,
-                modelName: config.modelName,
-                provider: config.provider,
-                apiKey: config.apiKey,
-                baseUrl: config.baseUrl,
-                config: config.config,
-              }))}
-              concurrencyLimit={progress?.concurrencyLimit ?? null}
-              shortChapterReviewEnabled={shortChapterReviewEnabled}
-              logMaxFileSizeMb={logMaxFileSizeMb}
-              logRetentionDays={logRetentionDays}
-              onSaveSetting={async (input) => {
-                try {
-                  clearBanner();
-                  await ipc.invoke(ipcChannels.settingsSet, {
-                    key: 'scheduler.concurrencyLimit',
-                    value:
-                      input.concurrencyLimit === null
-                        ? ''
-                        : String(input.concurrencyLimit),
-                  });
-                  await ipc.invoke(ipcChannels.settingsSet, {
-                    key: SHORT_CHAPTER_REVIEW_ENABLED_KEY,
-                    value: serializeBooleanSetting(
-                      input.shortChapterReviewEnabled
-                    ),
-                  });
-                  await ipc.invoke(ipcChannels.settingsSet, {
-                    key: LOG_MAX_FILE_SIZE_BYTES_KEY,
-                    value: String(input.logMaxFileSizeMb * 1024 * 1024),
-                  });
-                  await ipc.invoke(ipcChannels.settingsSet, {
-                    key: LOG_RETENTION_DAYS_KEY,
-                    value: String(input.logRetentionDays),
-                  });
-                  setShortChapterReviewEnabled(
-                    input.shortChapterReviewEnabled
-                  );
-                  setLogMaxFileSizeMb(input.logMaxFileSizeMb);
-                  setLogRetentionDays(input.logRetentionDays);
-                  showToast('success', '设置已保存');
-                } catch (error) {
-                  showToast(
-                    'error',
-                    error instanceof Error ? error.message : 'Failed to save settings'
-                  );
+              />
+              <Route
+                path="/books/:bookId"
+                element={
+                  <>
+                    <BookDetailRouteSync
+                      selectedBookId={selectedBookId}
+                      onOpenBook={async (bookId) => {
+                        await loadBookDetail(bookId, {
+                          openView: false,
+                          preserveExistingOnMissing: true,
+                        });
+                      }}
+                    />
+                    {selectedBookDetail ? (
+                      <BookDetail
+                        book={{
+                          title: selectedBookDetail.book?.title ?? 'Unknown Book',
+                          status: selectedBookDetail.book?.status ?? 'error',
+                          wordCount: selectedBookDetail.chapters.reduce(
+                            (sum, chapter) => sum + chapter.wordCount,
+                            0
+                          ),
+                        }}
+                        bookListSummary={selectedBookListItem}
+                        context={selectedBookDetail.context}
+                        latestScene={selectedBookDetail.latestScene}
+                        narrative={selectedBookDetail.narrative}
+                        characterStates={selectedBookDetail.characterStates}
+                        plotThreads={selectedBookDetail.plotThreads}
+                        progress={selectedBookDetail.progress}
+                        liveOutput={
+                          liveOutput &&
+                          liveOutput.bookId === selectedBookDetail.book.id
+                            ? liveOutput
+                            : null
+                        }
+                        executionLogs={executionLogs.filter(
+                          (log) => log.bookId === selectedBookDetail.book.id
+                        )}
+                        onBackToLibrary={() => navigate(libraryRoute)}
+                        onResume={async () => {
+                          await runSelectedBookAction({
+                            startMessage: '正在恢复写作...',
+                            errorMessage: 'Failed to resume book',
+                            channel: ipcChannels.bookResume,
+                            successMessage: '作品已恢复写作',
+                          });
+                        }}
+                        onRestart={async () => {
+                          await runSelectedBookAction({
+                            startMessage: '正在重新开始写作...',
+                            errorMessage: 'Failed to restart book',
+                            channel: ipcChannels.bookRestart,
+                            successMessage: '作品已重新开始',
+                          });
+                        }}
+                        chapters={selectedBookDetail.chapters.map((chapter) => ({
+                          id: `${chapter.volumeIndex}-${chapter.chapterIndex}`,
+                          volumeIndex: chapter.volumeIndex,
+                          chapterIndex: chapter.chapterIndex,
+                          title:
+                            chapter.title ??
+                            `Chapter ${chapter.volumeIndex}.${chapter.chapterIndex}`,
+                          wordCount: chapter.wordCount,
+                          status: getRenderedChapterStatus(chapter),
+                          content: chapter.content,
+                          summary: chapter.summary,
+                          outline: chapter.outline,
+                          auditScore: chapter.auditScore,
+                          auditFlatnessScore: chapter.auditFlatnessScore,
+                          auditFlatnessIssues: chapter.auditFlatnessIssues,
+                          draftAttempts: chapter.draftAttempts,
+                        }))}
+                        onPause={async () => {
+                          await runSelectedBookAction({
+                            startMessage: '正在暂停作品...',
+                            errorMessage: 'Failed to pause book',
+                            channel: ipcChannels.bookPause,
+                            successMessage: '作品已暂停',
+                          });
+                        }}
+                        onExport={async (format: BookExportFormat) => {
+                          if (!selectedBookId) {
+                            return;
+                          }
+
+                          try {
+                            showBanner('info', `正在导出 ${format.toUpperCase()}...`);
+                            const filePath = await ipc.invoke(
+                              ipcChannels.bookExport,
+                              {
+                                bookId: selectedBookId,
+                                format,
+                              }
+                            );
+                            showBanner('success', `导出完成：${filePath}`);
+                          } catch (error) {
+                            showBanner(
+                              'error',
+                              error instanceof Error
+                                ? error.message
+                                : 'Failed to export book'
+                            );
+                          }
+                        }}
+                        onDelete={async () => {
+                          await runSelectedBookAction({
+                            startMessage: '正在删除作品...',
+                            errorMessage: 'Failed to delete book',
+                            channel: ipcChannels.bookDelete,
+                            successMessage: '作品已删除',
+                            clearSelection: true,
+                          });
+                          navigate(libraryRoute);
+                        }}
+                      />
+                    ) : null}
+                  </>
                 }
-              }}
-            />
-          ) : null}
+              />
+              <Route
+                path={logsRoute}
+                element={<Logs logs={executionLogs} books={books} />}
+              />
+              <Route
+                path={settingsRoute}
+                element={
+                  <Settings
+                    onSaveModel={async (input) => {
+                      try {
+                        clearBanner();
+                        await ipc.invoke(ipcChannels.modelSave, input);
+                        await loadModels();
+                        showToast('success', '模型已保存');
+                      } catch (error) {
+                        showToast(
+                          'error',
+                          error instanceof Error
+                            ? error.message
+                            : 'Failed to save model'
+                        );
+                        throw error;
+                      }
+                    }}
+                    onTestModel={async (input) => {
+                      try {
+                        clearBanner();
+                        await ipc.invoke(ipcChannels.modelSave, input);
+                        const result = await ipc.invoke(ipcChannels.modelTest, {
+                          modelId: input.id,
+                        });
+
+                        if (!result.ok) {
+                          showToast('error', result.error ?? 'Model test failed');
+                        } else {
+                          showToast('success', `连接成功（${result.latency}ms）`);
+                        }
+                      } catch (error) {
+                        showToast(
+                          'error',
+                          error instanceof Error
+                            ? error.message
+                            : 'Model test failed'
+                        );
+                      }
+                      await loadModels();
+                    }}
+                    models={modelConfigs.map((config) => ({
+                      id: config.id,
+                      modelName: config.modelName,
+                      provider: config.provider,
+                      apiKey: config.apiKey,
+                      baseUrl: config.baseUrl,
+                      config: config.config,
+                    }))}
+                    concurrencyLimit={progress?.concurrencyLimit ?? null}
+                    shortChapterReviewEnabled={shortChapterReviewEnabled}
+                    logMaxFileSizeMb={logMaxFileSizeMb}
+                    logRetentionDays={logRetentionDays}
+                    onSaveSetting={async (input) => {
+                      try {
+                        clearBanner();
+                        await ipc.invoke(ipcChannels.settingsSet, {
+                          key: 'scheduler.concurrencyLimit',
+                          value:
+                            input.concurrencyLimit === null
+                              ? ''
+                              : String(input.concurrencyLimit),
+                        });
+                        await ipc.invoke(ipcChannels.settingsSet, {
+                          key: SHORT_CHAPTER_REVIEW_ENABLED_KEY,
+                          value: serializeBooleanSetting(
+                            input.shortChapterReviewEnabled
+                          ),
+                        });
+                        await ipc.invoke(ipcChannels.settingsSet, {
+                          key: LOG_MAX_FILE_SIZE_BYTES_KEY,
+                          value: String(input.logMaxFileSizeMb * 1024 * 1024),
+                        });
+                        await ipc.invoke(ipcChannels.settingsSet, {
+                          key: LOG_RETENTION_DAYS_KEY,
+                          value: String(input.logRetentionDays),
+                        });
+                        setShortChapterReviewEnabled(
+                          input.shortChapterReviewEnabled
+                        );
+                        setLogMaxFileSizeMb(input.logMaxFileSizeMb);
+                        setLogRetentionDays(input.logRetentionDays);
+                        showToast('success', '设置已保存');
+                      } catch (error) {
+                        showToast(
+                          'error',
+                          error instanceof Error
+                            ? error.message
+                            : 'Failed to save settings'
+                        );
+                      }
+                    }}
+                  />
+                }
+              />
+              <Route path="*" element={<Navigate to={libraryRoute} replace />} />
+            </Routes>
           </div>
         </main>
       </SidebarInset>

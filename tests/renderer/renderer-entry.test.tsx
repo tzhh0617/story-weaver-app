@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 import App from '../../renderer/App';
 import type { StoryWeaverInvoke } from '../../renderer/hooks/useIpc';
@@ -28,7 +29,11 @@ describe('renderer entry styling', () => {
       onExecutionLog: () => () => undefined,
     };
 
-    const { container } = render(<App />);
+    const { container } = render(
+      <MemoryRouter>
+        <App />
+      </MemoryRouter>
+    );
 
     expect(
       await screen.findByRole('heading', {

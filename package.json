@@ -45,7 +45,8 @@
     "epub-gen-memory": "^1.0.9",
     "lucide-react": "^1.11.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "react-router-dom": "^7.14.2"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.4",

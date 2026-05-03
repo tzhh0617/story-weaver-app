@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import App from '../../renderer/App';
 
@@ -59,6 +60,18 @@ function installIpcMock(
   };
 }
 
+function renderApp(route = '/') {
+  return render(
+    <MemoryRouter initialEntries={[route]}>
+      <App />
+    </MemoryRouter>
+  );
+}
+
+function getContentScrollport() {
+  return screen.getByTestId('app-content-scrollport');
+}
+
 async function openView(name: '作品' | '设置' | '写作动态') {
   fireEvent.click(await screen.findByRole('button', { name }));
 }
@@ -90,6 +103,63 @@ async function selectProvider(value: string) {
 }
 
 describe('App shell', () => {
+  it('opens settings when the current route is /settings', async () => {
+    installIpcMock(async (channel) => {
+      switch (channel) {
+        case 'book:list':
+          return [];
+        case 'model:list':
+          return [];
+        default:
+          return null;
+      }
+    });
+
+    renderApp('/settings');
+
+    expect(
+      await screen.findByRole('heading', { name: '设置' })
+    ).toBeInTheDocument();
+  });
+
+  it('opens logs when the current route is /logs', async () => {
+    installIpcMock(async (channel) => {
+      switch (channel) {
+        case 'book:list':
+          return [];
+        case 'model:list':
+          return [];
+        default:
+          return null;
+      }
+    });
+
+    renderApp('/logs');
+
+    expect(
+      await screen.findByRole('heading', { name: '写作动态' })
+    ).toBeInTheDocument();
+  });
+
+  it('opens the new-book workspace when the current route is /books/new', async () => {
+    installIpcMock(async (channel) => {
+      switch (channel) {
+        case 'book:list':
+          return [];
+        case 'model:list':
+          return [];
+        default:
+          return null;
+      }
+    });
+
+    renderApp('/books/new');
+
+    expect(
+      await screen.findByRole('heading', { name: '新建作品' })
+    ).toBeInTheDocument();
+  });
+
   it('keeps primary navigation in the sidebar and opens new books from the library page', async () => {
     installIpcMock(async (channel) => {
       switch (channel) {
@@ -102,7 +172,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    renderApp();
 
     expect(await screen.findByText('暂无作品')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '作品' })).toHaveAttribute(
@@ -129,7 +199,7 @@ describe('App shell', () => {
   it('renders a safe empty preview when Electron IPC is unavailable', async () => {
     delete window.storyWeaver;
 
-    render(<App />);
+    renderApp();
 
     expect(
       await screen.findByRole('group', { name: 'Story Weaver brand' })
@@ -161,7 +231,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    renderApp();
 
     await openLogsView();
 
@@ -246,7 +316,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    renderApp();
 
     await openLogsView();
     ipc.emitExecutionLog({
@@ -309,7 +379,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    renderApp();
 
     await openLogsView();
     ipc.emitExecutionLog({
@@ -365,7 +435,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    renderApp();
 
     await openLogsView();
     ipc.emitExecutionLog({
@@ -410,7 +480,7 @@ describe('App shell', () => {
   it('keeps the new-book form open and explains when IPC is unavailable', async () => {
     delete window.storyWeaver;
 
-    render(<App />);
+    renderApp();
 
     fireEvent.click(await screen.findByRole('button', { name: '新建作品' }));
     fireEvent.change(screen.getByLabelText('故事设想'), {
@@ -439,7 +509,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    renderApp();
 
     fireEvent.click(
       await screen.findByRole('button', { name: '新建第一本作品' })
@@ -453,7 +523,7 @@ describe('App shell', () => {
   it('opens directly into the library workspace without the old hero card', async () => {
     delete window.storyWeaver;
 
-    render(<App />);
+    renderApp();
 
     expect(
       await screen.findByPlaceholderText('按标题搜索')
@@ -527,7 +597,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    renderApp();
 
     expect(
       await screen.findByRole('button', { name: 'First Book' })
@@ -580,7 +650,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    renderApp();
 
     fireEvent.click(await screen.findByRole('button', { name: 'Workbench Book' }));
 
@@ -642,7 +712,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    renderApp();
 
     expect(
       await screen.findByRole('button', { name: 'Second Book' })
@@ -740,7 +810,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    renderApp();
 
     expect(
       await screen.findByRole('button', { name: 'Existing Book' })
@@ -839,7 +909,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    renderApp();
 
     fireEvent.click(await screen.findByRole('button', { name: '新建作品' }));
     fireEvent.change(screen.getByLabelText('故事设想'), {
@@ -942,7 +1012,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    renderApp();
 
     fireEvent.click(await screen.findByRole('button', { name: '新建作品' }));
     fireEvent.change(screen.getByLabelText('故事设想'), {
@@ -1016,7 +1086,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    renderApp();
 
     await openNewBookView();
 
@@ -1067,7 +1137,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    renderApp();
 
     emitProgress({
       runningBookIds: ['book-1'],
@@ -1125,7 +1195,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    renderApp();
 
     fireEvent.click(await screen.findByRole('button', { name: '新作品' }));
     expect(
@@ -1233,7 +1303,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    renderApp();
 
     const progressBars = await screen.findAllByRole('progressbar', {
       name: '章节进度',
@@ -1289,7 +1359,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    renderApp();
 
     const startAllButton = await screen.findByRole('button', { name: '全部开始' });
 
@@ -1351,7 +1421,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    renderApp();
 
     const startAllButton = await screen.findByRole('button', { name: '全部开始' });
 
@@ -1413,7 +1483,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    renderApp();
 
     const pauseAllButton = await screen.findByRole('button', { name: '全部暂停' });
 
@@ -1572,7 +1642,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    renderApp();
 
     await selectBook('Existing Book');
     expect(
@@ -1641,7 +1711,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    renderApp();
 
     await selectBook('Existing Book');
 
@@ -1723,7 +1793,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    renderApp();
 
     await selectBook('Existing Book');
     fireEvent.click(await screen.findByText('导出 TXT'));
@@ -1807,7 +1877,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    renderApp();
 
     await selectBook('Existing Book');
     fireEvent.click(await screen.findByText('删除作品'));
@@ -1821,8 +1891,8 @@ describe('App shell', () => {
     });
 
     expect(await screen.findByText('作品已删除')).toBeInTheDocument();
-    expect(screen.queryByText('Existing Book')).not.toBeInTheDocument();
-    expect(screen.queryByText('World rules')).not.toBeInTheDocument();
+    expect(getContentScrollport()).not.toHaveTextContent('Existing Book');
+    expect(getContentScrollport()).not.toHaveTextContent('World rules');
   });
 
   it('resumes a paused book from book detail', async () => {
@@ -1955,7 +2025,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    renderApp();
 
     await selectBook('Existing Book');
     fireEvent.click(await screen.findByText('恢复写作'));
@@ -2102,7 +2172,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    renderApp();
 
     await selectBook('Existing Book');
     fireEvent.click(await screen.findByText('重新开始'));
@@ -2280,7 +2350,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    renderApp();
 
     await selectBook('Existing Book');
 
@@ -2465,7 +2535,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    renderApp();
 
     await selectBook('Existing Book');
 
@@ -2496,7 +2566,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    renderApp();
 
     await openSettingsView();
 
@@ -2535,7 +2605,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    renderApp();
 
     await openSettingsView();
 
@@ -2585,7 +2655,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    renderApp();
 
     await openSettingsView();
 
@@ -2637,7 +2707,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    renderApp();
 
     await openSettingsView();
 
@@ -2699,7 +2769,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    renderApp();
 
     await openSettingsView();
 
@@ -2744,7 +2814,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    renderApp();
 
     await openSettingsView();
 
@@ -2793,7 +2863,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    renderApp();
 
     await openSettingsView();
 
@@ -2850,7 +2920,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    renderApp();
 
     await openNewBookView();
 
@@ -2884,7 +2954,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    renderApp();
 
     await openSettingsView();
 
@@ -2985,7 +3055,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    renderApp();
 
     await openNewBookView();
 
@@ -3068,7 +3138,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    renderApp();
     await selectBook('Stream Book');
     expect(
       await screen.findByRole('heading', { name: /^Stream Book（/ })
@@ -3176,7 +3246,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    renderApp();
     await selectBook('Stable Stream Book');
     expect(
       await screen.findByRole('heading', { name: /^Stable Stream Book（/ })
@@ -3266,7 +3336,7 @@ describe('App shell', () => {
       }
     });
 
-    render(<App />);
+    renderApp();
     await selectBook('Rewrite Book');
     expect(
       await screen.findByRole('heading', { name: /^Rewrite Book（/ })
