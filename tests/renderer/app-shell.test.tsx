@@ -1103,9 +1103,11 @@ describe('App shell', () => {
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(
-      screen.getByRole('heading', { name: /^新作品（/ })
-    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(
+        screen.getByRole('heading', { name: /^新作品（/ })
+      ).toBeInTheDocument();
+    });
     expect(screen.queryByText('暂无作品')).not.toBeInTheDocument();
 
     const startResolver = resolveStart as null | (() => void);
@@ -1119,9 +1121,11 @@ describe('App shell', () => {
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(
-      screen.getByRole('heading', { name: /^新作品（/ })
-    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(
+        screen.getByRole('heading', { name: /^新作品（/ })
+      ).toBeInTheDocument();
+    });
     expect(screen.queryByText('暂无作品')).not.toBeInTheDocument();
   });
 
@@ -1369,13 +1373,17 @@ describe('App shell', () => {
 
     fireEvent.click(startAllButton);
 
-    expect(await screen.findByText('正在批量推进书籍写作...')).toBeInTheDocument();
+    expect(await screen.findByTestId('app-toast')).toHaveTextContent(
+      '正在批量推进书籍写作...'
+    );
 
     await waitFor(() => {
       expect(invoke).toHaveBeenCalledWith('scheduler:startAll', undefined);
     });
 
-    expect(await screen.findByText('批量写作已开始')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId('app-toast')).toHaveTextContent('批量写作已开始');
+    });
     expect(await screen.findByText('已完成')).toBeInTheDocument();
   });
 
@@ -1432,13 +1440,17 @@ describe('App shell', () => {
 
     fireEvent.click(startAllButton);
 
-    expect(await screen.findByText('正在批量推进书籍写作...')).toBeInTheDocument();
+    expect(await screen.findByTestId('app-toast')).toHaveTextContent(
+      '正在批量推进书籍写作...'
+    );
 
     await waitFor(() => {
       expect(invoke).toHaveBeenCalledWith('scheduler:startAll', undefined);
     });
 
-    expect(await screen.findByText('批量写作已开始')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId('app-toast')).toHaveTextContent('批量写作已开始');
+    });
     expect(
       await screen.findByRole('button', { name: 'Existing Book' })
     ).toHaveTextContent('写作中');
@@ -1493,13 +1505,17 @@ describe('App shell', () => {
 
     fireEvent.click(pauseAllButton);
 
-    expect(await screen.findByText('正在暂停所有书籍...')).toBeInTheDocument();
+    expect(await screen.findByTestId('app-toast')).toHaveTextContent(
+      '正在暂停所有书籍...'
+    );
 
     await waitFor(() => {
       expect(invoke).toHaveBeenCalledWith('scheduler:pauseAll', undefined);
     });
 
-    expect(await screen.findByText('全部书籍已暂停')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId('app-toast')).toHaveTextContent('全部书籍已暂停');
+    });
     expect(await screen.findByRole('button', { name: '作品' })).toHaveAttribute(
       'data-active',
       'true'
@@ -1654,7 +1670,9 @@ describe('App shell', () => {
 
     fireEvent.click(screen.getByText('暂停'));
 
-    expect(await screen.findByText('正在暂停作品...')).toBeInTheDocument();
+    expect(await screen.findByTestId('app-toast')).toHaveTextContent(
+      '正在暂停作品...'
+    );
 
     await waitFor(() => {
       expect(invoke).toHaveBeenCalledWith('book:pause', {
@@ -1662,7 +1680,9 @@ describe('App shell', () => {
       });
     });
 
-    expect(await screen.findByText('作品已暂停')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId('app-toast')).toHaveTextContent('作品已暂停');
+    });
     expect(
       await screen.findByRole('heading', {
         name: /^Existing Book（已暂停 · 0 万字）/,
@@ -1798,7 +1818,9 @@ describe('App shell', () => {
     await selectBook('Existing Book');
     fireEvent.click(await screen.findByText('导出 TXT'));
 
-    expect(await screen.findByText('正在导出 TXT...')).toBeInTheDocument();
+    expect(await screen.findByTestId('app-toast')).toHaveTextContent(
+      '正在导出 TXT...'
+    );
 
     await waitFor(() => {
       expect(invoke).toHaveBeenCalledWith('book:export', {
@@ -1809,11 +1831,11 @@ describe('App shell', () => {
 
     exportDeferred.resolve?.('/tmp/story-weaver/exports/Existing Book.txt');
 
-    expect(
-      await screen.findByText(
+    await waitFor(() => {
+      expect(screen.getByTestId('app-toast')).toHaveTextContent(
         '导出完成：/tmp/story-weaver/exports/Existing Book.txt'
-      )
-    ).toBeInTheDocument();
+      );
+    });
   });
 
   it('deletes the selected writing book from book detail', async () => {
@@ -1882,7 +1904,9 @@ describe('App shell', () => {
     await selectBook('Existing Book');
     fireEvent.click(await screen.findByText('删除作品'));
 
-    expect(await screen.findByText('正在删除作品...')).toBeInTheDocument();
+    expect(await screen.findByTestId('app-toast')).toHaveTextContent(
+      '正在删除作品...'
+    );
 
     await waitFor(() => {
       expect(invoke).toHaveBeenCalledWith('book:delete', {
@@ -1890,7 +1914,9 @@ describe('App shell', () => {
       });
     });
 
-    expect(await screen.findByText('作品已删除')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId('app-toast')).toHaveTextContent('作品已删除');
+    });
     expect(getContentScrollport()).not.toHaveTextContent('Existing Book');
     expect(getContentScrollport()).not.toHaveTextContent('World rules');
   });
@@ -2030,7 +2056,9 @@ describe('App shell', () => {
     await selectBook('Existing Book');
     fireEvent.click(await screen.findByText('恢复写作'));
 
-    expect(await screen.findByText('正在恢复写作...')).toBeInTheDocument();
+    expect(await screen.findByTestId('app-toast')).toHaveTextContent(
+      '正在恢复写作...'
+    );
 
     await waitFor(() => {
       expect(invoke).toHaveBeenCalledWith('book:resume', {
@@ -2038,7 +2066,9 @@ describe('App shell', () => {
       });
     });
 
-    expect(await screen.findByText('作品已恢复写作')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId('app-toast')).toHaveTextContent('作品已恢复写作');
+    });
     expect(
       await screen.findByRole('heading', {
         name: /^Existing Book（已完成 · 0.1 万字）/,
@@ -2177,7 +2207,9 @@ describe('App shell', () => {
     await selectBook('Existing Book');
     fireEvent.click(await screen.findByText('重新开始'));
 
-    expect(await screen.findByText('正在重新开始写作...')).toBeInTheDocument();
+    expect(await screen.findByTestId('app-toast')).toHaveTextContent(
+      '正在重新开始写作...'
+    );
 
     await waitFor(() => {
       expect(invoke).toHaveBeenCalledWith('book:restart', {
@@ -2185,7 +2217,9 @@ describe('App shell', () => {
       });
     });
 
-    expect(await screen.findByText('作品已重新开始')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId('app-toast')).toHaveTextContent('作品已重新开始');
+    });
     expect(await screen.findByText('Restarted content')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('tab', { name: '人物' }));
     expect((await screen.findAllByText(/Debt Court/)).length).toBeGreaterThan(0);
@@ -2929,7 +2963,7 @@ describe('App shell', () => {
     });
     fireEvent.click(screen.getByText('开始写作'));
 
-    expect(await screen.findByText('API key invalid')).toBeInTheDocument();
+    expect(await screen.findByRole('alert')).toHaveTextContent('API key invalid');
   });
 
   it('shows model testing result in a toast without page progress state', async () => {
@@ -2986,7 +3020,7 @@ describe('App shell', () => {
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
-  it('shows a progress banner while starting a new book', async () => {
+  it('shows toast progress while starting a new book without a page banner', async () => {
     let resolveStart: (() => void) | null = null;
     const books: Array<{
       id: string;
@@ -3064,12 +3098,15 @@ describe('App shell', () => {
     });
     fireEvent.click(screen.getByText('开始写作'));
 
-    expect(
-      await screen.findByText('书本已创建，正在生成书名...')
-    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId('app-toast')).toHaveTextContent(
+        '书本已创建，正在生成书名...'
+      );
+    });
     expect(
       screen.queryByText('书本已创建，正在生成书名和大纲...')
     ).not.toBeInTheDocument();
+    expect(screen.queryByTestId('app-page-banner')).toBeNull();
     expect(
       await screen.findByRole('heading', { name: /^新作品（/ })
     ).toBeInTheDocument();

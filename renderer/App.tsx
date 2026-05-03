@@ -32,7 +32,6 @@ import { useProgress } from './hooks/useProgress';
 import { useBookGenerationEvents } from './hooks/useBookGenerationEvents';
 import { useBooksController } from './hooks/useBooksController';
 import { AppSidebar, type AppView } from './components/app-sidebar';
-import { Alert } from './components/ui/alert';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import BookDetail from './pages/BookDetail';
 import Library from './pages/Library';
@@ -52,8 +51,7 @@ const sidebarProviderStyle = {
   '--sidebar-width': '12.75rem',
 } as CSSProperties;
 
-type BannerTone = 'error' | 'success' | 'info';
-type ToastTone = BannerTone;
+type ToastTone = 'error' | 'success' | 'info';
 type ModelConfigView = {
   id: string;
   provider: string;
@@ -72,6 +70,8 @@ const libraryRoute = '/';
 const logsRoute = '/logs';
 const settingsRoute = '/settings';
 const newBookRoute = '/books/new';
+const TOAST_DURATION_MS = 5000;
+const TOAST_MIN_VISIBLE_MS = 150;
 
 function getSidebarView(pathname: string): AppView {
   if (pathname === logsRoute) {
@@ -115,10 +115,6 @@ export default function App() {
   const location = useLocation();
   const progress = useProgress();
   const [modelConfigs, setModelConfigs] = useState<ModelConfigView[]>([]);
-  const [banner, setBanner] = useState<{
-    tone: BannerTone;
-    message: string;
-  } | null>(null);
   const [pendingCreatedBookRouteId, setPendingCreatedBookRouteId] = useState<
     string | null
   >(null);
@@ -128,6 +124,17 @@ export default function App() {
     message: string;
   } | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const toastSwitchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activeToastRef = useRef<{
+    id: number;
+    tone: ToastTone;
+    message: string;
+  } | null>(null);
+  const toastShownAtRef = useRef<number>(0);
+  const queuedToastRef = useRef<{
+    tone: ToastTone;
+    message: string;
+  } | null>(null);
   const [executionLogs, setExecutionLogs] = useState<ExecutionLogRecord[]>([]);
   const [shortChapterReviewEnabled, setShortChapterReviewEnabled] =
     useState(true);
@@ -217,6 +224,9 @@ export default function App() {
       if (toastTimerRef.current) {
         clearTimeout(toastTimerRef.current);
       }
+      if (toastSwitchTimerRef.current) {
+        clearTimeout(toastSwitchTimerRef.current);
+      }
     };
   }, []);
 
@@ -257,6 +267,10 @@ export default function App() {
       : null;
 
     if (!books.length) {
+      if (pendingCreatedBookRouteId) {
+        return;
+      }
+
       if (
         routeBookId &&
         (selectedBookDetail?.book.id === routeBookId ||
@@ -283,39 +297,69 @@ export default function App() {
     loadBookDetail,
     location.pathname,
     navigate,
+    pendingCreatedBookRouteId,
     selectedBookDetail,
     selectedBookId,
   ]);
 
-  function showBanner(tone: BannerTone, message: string) {
-    flushSync(() => {
-      setBanner({ tone, message });
-    });
-  }
-
-  function clearBanner() {
-    flushSync(() => {
-      setBanner(null);
-    });
-  }
-
-  function showToast(tone: ToastTone, message: string) {
+  function presentToast(tone: ToastTone, message: string) {
     if (toastTimerRef.current) {
       clearTimeout(toastTimerRef.current);
     }
+    if (toastSwitchTimerRef.current) {
+      clearTimeout(toastSwitchTimerRef.current);
+      toastSwitchTimerRef.current = null;
+    }
 
     flushSync(() => {
-      setToast({
+      const nextToast = {
         id: Date.now(),
         tone,
         message,
-      });
+      };
+      activeToastRef.current = nextToast;
+      setToast(nextToast);
     });
+    toastShownAtRef.current = Date.now();
 
     toastTimerRef.current = setTimeout(() => {
+      activeToastRef.current = null;
       setToast(null);
       toastTimerRef.current = null;
-    }, 5000);
+      toastShownAtRef.current = 0;
+
+      if (queuedToastRef.current) {
+        const nextToast = queuedToastRef.current;
+        queuedToastRef.current = null;
+        presentToast(nextToast.tone, nextToast.message);
+      }
+    }, TOAST_DURATION_MS);
+  }
+
+  function showToast(tone: ToastTone, message: string) {
+    if (!activeToastRef.current) {
+      presentToast(tone, message);
+      return;
+    }
+
+    const elapsed = Date.now() - toastShownAtRef.current;
+    if (elapsed >= TOAST_MIN_VISIBLE_MS) {
+      presentToast(tone, message);
+      return;
+    }
+
+    queuedToastRef.current = { tone, message };
+    if (toastSwitchTimerRef.current) {
+      clearTimeout(toastSwitchTimerRef.current);
+    }
+    toastSwitchTimerRef.current = setTimeout(() => {
+      toastSwitchTimerRef.current = null;
+      const nextToast = queuedToastRef.current;
+      queuedToastRef.current = null;
+      if (nextToast) {
+        presentToast(nextToast.tone, nextToast.message);
+      }
+    }, TOAST_MIN_VISIBLE_MS - elapsed);
   }
 
   function getRenderedChapterStatus(chapter: BookDetailData['chapters'][number]) {
@@ -370,9 +414,7 @@ export default function App() {
 
     try {
       if (startMessage) {
-        showBanner('info', startMessage);
-      } else {
-        clearBanner();
+        showToast('info', startMessage);
       }
 
       await ipc.invoke(channel, payload ?? { bookId: selectedBookId });
@@ -390,12 +432,10 @@ export default function App() {
       }
 
       if (typeof successMessage === 'string') {
-        showBanner('success', successMessage);
-      } else {
-        clearBanner();
+        showToast('success', successMessage);
       }
     } catch (error) {
-      showBanner(
+      showToast(
         'error',
         error instanceof Error ? error.message : errorMessage
       );
@@ -433,6 +473,7 @@ export default function App() {
       />
       {toast ? (
         <div
+          data-testid="app-toast"
           role={toast.tone === 'error' ? 'alert' : 'status'}
           aria-live={toast.tone === 'error' ? 'assertive' : 'polite'}
           className={`fixed right-5 top-[calc(var(--app-titlebar-height)+1rem)] z-50 max-w-sm rounded-lg border px-4 py-3 text-sm font-medium ${toastClassName}`}
@@ -455,7 +496,6 @@ export default function App() {
                 : 'grid content-start'
             }`}
           >
-            {banner ? <Alert tone={banner.tone}>{banner.message}</Alert> : null}
             <Routes>
               <Route
                 path={libraryRoute}
@@ -470,40 +510,22 @@ export default function App() {
                     onCreateBook={() => navigate(newBookRoute)}
                     onStartAll={async () => {
                       try {
-                        flushSync(() => {
-                          setBanner({
-                            tone: 'info',
-                            message: '正在批量推进书籍写作...',
-                          });
-                        });
+                        showToast('info', '正在批量推进书籍写作...');
                         await ipc.invoke(ipcChannels.schedulerStartAll);
                         await loadBooks();
-                        flushSync(() => {
-                          setBanner({
-                            tone: 'success',
-                            message: '批量写作已开始',
-                          });
-                        });
+                        showToast('success', '批量写作已开始');
                       } catch (error) {
-                        flushSync(() => {
-                          setBanner({
-                            tone: 'error',
-                            message:
-                              error instanceof Error
-                                ? error.message
-                                : 'Failed to start all books',
-                          });
-                        });
+                        showToast(
+                          'error',
+                          error instanceof Error
+                            ? error.message
+                            : 'Failed to start all books'
+                        );
                       }
                     }}
                     onPauseAll={async () => {
                       try {
-                        flushSync(() => {
-                          setBanner({
-                            tone: 'info',
-                            message: '正在暂停所有书籍...',
-                          });
-                        });
+                        showToast('info', '正在暂停所有书籍...');
                         await ipc.invoke(ipcChannels.schedulerPauseAll);
                         await loadBooks();
                         if (selectedBookId) {
@@ -511,22 +533,14 @@ export default function App() {
                             openView: false,
                           });
                         }
-                        flushSync(() => {
-                          setBanner({
-                            tone: 'success',
-                            message: '全部书籍已暂停',
-                          });
-                        });
+                        showToast('success', '全部书籍已暂停');
                       } catch (error) {
-                        flushSync(() => {
-                          setBanner({
-                            tone: 'error',
-                            message:
-                              error instanceof Error
-                                ? error.message
-                                : 'Failed to pause all books',
-                          });
-                        });
+                        showToast(
+                          'error',
+                          error instanceof Error
+                            ? error.message
+                            : 'Failed to pause all books'
+                        );
                       }
                     }}
                   />
@@ -544,17 +558,12 @@ export default function App() {
                     <NewBook
                       onCreate={async (input) => {
                         if (!ipc.isAvailable) {
-                          showBanner('error', '请在桌面应用中创建作品。');
+                          showToast('error', '请在桌面应用中创建作品。');
                           return;
                         }
 
                         try {
-                          flushSync(() => {
-                            setBanner({
-                              tone: 'info',
-                              message: '正在创建作品...',
-                            });
-                          });
+                          showToast('info', '正在创建作品...');
                           const bookId = await ipc.invoke(
                             ipcChannels.bookCreate,
                             input
@@ -569,12 +578,7 @@ export default function App() {
                             openView: false,
                             preserveExistingOnMissing: true,
                           });
-                          flushSync(() => {
-                            setBanner({
-                              tone: 'info',
-                              message: '书本已创建，正在生成书名...',
-                            });
-                          });
+                          showToast('info', '书本已创建，正在生成书名...');
 
                           void (async () => {
                             try {
@@ -586,31 +590,22 @@ export default function App() {
                                 openView: false,
                                 preserveExistingOnMissing: true,
                               });
-                              flushSync(() => {
-                                setBanner(null);
-                              });
                             } catch (error) {
-                              flushSync(() => {
-                                setBanner({
-                                  tone: 'error',
-                                  message:
-                                    error instanceof Error
-                                      ? error.message
-                                      : 'Failed to start book',
-                                });
-                              });
+                              showToast(
+                                'error',
+                                error instanceof Error
+                                  ? error.message
+                                  : 'Failed to start book'
+                              );
                             }
                           })();
                         } catch (error) {
-                          flushSync(() => {
-                            setBanner({
-                              tone: 'error',
-                              message:
-                                error instanceof Error
-                                  ? error.message
-                                  : 'Failed to start book',
-                            });
-                          });
+                          showToast(
+                            'error',
+                            error instanceof Error
+                              ? error.message
+                              : 'Failed to start book'
+                          );
                         }
                       }}
                     />
@@ -704,7 +699,7 @@ export default function App() {
                           }
 
                           try {
-                            showBanner('info', `正在导出 ${format.toUpperCase()}...`);
+                            showToast('info', `正在导出 ${format.toUpperCase()}...`);
                             const filePath = await ipc.invoke(
                               ipcChannels.bookExport,
                               {
@@ -712,9 +707,9 @@ export default function App() {
                                 format,
                               }
                             );
-                            showBanner('success', `导出完成：${filePath}`);
+                            showToast('success', `导出完成：${filePath}`);
                           } catch (error) {
-                            showBanner(
+                            showToast(
                               'error',
                               error instanceof Error
                                 ? error.message
@@ -747,7 +742,6 @@ export default function App() {
                   <Settings
                     onSaveModel={async (input) => {
                       try {
-                        clearBanner();
                         await ipc.invoke(ipcChannels.modelSave, input);
                         await loadModels();
                         showToast('success', '模型已保存');
@@ -763,7 +757,6 @@ export default function App() {
                     }}
                     onTestModel={async (input) => {
                       try {
-                        clearBanner();
                         await ipc.invoke(ipcChannels.modelSave, input);
                         const result = await ipc.invoke(ipcChannels.modelTest, {
                           modelId: input.id,
@@ -798,7 +791,6 @@ export default function App() {
                     logRetentionDays={logRetentionDays}
                     onSaveSetting={async (input) => {
                       try {
-                        clearBanner();
                         await ipc.invoke(ipcChannels.settingsSet, {
                           key: 'scheduler.concurrencyLimit',
                           value:
