@@ -49,7 +49,7 @@ export default function Library({
     (book) => book.status !== 'completed' && book.status !== 'paused'
   );
   const shelfStats = [
-    { label: '完成', value: `${completedCount}/50` },
+    { label: '完成', value: completedCount },
     { label: '写作中', value: scheduler.runningBookIds.length },
     { label: '排队', value: scheduler.queuedBookIds.length },
     { label: '已暂停', value: scheduler.pausedBookIds.length },

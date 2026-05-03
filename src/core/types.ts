@@ -1,10 +1,15 @@
 import type {
+  ArcPlan,
   ChapterCard,
+  ChapterPlan,
   ChapterCharacterPressure,
   ChapterRelationshipAction,
   ChapterTensionBudget,
   ChapterThreadAction,
+  EndgamePlan,
   NarrativeBible,
+  StagePlan,
+  TitleIdeaContract,
   ViralStrategyInput,
   VolumePlan,
 } from './narrative/types.js';
@@ -33,6 +38,11 @@ export type OutlineBundle = {
   masterOutline: string;
   volumeOutlines: string[];
   chapterOutlines: ChapterOutline[];
+  titleIdeaContract?: Omit<TitleIdeaContract, 'createdAt' | 'updatedAt'>;
+  endgamePlan?: Omit<EndgamePlan, 'createdAt' | 'updatedAt'>;
+  stagePlans?: StagePlan[];
+  arcPlans?: ArcPlan[];
+  chapterPlans?: ChapterPlan[];
   narrativeBible?: NarrativeBible;
   volumePlans?: VolumePlan[];
   chapterCards?: ChapterCard[];

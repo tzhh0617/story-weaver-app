@@ -65,6 +65,17 @@ export type StoryRoutePlanView = {
   warnings: string[];
 };
 
+export type PlanningTaskType =
+  | 'book:plan:title-idea'
+  | 'book:plan:endgame'
+  | 'book:plan:stage'
+  | 'book:plan:arc'
+  | 'book:plan:chapters'
+  | 'book:plan:rebuild-chapters'
+  | 'book:state:snapshot';
+
+export type PlanStatus = 'planned' | 'in_progress' | 'completed' | 'needs_revision';
+
 export type BookDetail = {
   book: BookRecord;
   context: {
@@ -94,6 +105,97 @@ export type BookDetail = {
         antiClicheRules: string[];
         longTermQuestion: string;
       } | null;
+    } | null;
+    titleIdeaContract?: {
+      bookId: string;
+      title: string;
+      idea: string;
+      corePromise: string;
+      titleHooks: string[];
+      forbiddenDrift: string[];
+      createdAt: string;
+      updatedAt: string;
+    } | null;
+    endgamePlan?: {
+      bookId: string;
+      titleIdeaContract: string;
+      protagonistEndState: string;
+      finalConflict: string;
+      finalOpponent: string;
+      worldEndState: string;
+      coreCharacterOutcomes: unknown;
+      majorPayoffs: unknown;
+      createdAt: string;
+      updatedAt: string;
+    } | null;
+    stagePlans?: Array<{
+      stageIndex: number;
+      chapterStart: number;
+      chapterEnd: number;
+      chapterBudget: number;
+      objective: string;
+      primaryResistance: string;
+      pressureCurve: string;
+      escalation: string;
+      climax: string;
+      payoff: string;
+      irreversibleChange: string;
+      nextQuestion: string;
+      titleIdeaFocus: string;
+      compressionTrigger: string;
+      status: PlanStatus | string;
+    }>;
+    arcPlans?: Array<{
+      arcIndex: number;
+      stageIndex: number;
+      chapterStart: number;
+      chapterEnd: number;
+      chapterBudget: number;
+      primaryThreads: unknown;
+      characterTurns: unknown;
+      threadActions: unknown;
+      targetOutcome: string;
+      escalationMode: string;
+      turningPoint: string;
+      requiredPayoff: string;
+      resultingInstability: string;
+      titleIdeaFocus: string;
+      minChapterCount: number;
+      maxChapterCount: number;
+      status: PlanStatus | string;
+    }>;
+    chapterPlans?: Array<{
+      batchIndex: number;
+      chapterIndex: number;
+      arcIndex: number;
+      goal: string;
+      conflict: string;
+      pressureSource: string;
+      changeType: string;
+      threadActions: unknown;
+      reveal: string;
+      payoffOrCost: string;
+      endingHook: string;
+      titleIdeaLink: string;
+      batchGoal: string;
+      requiredPayoffs: unknown;
+      forbiddenDrift: unknown;
+      status: PlanStatus | string;
+    }>;
+    latestStoryStateSnapshot?: {
+      bookId: string;
+      chapterIndex: number;
+      summary: string;
+      titleIdeaAlignment: string;
+      flatnessRisk: string;
+      characterChanges: unknown;
+      relationshipChanges: unknown;
+      worldFacts: unknown;
+      threadUpdates: unknown;
+      unresolvedPromises: unknown;
+      stageProgress: string;
+      remainingChapterBudget: number;
+      createdAt: string;
     } | null;
     chapterCards: Array<{
       volumeIndex: number;
@@ -182,6 +284,9 @@ export type BookDetail = {
     stepLabel?: string | null;
     currentVolume?: number | null;
     currentChapter?: number | null;
+    currentStage?: number | null;
+    currentArc?: number | null;
+    activeTaskType?: PlanningTaskType | string | null;
   } | null;
 };
 

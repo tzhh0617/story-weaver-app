@@ -7,8 +7,11 @@ export const writingProgress = sqliteTable('writing_progress', {
     .references(() => books.id),
   currentVolume: integer('current_volume'),
   currentChapter: integer('current_chapter'),
+  currentStage: integer('current_stage'),
+  currentArc: integer('current_arc'),
   phase: text('phase'),
   stepLabel: text('step_label'),
+  activeTaskType: text('active_task_type'),
   retryCount: integer('retry_count').notNull().default(0),
   errorMsg: text('error_msg'),
 });

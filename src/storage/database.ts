@@ -4,10 +4,13 @@ import { runDrizzleMigrations } from '../db/migrate.js';
 import { createBookRepository } from './books.js';
 import { createChapterAuditRepository } from './chapter-audits.js';
 import { createChapterCardRepository } from './chapter-cards.js';
+import { createChapterPlanRepository } from './chapter-plans.js';
 import { createChapterTensionBudgetRepository } from './chapter-tension-budgets.js';
 import { createChapterRepository } from './chapters.js';
+import { createArcPlanRepository } from './arc-plans.js';
 import { createCharacterArcRepository } from './character-arcs.js';
 import { createCharacterRepository } from './characters.js';
+import { createEndgamePlanRepository } from './endgame-plans.js';
 import { createModelConfigRepository } from './model-configs.js';
 import { createNarrativeCheckpointRepository } from './narrative-checkpoints.js';
 import { createNarrativeThreadRepository } from './narrative-threads.js';
@@ -17,7 +20,10 @@ import { createRelationshipEdgeRepository } from './relationship-edges.js';
 import { createRelationshipStateRepository } from './relationship-states.js';
 import { createSceneRecordRepository } from './scene-records.js';
 import { createSettingsRepository } from './settings.js';
+import { createStagePlanRepository } from './stage-plans.js';
 import { createStoryBibleRepository } from './story-bibles.js';
+import { createStoryStateSnapshotRepository } from './story-state-snapshots.js';
+import { createTitleIdeaContractRepository } from './title-idea-contracts.js';
 import { createVolumePlanRepository } from './volume-plans.js';
 import { createWorldRuleRepository } from './world-rules.js';
 
@@ -51,6 +57,12 @@ export function createRepositories(db: SqliteDatabase) {
     worldRules,
     narrativeThreads,
     volumePlans: createVolumePlanRepository(db),
+    titleIdeaContracts: createTitleIdeaContractRepository(db),
+    endgamePlans: createEndgamePlanRepository(db),
+    stagePlans: createStagePlanRepository(db),
+    arcPlans: createArcPlanRepository(db),
+    chapterPlans: createChapterPlanRepository(db),
+    storyStateSnapshots: createStoryStateSnapshotRepository(db),
     chapterCards: createChapterCardRepository(db),
     chapterTensionBudgets: createChapterTensionBudgetRepository(db),
     chapterAudits: createChapterAuditRepository(db),

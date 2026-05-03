@@ -228,6 +228,121 @@ describe('runtime mock fallback', () => {
     expect(generateText).not.toHaveBeenCalled();
   });
 
+  it('does not expose the same started book in both running and queued scheduler status', async () => {
+    vi.useFakeTimers();
+    const generateText = vi.fn().mockResolvedValue({
+      text: 'should not be used',
+    });
+    const services = await loadRuntimeServices({
+      tempHome,
+      generateTextImpl: generateText,
+      mockDelayMs: 0,
+      mockStreamTokensPerSecond: 100,
+    });
+    const statuses: Array<{
+      runningBookIds: string[];
+      queuedBookIds: string[];
+    }> = [];
+    const unsubscribe = services.subscribeSchedulerStatus((status) => {
+      statuses.push({
+        runningBookIds: status.runningBookIds,
+        queuedBookIds: status.queuedBookIds,
+      });
+    });
+
+    const bookId = services.bookService.createBook({
+      idea: '一个被宗门逐出的少年，意外继承了会吞噬因果的古镜。',
+      targetChapters: 1,
+      wordsPerChapter: 90,
+    });
+
+    const startPromise = services.startBook(bookId);
+    await vi.advanceTimersByTimeAsync(5);
+    await startPromise;
+    await vi.advanceTimersByTimeAsync(50);
+    unsubscribe();
+
+    expect(
+      statuses.some(
+        (status) =>
+          status.runningBookIds.includes(bookId) &&
+          status.queuedBookIds.includes(bookId)
+      )
+    ).toBe(false);
+    expect(statuses).toContainEqual({
+      runningBookIds: [bookId],
+      queuedBookIds: [],
+    });
+    expect(generateText).not.toHaveBeenCalled();
+  });
+
+  it('does not schedule follow-on writing for a batch-started book whose planning fails', async () => {
+    const generateText = vi
+      .fn()
+      .mockResolvedValueOnce({ text: '道侣越多我越无敌' })
+      .mockResolvedValueOnce({
+        text: JSON.stringify({
+          premise: '道侣越多我越无敌。',
+          genreContract: '玄幻升级。',
+          targetReaderExperience: '爽感推进。',
+          themeQuestion: '力量是否必须依赖关系？',
+          themeAnswerDirection: '真正的强大来自选择承担。',
+          centralDramaticQuestion: '主角能否守住本心？',
+          endingState: {
+            protagonistWins: '成为强者。',
+            protagonistLoses: '失去安稳。',
+            worldChange: '宗门格局重洗。',
+            relationshipOutcome: '道侣同盟成形。',
+            themeAnswer: '力量需要责任。',
+          },
+          voiceGuide: '中文网文节奏。',
+        }),
+      });
+    const services = await loadRuntimeServices({
+      tempHome,
+      generateTextImpl: generateText,
+      mockDelayMs: 0,
+    });
+    const logs: Array<{ eventType: string; bookId: string | null }> = [];
+    const unsubscribe = services.subscribeExecutionLogs((log) => {
+      logs.push({
+        eventType: log.eventType,
+        bookId: log.bookId,
+      });
+    });
+
+    services.modelConfigs.save({
+      id: 'openai:gpt-4o-mini',
+      provider: 'openai',
+      modelName: 'gpt-4o-mini',
+      apiKey: 'sk-test',
+      baseUrl: '',
+      config: {},
+    });
+
+    const bookId = services.bookService.createBook({
+      idea: '道侣越多我越无敌。',
+      targetChapters: 1,
+      wordsPerChapter: 2000,
+    });
+
+    await services.startAllBooks();
+    const detail = await waitForBookStatus(services, bookId, 'error');
+    unsubscribe();
+
+    expect(detail?.book.status).toBe('error');
+    expect(
+      logs.filter(
+        (log) => log.bookId === bookId && log.eventType === 'book_started'
+      )
+    ).toHaveLength(1);
+    expect(
+      logs.some(
+        (log) => log.bookId === bookId && log.eventType === 'book_completed'
+      )
+    ).toBe(false);
+  });
+
   it('emits deterministic mock chapter stream events through runtime subscriptions', async () => {
     const generateText = vi.fn().mockResolvedValue({
       text: 'should not be used',

@@ -1,7 +1,19 @@
+export type SchedulerTaskType =
+  | 'book:plan:init'
+  | 'book:plan:rebuild-arc'
+  | 'book:plan:rebuild-chapters'
+  | 'book:write:chapter';
+
 type Runner = {
+  taskKey: string;
   bookId: string;
+  taskType: SchedulerTaskType;
   start: () => Promise<void>;
 };
+
+function isPlanningTask(taskType: SchedulerTaskType) {
+  return taskType.startsWith('book:plan:');
+}
 
 export function createScheduler({
   concurrencyLimit,
@@ -17,35 +29,76 @@ export function createScheduler({
   let currentConcurrencyLimit = concurrencyLimit;
   const runners = new Map<string, Runner>();
   const queue: string[] = [];
-  const running = new Set<string>();
+  const runningTaskKeys = new Set<string>();
+  const runningBooksByTaskKey = new Map<string, string>();
+
+  function enqueueTask(taskKey: string) {
+    if (!queue.includes(taskKey) && !runningTaskKeys.has(taskKey) && runners.has(taskKey)) {
+      queue.push(taskKey);
+    }
+  }
 
   function emitStatus() {
     onStatusChange?.({
-      runningBookIds: [...running],
-      queuedBookIds: [...queue],
+      runningBookIds: [...new Set(runningBooksByTaskKey.values())],
+      queuedBookIds: queue
+        .map((taskKey) => runners.get(taskKey)?.bookId)
+        .filter((bookId): bookId is string => Boolean(bookId)),
       concurrencyLimit: currentConcurrencyLimit,
     });
   }
 
-  function pumpQueue() {
-    const limit = currentConcurrencyLimit ?? runners.size;
+  function isBookRunning(bookId: string) {
+    return [...runningBooksByTaskKey.values()].includes(bookId);
+  }
 
-    while (running.size < limit && queue.length > 0) {
-      const nextBookId = queue.shift();
-      if (!nextBookId) {
+  function sortQueue() {
+    queue.sort((leftTaskKey, rightTaskKey) => {
+      const leftRunner = runners.get(leftTaskKey);
+      const rightRunner = runners.get(rightTaskKey);
+
+      if (!leftRunner || !rightRunner) {
+        return 0;
+      }
+
+      const leftPriority = isPlanningTask(leftRunner.taskType) ? 0 : 1;
+      const rightPriority = isPlanningTask(rightRunner.taskType) ? 0 : 1;
+
+      return leftPriority - rightPriority;
+    });
+  }
+
+  function pumpQueue() {
+    const limit = currentConcurrencyLimit ?? Number.POSITIVE_INFINITY;
+
+    while (runningTaskKeys.size < limit && queue.length > 0) {
+      sortQueue();
+      const nextTaskKeyIndex = queue.findIndex((taskKey) => {
+        const runner = runners.get(taskKey);
+        return runner ? !isBookRunning(runner.bookId) : false;
+      });
+
+      if (nextTaskKeyIndex < 0) {
         break;
       }
 
-      const runner = runners.get(nextBookId);
-      if (!runner || running.has(nextBookId)) {
+      const [nextTaskKey] = queue.splice(nextTaskKeyIndex, 1);
+      if (!nextTaskKey) {
+        break;
+      }
+
+      const runner = runners.get(nextTaskKey);
+      if (!runner || isBookRunning(runner.bookId)) {
         continue;
       }
 
-      running.add(nextBookId);
+      runningTaskKeys.add(nextTaskKey);
+      runningBooksByTaskKey.set(nextTaskKey, runner.bookId);
       emitStatus();
 
       void runner.start().finally(() => {
-        running.delete(nextBookId);
+        runningTaskKeys.delete(nextTaskKey);
+        runningBooksByTaskKey.delete(nextTaskKey);
         emitStatus();
         pumpQueue();
       });
@@ -54,13 +107,13 @@ export function createScheduler({
 
   return {
     register(runner: Runner) {
-      runners.set(runner.bookId, runner);
+      runners.set(runner.taskKey, runner);
     },
 
     async startAll() {
-      for (const bookId of runners.keys()) {
-        if (!queue.includes(bookId) && !running.has(bookId)) {
-          queue.push(bookId);
+      for (const [taskKey] of runners) {
+        if (!queue.includes(taskKey) && !runningTaskKeys.has(taskKey)) {
+          queue.push(taskKey);
         }
       }
 
@@ -68,10 +121,21 @@ export function createScheduler({
       pumpQueue();
     },
 
-    async start(bookId: string) {
-      if (!queue.includes(bookId) && !running.has(bookId) && runners.has(bookId)) {
-        queue.push(bookId);
+    async start(taskKey: string) {
+      const runner = runners.get(taskKey);
+
+      if (runner && !isPlanningTask(runner.taskType)) {
+        for (const siblingRunner of runners.values()) {
+          if (
+            siblingRunner.bookId === runner.bookId &&
+            isPlanningTask(siblingRunner.taskType)
+          ) {
+            enqueueTask(siblingRunner.taskKey);
+          }
+        }
       }
+
+      enqueueTask(taskKey);
 
       emitStatus();
       pumpQueue();
@@ -82,15 +146,28 @@ export function createScheduler({
       emitStatus();
     },
 
-    unregister(bookId: string) {
-      runners.delete(bookId);
+    unregister(taskKeyOrBookId: string) {
+      const taskKeysToRemove = runners.has(taskKeyOrBookId)
+        ? [taskKeyOrBookId]
+        : [...runners.values()]
+            .filter((runner) => runner.bookId === taskKeyOrBookId)
+            .map((runner) => runner.taskKey);
 
-      const queueIndex = queue.indexOf(bookId);
-      if (queueIndex >= 0) {
-        queue.splice(queueIndex, 1);
+      for (const taskKey of taskKeysToRemove) {
+        runners.delete(taskKey);
+        const queueIndex = queue.indexOf(taskKey);
+        if (queueIndex >= 0) {
+          queue.splice(queueIndex, 1);
+        }
       }
 
-      running.delete(bookId);
+      if (taskKeysToRemove.length === 0) {
+        const queueIndex = queue.indexOf(taskKeyOrBookId);
+        if (queueIndex >= 0) {
+          queue.splice(queueIndex, 1);
+        }
+      }
+
       emitStatus();
       pumpQueue();
     },
@@ -103,8 +180,10 @@ export function createScheduler({
 
     getStatus() {
       return {
-        runningBookIds: [...running],
-        queuedBookIds: [...queue],
+        runningBookIds: [...new Set(runningBooksByTaskKey.values())],
+        queuedBookIds: queue
+          .map((taskKey) => runners.get(taskKey)?.bookId)
+          .filter((bookId): bookId is string => Boolean(bookId)),
         concurrencyLimit: currentConcurrencyLimit,
       };
     },

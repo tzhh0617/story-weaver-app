@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createDatabase } from '../../src/storage/database';
+import { createDatabase, createRepositories } from '../../src/storage/database';
 import { createBookRepository } from '../../src/storage/books';
+import { createChapterCardRepository } from '../../src/storage/chapter-cards';
 import { createChapterRepository } from '../../src/storage/chapters';
 
 describe('book repository', () => {
@@ -127,5 +128,383 @@ describe('book repository', () => {
     const chapters = createChapterRepository(db);
 
     expect(chapters.listProgressByBookIds([])).toEqual(new Map());
+  });
+
+  it('round-trips core planning repositories by book', () => {
+    const db = createDatabase(':memory:');
+    const repos = createRepositories(db);
+
+    repos.books.create({
+      id: 'book-planning',
+      title: 'Book Planning',
+      idea: 'A city remembers every promise.',
+      targetChapters: 24,
+      wordsPerChapter: 2500,
+    });
+
+    const titleIdeaContract = {
+      bookId: 'book-planning',
+      title: 'The Promise Archive',
+      idea: 'A city remembers every promise.',
+      corePromise: 'Every bargain leaves a scar.',
+      titleHooks: ['promise', 'archive'],
+      forbiddenDrift: ['cheap amnesia'],
+    };
+    repos.titleIdeaContracts.save(titleIdeaContract);
+    repos.titleIdeaContracts.save({
+      ...titleIdeaContract,
+      corePromise: 'Every bargain leaves a visible scar.',
+      titleHooks: ['promise', 'archive', 'scar'],
+    });
+
+    const endgamePlan = {
+      bookId: 'book-planning',
+      titleIdeaContract: 'The Promise Archive',
+      protagonistEndState: 'She tells the truth publicly.',
+      finalConflict: 'Expose the archive or save her brother.',
+      finalOpponent: 'The city registrar',
+      worldEndState: 'Public memory becomes shared property.',
+      coreCharacterOutcomes: {
+        protagonist: 'Accepts the cost of honesty.',
+        brother: 'Chooses testimony over safety.',
+      },
+      majorPayoffs: ['The missing vow is restored', 'The registrar is unmasked'],
+    };
+    repos.endgamePlans.save(endgamePlan);
+
+    const stagePlan = {
+      stageIndex: 1,
+      chapterStart: 1,
+      chapterEnd: 8,
+      chapterBudget: 8,
+      objective: 'Break the archive seal',
+      primaryResistance: 'The city audits every vow',
+      pressureCurve: 'rising pressure',
+      escalation: 'Her brother gets implicated',
+      climax: 'She opens the forbidden vault',
+      payoff: 'The ledger reveals the first lie',
+      irreversibleChange: 'The city marks her as oathless',
+      nextQuestion: 'Who profited from the erased promise?',
+      titleIdeaFocus: 'Promises have weight',
+      compressionTrigger: 'Compress if the vault trial runs long',
+      status: 'planned',
+    };
+    repos.stagePlans.upsertMany('book-planning', [stagePlan]);
+
+    const arcPlan = {
+      arcIndex: 1,
+      stageIndex: 1,
+      chapterStart: 1,
+      chapterEnd: 4,
+      chapterBudget: 4,
+      primaryThreads: ['ledger mystery'],
+      characterTurns: [{ characterId: 'hero', turn: 'admits her first lie' }],
+      threadActions: [{ threadId: 'ledger', action: 'plant' }],
+      targetOutcome: 'She commits to opening the archive.',
+      escalationMode: 'tightening',
+      turningPoint: 'Her brother is named in the record.',
+      requiredPayoff: 'The key answers to blood vows.',
+      resultingInstability: 'The family is exposed.',
+      titleIdeaFocus: 'Inherited promises',
+      minChapterCount: 3,
+      maxChapterCount: 5,
+      status: 'planned',
+    };
+    repos.arcPlans.upsertMany('book-planning', [arcPlan]);
+
+    const chapterPlan = {
+      batchIndex: 1,
+      chapterIndex: 3,
+      arcIndex: 1,
+      goal: 'Steal the ledger key.',
+      conflict: 'The vault can read her old promises.',
+      pressureSource: 'Her guilt over her brother.',
+      changeType: 'trust fracture',
+      threadActions: [{ threadId: 'ledger', action: 'advance' }],
+      reveal: 'The key responds to blood vows.',
+      payoffOrCost: 'She burns her last private memory.',
+      endingHook: 'The vault opens to her mother’s voice.',
+      titleIdeaLink: 'Promises have weight.',
+      batchGoal: 'Break into the archive',
+      requiredPayoffs: ['ledger clue'],
+      forbiddenDrift: ['easy win'],
+      status: 'planned',
+    };
+    repos.chapterPlans.upsertMany('book-planning', [chapterPlan]);
+    repos.chapterPlans.upsertMany('book-planning', [
+      {
+        ...chapterPlan,
+        reveal: 'The key responds only after she confesses a broken vow.',
+        requiredPayoffs: ['ledger clue', 'confession cost'],
+      },
+    ]);
+
+    const snapshot = {
+      bookId: 'book-planning',
+      chapterIndex: 3,
+      summary: 'She gets the key but loses a memory.',
+      titleIdeaAlignment: 'strong',
+      flatnessRisk: 'medium',
+      characterChanges: [{ characterId: 'hero', change: 'accepts the cost' }],
+      relationshipChanges: [{ relationshipId: 'hero-brother', change: 'trust drops' }],
+      worldFacts: ['Blood vows can unlock sealed memory vaults.'],
+      threadUpdates: [{ threadId: 'ledger', update: 'advanced to reveal' }],
+      unresolvedPromises: ['Who forged the erased vow?'],
+      stageProgress: 'midpoint complete',
+      remainingChapterBudget: 21,
+    };
+    repos.storyStateSnapshots.save(snapshot);
+
+    expect(repos.titleIdeaContracts.getByBook('book-planning')).toEqual({
+      ...titleIdeaContract,
+      corePromise: 'Every bargain leaves a visible scar.',
+      titleHooks: ['promise', 'archive', 'scar'],
+      createdAt: expect.any(String),
+      updatedAt: expect.any(String),
+    });
+    expect(repos.endgamePlans.getByBook('book-planning')).toEqual({
+      ...endgamePlan,
+      createdAt: expect.any(String),
+      updatedAt: expect.any(String),
+    });
+    expect(repos.stagePlans.listByBook('book-planning')).toEqual([stagePlan]);
+    expect(repos.arcPlans.listByBook('book-planning')).toEqual([arcPlan]);
+    expect(repos.chapterPlans.listByBook('book-planning')).toEqual([
+      {
+        ...chapterPlan,
+        reveal: 'The key responds only after she confesses a broken vow.',
+        requiredPayoffs: ['ledger clue', 'confession cost'],
+      },
+    ]);
+    expect(repos.storyStateSnapshots.getLatestByBook('book-planning')).toEqual({
+      ...snapshot,
+      createdAt: expect.any(String),
+    });
+
+    expect(repos.storyBibles.getByBook('book-planning')).toMatchObject({
+      premise: 'A city remembers every promise.',
+      themeAnswerDirection: 'Every bargain leaves a visible scar.',
+      centralDramaticQuestion: 'The Promise Archive',
+      endingState: {
+        protagonistWins: 'She tells the truth publicly.',
+        protagonistLoses: 'Expose the archive or save her brother.',
+        worldChange: 'Public memory becomes shared property.',
+        relationshipOutcome: 'The city registrar',
+        themeAnswer: 'Every bargain leaves a visible scar.',
+      },
+    });
+    expect(repos.volumePlans.listByBook('book-planning')).toEqual([
+      {
+        volumeIndex: 1,
+        title: 'Break the archive seal',
+        chapterStart: 1,
+        chapterEnd: 8,
+        roleInStory: 'rising pressure',
+        mainPressure: 'The city audits every vow',
+        promisedPayoff: 'The ledger reveals the first lie',
+        characterArcMovement: 'Her brother gets implicated',
+        relationshipMovement: 'The city marks her as oathless',
+        worldExpansion: 'Who profited from the erased promise?',
+        endingTurn: 'She opens the forbidden vault',
+      },
+    ]);
+    expect(repos.chapterCards.listByBook('book-planning')).toEqual([
+      expect.objectContaining({
+        bookId: 'book-planning',
+        volumeIndex: 1,
+        chapterIndex: 3,
+        title: 'Break into the archive',
+        povCharacterId: null,
+        worldRuleUsedOrTested: 'Promises have weight.',
+        informationReveal: 'The key responds only after she confesses a broken vow.',
+        readerReward: 'ledger clue',
+        forbiddenMoves: ['easy win'],
+      }),
+    ]);
+  });
+
+  it('deletes legacy narrative tables before removing the book row', () => {
+    const db = createDatabase(':memory:');
+    const repo = createBookRepository(db);
+
+    repo.create({
+      id: 'book-cleanup',
+      title: 'Cleanup Book',
+      idea: 'A city remembers every promise.',
+      targetChapters: 3,
+      wordsPerChapter: 2500,
+    });
+
+    db.prepare(
+      `
+        INSERT INTO character_arcs (
+          id, book_id, name, role_type, desire, fear, flaw, misbelief,
+          wound, external_goal, internal_need, arc_direction, decision_logic,
+          line_will_not_cross, line_may_eventually_cross, current_arc_phase
+        ) VALUES (
+          'arc-1', 'book-cleanup', 'Lin Mu', 'protagonist', 'Win', 'Lose', 'Doubt',
+          'He is alone', NULL, 'Solve the case', 'Trust others', 'growth',
+          'Protect the innocent', NULL, NULL, 'setup'
+        )
+      `
+    ).run();
+    db.prepare(
+      `
+        INSERT INTO relationship_edges (
+          id, book_id, from_character_id, to_character_id, visible_label,
+          hidden_truth, dependency, debt, misunderstanding, affection, harm_pattern,
+          shared_goal, value_conflict, trust_level, tension_level, current_state,
+          planned_turns_json
+        ) VALUES (
+          'rel-1', 'book-cleanup', 'lin-mu', 'ally', 'allies',
+          NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 1, 1, 'fragile', '[]'
+        )
+      `
+    ).run();
+    db.prepare(
+      `
+        INSERT INTO world_rules (
+          id, book_id, category, rule_text, cost, who_benefits, who_suffers,
+          taboo, violation_consequence, allowed_exception, current_status
+        ) VALUES (
+          'rule-1', 'book-cleanup', 'law', 'Memory has a price.', 'A year of life.',
+          NULL, NULL, NULL, NULL, NULL, 'active'
+        )
+      `
+    ).run();
+    db.prepare(
+      `
+        INSERT INTO narrative_threads (
+          id, book_id, type, promise, planted_at, expected_payoff, resolved_at,
+          current_state, importance, payoff_must_change, owner_character_id,
+          related_relationship_id, notes
+        ) VALUES (
+          'thread-1', 'book-cleanup', 'main', 'Who erased the record?', 1, 3, NULL,
+          'open', 'critical', 'plot', NULL, NULL, NULL
+        )
+      `
+    ).run();
+    db.prepare(
+      `
+        INSERT INTO chapter_thread_actions (
+          book_id, volume_index, chapter_index, thread_id, action, required_effect
+        ) VALUES (
+          'book-cleanup', 1, 1, 'thread-1', 'plant', 'Seed the mystery.'
+        )
+      `
+    ).run();
+    db.prepare(
+      `
+        INSERT INTO chapter_character_pressures (
+          book_id, volume_index, chapter_index, character_id,
+          desire_pressure, fear_pressure, flaw_trigger, expected_choice
+        ) VALUES (
+          'book-cleanup', 1, 1, 'lin-mu',
+          'Protect the clue.', 'Losing family memory.', 'Acts alone.', 'Ask for help.'
+        )
+      `
+    ).run();
+    db.prepare(
+      `
+        INSERT INTO chapter_relationship_actions (
+          book_id, volume_index, chapter_index, relationship_id, action, required_change
+        ) VALUES (
+          'book-cleanup', 1, 1, 'rel-1', 'deepen', 'Trust begins to grow.'
+        )
+      `
+    ).run();
+    db.prepare(
+      `
+        INSERT INTO chapter_tension_budgets (
+          book_id, volume_index, chapter_index, pressure_level, dominant_tension,
+          required_turn, forced_choice, cost_to_pay, irreversible_change,
+          reader_question, hook_pressure, flatness_risks_json
+        ) VALUES (
+          'book-cleanup', 1, 1, 'high', 'mystery', 'Find the clue.', 'Reveal or hide.',
+          'Lose the ally.', 'The case turns public.', 'Who changed the record?',
+          'The clue burns.', '[]'
+        )
+      `
+    ).run();
+
+    expect(() => repo.delete('book-cleanup')).not.toThrow();
+    expect(repo.getById('book-cleanup')).toBeUndefined();
+
+    for (const table of [
+      'character_arcs',
+      'relationship_edges',
+      'world_rules',
+      'narrative_threads',
+      'chapter_thread_actions',
+      'chapter_character_pressures',
+      'chapter_relationship_actions',
+      'chapter_tension_budgets',
+    ]) {
+      const row = db.prepare(`SELECT COUNT(*) AS count FROM ${table} WHERE book_id = ?`).get('book-cleanup') as {
+        count: number;
+      };
+      expect(row.count).toBe(0);
+    }
+  });
+
+  it('preserves rich chapter-card bridge data while updating outline text on later outline save', () => {
+    const db = createDatabase(':memory:');
+    const books = createBookRepository(db);
+    const chapterCards = createChapterCardRepository(db);
+    const chapters = createChapterRepository(db);
+
+    books.create({
+      id: 'book-bridge',
+      title: 'Bridge Book',
+      idea: 'A city remembers every promise.',
+      targetChapters: 1,
+      wordsPerChapter: 2500,
+    });
+
+    chapterCards.upsert({
+      bookId: 'book-bridge',
+      volumeIndex: 2,
+      chapterIndex: 1,
+      title: 'Old Ledger',
+      plotFunction: 'Lin Mu discovers the ledger reacts to his blood.',
+      povCharacterId: 'lin-mu',
+      externalConflict: 'The magistrate demands the ledger immediately.',
+      internalConflict: 'He wants to hide the truth but needs help.',
+      relationshipChange: 'He reluctantly trusts his ally.',
+      worldRuleUsedOrTested: 'blood-ledger',
+      informationReveal: 'The ledger consumes memories for power.',
+      readerReward: 'truth',
+      endingHook: 'The missing family name reappears in ash.',
+      mustChange: 'Lin Mu stops running and starts investigating.',
+      forbiddenMoves: ['Do not reveal the mastermind yet.'],
+    });
+
+    chapters.upsertOutline({
+      bookId: 'book-bridge',
+      volumeIndex: 2,
+      chapterIndex: 1,
+      title: 'Old Ledger',
+      outline: 'A simple fallback outline',
+    });
+
+    expect(chapterCards.listByBook('book-bridge')).toEqual([
+      expect.objectContaining({
+        externalConflict: 'The magistrate demands the ledger immediately.',
+        internalConflict: 'He wants to hide the truth but needs help.',
+        relationshipChange: 'He reluctantly trusts his ally.',
+        readerReward: 'truth',
+        endingHook: 'The missing family name reappears in ash.',
+        mustChange: 'Lin Mu stops running and starts investigating.',
+        plotFunction: 'A simple fallback outline',
+        title: 'Old Ledger',
+      }),
+    ]);
+
+    expect(chapters.listByBook('book-bridge')).toEqual([
+      expect.objectContaining({
+        title: 'Old Ledger',
+        outline: 'A simple fallback outline',
+      }),
+    ]);
   });
 });

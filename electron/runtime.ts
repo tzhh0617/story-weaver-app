@@ -7,8 +7,10 @@ import {
   shouldRewriteShortChapter,
 } from '../src/core/chapter-review.js';
 import { createBookService } from '../src/core/book-service.js';
-import { createNovelEngine } from '../src/core/engine.js';
-import { createScheduler } from '../src/core/scheduler.js';
+import {
+  createScheduler,
+  type SchedulerTaskType,
+} from '../src/core/scheduler.js';
 import { buildAppPaths } from '../src/shared/paths.js';
 import { createDatabase, createRepositories } from '../src/storage/database.js';
 import { createModelConfigRepository } from '../src/storage/model-configs.js';
@@ -121,7 +123,6 @@ export function getRuntimeServices() {
   const bookGenerationListeners = new Set<
     (event: BookGenerationEvent) => void
   >();
-  const runningBookIds = new Set<string>();
   let bookService!: ReturnType<typeof createBookService>;
 
   function getBookSnapshot(bookId: string) {
@@ -156,8 +157,14 @@ export function getRuntimeServices() {
   }
 
   function classifyProgressEvent(event: Extract<BookGenerationEvent, { type: 'progress' }>) {
+    if (/重写第 \d+ 章/.test(event.stepLabel)) {
+      return 'chapter_rewriting';
+    }
     if (event.phase === 'naming_title') {
       return 'book_title_generation';
+    }
+    if (event.phase === 'planning_init') {
+      return 'planning_initialization';
     }
     if (event.phase === 'building_world') {
       return 'story_world_planning';
@@ -165,8 +172,17 @@ export function getRuntimeServices() {
     if (event.phase === 'building_outline') {
       return 'story_outline_planning';
     }
+    if (event.phase === 'planning_arc') {
+      return 'arc_planning';
+    }
     if (event.phase === 'planning_chapters') {
       return 'chapter_planning';
+    }
+    if (event.phase === 'planning_recheck') {
+      return 'chapter_replanning';
+    }
+    if (event.phase === 'writing') {
+      return 'chapter_writing';
     }
     if (event.phase === 'auditing_chapter') {
       return 'chapter_auditing';
@@ -182,9 +198,6 @@ export function getRuntimeServices() {
     }
     if (event.phase === 'checkpoint_review') {
       return 'narrative_checkpoint';
-    }
-    if (/重写第 \d+ 章/.test(event.stepLabel)) {
-      return 'chapter_rewriting';
     }
     if (/写第 \d+ 章/.test(event.stepLabel)) {
       return 'chapter_writing';
@@ -235,8 +248,26 @@ export function getRuntimeServices() {
 
   function currentSchedulerStatus() {
     const schedulerStatus = scheduler.getStatus();
+    const activeRunningBookIds = bookService
+      .listBooks()
+      .filter(
+        (book) =>
+          schedulerStatus.runningBookIds.includes(book.id) &&
+          book.status !== 'paused' &&
+          book.status !== 'completed' &&
+          book.status !== 'error'
+      )
+      .map((book) => book.id);
+    const runningBookIds = [...new Set(activeRunningBookIds)];
+    const runningBookIdSet = new Set(runningBookIds);
+    const queuedBookIds = [...new Set(schedulerStatus.queuedBookIds)].filter(
+      (bookId) => !runningBookIdSet.has(bookId)
+    );
+
     return {
       ...schedulerStatus,
+      runningBookIds,
+      queuedBookIds,
       pausedBookIds: bookService
         .listBooks()
         .filter((book) => book.status === 'paused')
@@ -268,18 +299,56 @@ export function getRuntimeServices() {
     },
   });
 
-  function createEngineForBook(bookId: string) {
-    return createNovelEngine({
+  function taskKeysForBook(bookId: string) {
+    return {
+      planning: `book:${bookId}:plan`,
+      writing: `book:${bookId}:write`,
+    };
+  }
+
+  function inferPlanningTaskType(bookId: string): SchedulerTaskType {
+    const currentProgress = progress.getByBookId(bookId);
+    const activeTaskType = currentProgress?.activeTaskType;
+
+    if (
+      activeTaskType === 'book:plan:init' ||
+      activeTaskType === 'book:plan:rebuild-arc' ||
+      activeTaskType === 'book:plan:rebuild-chapters'
+    ) {
+      return activeTaskType;
+    }
+
+    if (currentProgress?.phase === 'planning_arc') {
+      return 'book:plan:rebuild-arc';
+    }
+
+    if (
+      currentProgress?.phase === 'planning_chapters' ||
+      currentProgress?.phase === 'planning_recheck'
+    ) {
+      return 'book:plan:rebuild-chapters';
+    }
+
+    return 'book:plan:init';
+  }
+
+  function registerRuntimeTasks(bookId: string) {
+    const taskKeys = taskKeysForBook(bookId);
+
+    scheduler.register({
+      taskKey: taskKeys.planning,
       bookId,
-      buildOutline: async (id) => {
-        await bookService.startBook(id);
-      },
-      continueWriting: async (id) => bookService.writeRemainingChapters(id),
-      isBookActive: (id) => bookService.getBookDetail(id) !== null,
-      repositories: {
-        progress,
-      },
+      taskType: inferPlanningTaskType(bookId),
+      start: async () => runPlanningTask(bookId),
     });
+    scheduler.register({
+      taskKey: taskKeys.writing,
+      bookId,
+      taskType: 'book:write:chapter',
+      start: async () => runWritingTask(bookId),
+    });
+
+    return taskKeys;
   }
 
   function markBookErrored(bookId: string, error: unknown) {
@@ -309,20 +378,67 @@ export function getRuntimeServices() {
     emitSchedulerStatus();
   }
 
-  async function runBook(bookId: string) {
-    runningBookIds.add(bookId);
+  async function queueWritingTaskAfterPlanning(bookId: string) {
+    const taskKeys = taskKeysForBook(bookId);
+
+    queueMicrotask(() => {
+      const detail = bookService.getBookDetail(bookId);
+      if (!detail) {
+        return;
+      }
+
+      if (
+        detail.book.status === 'paused' ||
+        detail.book.status === 'completed' ||
+        detail.book.status === 'error'
+      ) {
+        return;
+      }
+
+      void scheduler.start(taskKeys.writing).catch((error) => {
+        markBookErrored(bookId, error);
+      });
+    });
+  }
+
+  async function runPlanningTask(bookId: string) {
     try {
       logExecution({
         bookId,
         level: 'info',
         eventType: 'book_started',
-        phase: 'building_world',
-        message: '开始后台执行作品',
+        phase: 'planning_init',
+        message: '开始后台规划作品',
       });
-      await createEngineForBook(bookId).start();
+      await bookService.startBook(bookId);
 
-      const book = books.getById(bookId);
-      if (book?.status === 'completed') {
+      const detail = bookService.getBookDetail(bookId);
+      if (!detail) {
+        return;
+      }
+
+      if (detail.book.status === 'paused' || detail.book.status === 'error') {
+        return;
+      }
+
+      await queueWritingTaskAfterPlanning(bookId);
+    } catch (error) {
+      markBookErrored(bookId, error);
+    }
+  }
+
+  async function runWritingTask(bookId: string) {
+    try {
+      logExecution({
+        bookId,
+        level: 'info',
+        eventType: 'book_started',
+        phase: 'writing',
+        message: '开始后台写作作品',
+      });
+      const result = await bookService.writeRemainingChapters(bookId);
+
+      if (result.status === 'completed') {
         logExecution({
           bookId,
           level: 'success',
@@ -333,8 +449,6 @@ export function getRuntimeServices() {
       }
     } catch (error) {
       markBookErrored(bookId, error);
-    } finally {
-      runningBookIds.delete(bookId);
     }
   }
 
@@ -401,11 +515,8 @@ export function getRuntimeServices() {
         eventType: 'book_queued',
         message: '作品已加入后台执行队列',
       });
-      scheduler.register({
-        bookId,
-        start: async () => runBook(bookId),
-      });
-      await scheduler.start(bookId);
+      const taskKeys = registerRuntimeTasks(bookId);
+      await scheduler.start(taskKeys.planning);
     },
     pauseBook: (bookId: string) => {
       bookService.pauseBook(bookId);
@@ -551,6 +662,7 @@ export function getRuntimeServices() {
       const runnableBooks = bookService
         .listBooks()
         .filter((book) => book.status !== 'completed');
+      const planningTaskKeys: string[] = [];
 
       logExecution({
         level: 'info',
@@ -565,13 +677,13 @@ export function getRuntimeServices() {
           eventType: 'book_queued',
           message: '作品已加入后台执行队列',
         });
-        scheduler.register({
-          bookId: book.id,
-          start: async () => runBook(book.id),
-        });
+        const taskKeys = registerRuntimeTasks(book.id);
+        planningTaskKeys.push(taskKeys.planning);
       }
 
-      await scheduler.startAll();
+      await Promise.all(
+        planningTaskKeys.map((taskKey) => scheduler.start(taskKey))
+      );
     },
     pauseAllBooks: async () => {
       scheduler.pauseAll();
