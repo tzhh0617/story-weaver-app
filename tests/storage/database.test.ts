@@ -85,4 +85,82 @@ describe('createDatabase', () => {
     migrated.close();
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
+
+  it('upgrades a pre-0002 database with autopilot control-plane schema', () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'story-weaver-migrate-'));
+    const dbPath = path.join(tempDir, 'upgrade-0002.sqlite');
+    const sqlite = createSqliteConnection(dbPath);
+
+    sqlite.exec(`
+      CREATE TABLE books (
+        id text PRIMARY KEY NOT NULL,
+        title text NOT NULL,
+        idea text NOT NULL,
+        status text NOT NULL DEFAULT 'creating',
+        model_id text NOT NULL,
+        target_chapters integer NOT NULL,
+        words_per_chapter integer NOT NULL,
+        viral_strategy_json text,
+        created_at text NOT NULL,
+        updated_at text NOT NULL
+      );
+      CREATE TABLE writing_progress (
+        book_id text PRIMARY KEY NOT NULL,
+        current_volume integer,
+        current_chapter integer,
+        phase text,
+        step_label text,
+        retry_count integer DEFAULT 0 NOT NULL,
+        error_msg text,
+        current_stage integer,
+        current_arc integer,
+        active_task_type text,
+        FOREIGN KEY (book_id) REFERENCES books(id) ON UPDATE no action ON DELETE no action
+      );
+      CREATE TABLE __drizzle_migrations (
+        id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+        hash text NOT NULL,
+        created_at numeric
+      );
+    `);
+    sqlite
+      .prepare(
+        'INSERT INTO __drizzle_migrations (hash, created_at) VALUES (?, ?)'
+      )
+      .run(
+        'df87cbdfc24e6e765f9a4366511404a0972ed6dc',
+        1777777056820
+      );
+    sqlite.close();
+
+    const migrated = runDrizzleMigrations(dbPath);
+    const tableRows = migrated
+      .prepare("SELECT name FROM sqlite_master WHERE type = 'table'")
+      .all() as Array<{ name: string }>;
+    const tableNames = tableRows.map((row) => row.name);
+    const columns = migrated
+      .prepare("PRAGMA table_info('writing_progress')")
+      .all() as Array<{ name: string }>;
+    const columnNames = columns.map((column) => column.name);
+
+    expect(tableNames).toEqual(
+      expect.arrayContaining([
+        'book_contracts',
+        'story_ledgers',
+        'story_events',
+        'story_checkpoints',
+      ])
+    );
+    expect(columnNames).toEqual(
+      expect.arrayContaining([
+        'drift_level',
+        'last_healthy_checkpoint_chapter',
+        'cooldown_until',
+        'starvation_score',
+      ])
+    );
+
+    migrated.close();
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
 });

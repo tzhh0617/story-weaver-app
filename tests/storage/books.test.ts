@@ -447,6 +447,89 @@ describe('book repository', () => {
     }
   });
 
+  it('deletes autopilot control-plane tables before removing the book row', () => {
+    const db = createDatabase(':memory:');
+    const repo = createBookRepository(db);
+
+    repo.create({
+      id: 'book-autopilot-cleanup',
+      title: 'Autopilot Cleanup',
+      idea: 'A city remembers every promise.',
+      targetChapters: 3,
+      wordsPerChapter: 2500,
+    });
+
+    db.prepare(
+      `
+        INSERT INTO book_contracts (
+          book_id, title_promise, core_premise, mainline_promise,
+          protagonist_core_desire, protagonist_no_drift_rules_json,
+          key_character_boundaries_json, mandatory_payoffs_json,
+          anti_drift_rules_json, active_template, created_at, updated_at
+        ) VALUES (
+          'book-autopilot-cleanup', 'A vow will be kept.', 'A city prices memory.',
+          'Track the erased promise.', 'Protect her family name.',
+          '["Do not abandon the case"]', '["Never betray her brother"]',
+          '["The erased promise returns"]', '["No easy absolution"]',
+          'ultra-longform-v1', '2026-05-03T00:00:00.000Z', '2026-05-03T00:00:00.000Z'
+        )
+      `
+    ).run();
+    db.prepare(
+      `
+        INSERT INTO story_ledgers (
+          book_id, chapter_index, mainline_progress, active_subplots_json,
+          open_promises_json, character_truths_json, relationship_deltas_json,
+          world_facts_json, rhythm_position, risk_flags_json, created_at
+        ) VALUES (
+          'book-autopilot-cleanup', 1, 'The hunt begins.', '["family debt"]',
+          '["Who erased the promise?"]', '["She still hides the first lie"]',
+          '["Brother trust drops"]', '["Memories can be bartered"]',
+          'setup', '["drift-risk-low"]', '2026-05-03T00:00:00.000Z'
+        )
+      `
+    ).run();
+    db.prepare(
+      `
+        INSERT INTO story_events (
+          id, book_id, chapter_index, event_type, summary, affected_ids_json,
+          irreversible, created_at
+        ) VALUES (
+          'event-1', 'book-autopilot-cleanup', 1, 'reveal',
+          'The erased promise resurfaces.', '["hero","brother"]', 1,
+          '2026-05-03T00:00:00.000Z'
+        )
+      `
+    ).run();
+    db.prepare(
+      `
+        INSERT INTO story_checkpoints (
+          book_id, chapter_index, checkpoint_type, contract_digest,
+          plan_digest, ledger_digest_json, created_at
+        ) VALUES (
+          'book-autopilot-cleanup', 1, 'healthy', 'contract-v1',
+          'plan-v1', '{"mainline":"The hunt begins."}',
+          '2026-05-03T00:00:00.000Z'
+        )
+      `
+    ).run();
+
+    expect(() => repo.delete('book-autopilot-cleanup')).not.toThrow();
+    expect(repo.getById('book-autopilot-cleanup')).toBeUndefined();
+
+    for (const table of [
+      'book_contracts',
+      'story_ledgers',
+      'story_events',
+      'story_checkpoints',
+    ]) {
+      const row = db.prepare(`SELECT COUNT(*) AS count FROM ${table} WHERE book_id = ?`).get(
+        'book-autopilot-cleanup'
+      ) as { count: number };
+      expect(row.count).toBe(0);
+    }
+  });
+
   it('preserves rich chapter-card bridge data while updating outline text on later outline save', () => {
     const db = createDatabase(':memory:');
     const books = createBookRepository(db);
