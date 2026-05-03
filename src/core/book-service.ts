@@ -40,6 +40,7 @@ import type {
   NarrativeAudit,
   NarrativeStateDelta,
   RelationshipStateInput,
+  IntegrityReport,
   ViralStoryProtocol,
 } from './narrative/types.js';
 import {
@@ -128,6 +129,16 @@ type ChapterUpdate = {
 
 function hasUsableChapterUpdate(update: ChapterUpdate) {
   return update.summary.trim().length > 0;
+}
+
+function allowsIntegrityCommit(report: IntegrityReport | null | undefined) {
+  if (!report) {
+    return true;
+  }
+
+  return (
+    report.repairAction === 'continue' || report.repairAction === 'patch_scene'
+  );
 }
 
 function calculateFlatnessScore(scoring: NarrativeAudit['scoring']) {
@@ -991,6 +1002,19 @@ export function createBookService(deps: {
       content: string;
     }) => Promise<ChapterUpdate>;
   };
+  chapterIntegrityChecker?: {
+    inspectChapter: (input: {
+      bookId: string;
+      volumeIndex: number;
+      chapterIndex: number;
+      chapterTitle: string;
+      chapterOutline: string;
+      content: string;
+      summary: string;
+      auditScore: number | null;
+      draftAttempts: number;
+    }) => Promise<IntegrityReport>;
+  };
   shouldRewriteShortChapter?: (input: {
     content: string;
     wordsPerChapter: number;
@@ -1173,6 +1197,35 @@ export function createBookService(deps: {
       stepLabel: `已到达 ${milestone} 章里程碑，等待后续重规划`,
       activeTaskType: 'book:plan:rebuild-chapters',
     });
+  }
+
+  function routeChapterToReplanning(input: {
+    bookId: string;
+    volumeIndex: number;
+    chapterIndex: number;
+    integrityReport: IntegrityReport;
+  }) {
+    const rebuildWindow =
+      input.integrityReport.repairAction === 'rebuild_chapter_window';
+    const stepLabel = rebuildWindow
+      ? `第 ${input.chapterIndex} 章完整性偏移，正在重建章节窗口`
+      : `第 ${input.chapterIndex} 章完整性偏移，正在升级重规划`;
+
+    deps.books.updateStatus(input.bookId, 'writing');
+    deps.progress.updatePhase(input.bookId, 'planning_recheck', {
+      currentVolume: input.volumeIndex,
+      currentChapter: input.chapterIndex,
+      stepLabel,
+      activeTaskType: 'book:plan:rebuild-chapters',
+    });
+    emitProgress({
+      bookId: input.bookId,
+      phase: 'planning_recheck',
+      stepLabel,
+      currentVolume: input.volumeIndex,
+      currentChapter: input.chapterIndex,
+    });
+    deps.onBookUpdated?.(input.bookId);
   }
 
   return {
@@ -1950,10 +2003,37 @@ export function createBookService(deps: {
         content: result.content,
         deps,
       });
+      const integrityReport = deps.chapterIntegrityChecker
+        ? await deps.chapterIntegrityChecker.inspectChapter({
+            bookId,
+            volumeIndex: nextChapter.volumeIndex,
+            chapterIndex: nextChapter.chapterIndex,
+            chapterTitle: nextChapterTitle,
+            chapterOutline: nextChapterOutline,
+            content: result.content,
+            summary: chapterUpdate.summary,
+            auditScore,
+            draftAttempts,
+          })
+        : null;
 
       if (!deps.books.getById(bookId)) {
         return {
           deleted: true as const,
+        };
+      }
+
+      if (!allowsIntegrityCommit(integrityReport)) {
+        routeChapterToReplanning({
+          bookId,
+          volumeIndex: nextChapter.volumeIndex,
+          chapterIndex: nextChapter.chapterIndex,
+          integrityReport,
+        });
+
+        return {
+          replanning: true as const,
+          integrityReport,
         };
       }
 
@@ -2228,6 +2308,12 @@ export function createBookService(deps: {
           return {
             completedChapters,
             status: 'paused' as const,
+          };
+        }
+        if ('replanning' in result && result.replanning) {
+          return {
+            completedChapters,
+            status: 'replanning' as const,
           };
         }
 

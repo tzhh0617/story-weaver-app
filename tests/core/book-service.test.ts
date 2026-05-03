@@ -9,6 +9,7 @@ import { createPlotThreadRepository } from '../../src/storage/plot-threads';
 import { createProgressRepository } from '../../src/storage/progress';
 import { createSceneRecordRepository } from '../../src/storage/scene-records';
 import { createBookService } from '../../src/core/book-service';
+import { buildIntegrityReport } from '../../src/core/narrative/integrity';
 import { countStoryCharacters } from '../../src/core/story-constraints';
 import type { BookGenerationEvent } from '../../src/shared/contracts';
 
@@ -1960,6 +1961,91 @@ describe('createBookService', () => {
     expect(writeChapter.mock.calls[1]?.[0].prompt).not.toContain('太短');
     expect(chapter?.content).toBe('第二稿补足了场景、冲突和情绪推进。');
     expect(chapter?.summary).toBe('第二稿补足了场景、冲突和情绪推进。');
+  });
+
+  it('does not commit a chapter when integrity requests rebuilding the chapter window', async () => {
+    const db = createDatabase(':memory:');
+    const chapters = createChapterRepository(db);
+    const saveContentSpy = vi.spyOn(chapters, 'saveContent');
+    const progress = createProgressRepository(db);
+    const service = createBookService({
+      books: createBookRepository(db),
+      chapters,
+      characters: createCharacterRepository(db),
+      plotThreads: createPlotThreadRepository(db),
+      sceneRecords: createSceneRecordRepository(db),
+      progress,
+      outlineService: {
+        generateFromIdea: vi.fn().mockResolvedValue({
+          worldSetting: 'World rules',
+          masterOutline: 'Master outline',
+          volumeOutlines: ['Volume 1'],
+          chapterOutlines: [
+            {
+              volumeIndex: 1,
+              chapterIndex: 1,
+              title: 'Chapter 1',
+              outline: 'Opening conflict',
+            },
+          ],
+        }),
+      },
+      chapterWriter: {
+        writeChapter: vi.fn().mockResolvedValue({
+          content: 'Generated chapter content',
+          usage: { inputTokens: 100, outputTokens: 300 },
+        }),
+      },
+      summaryGenerator: {
+        summarizeChapter: vi.fn().mockResolvedValue('Chapter summary'),
+      },
+      plotThreadExtractor: {
+        extractThreads: vi.fn().mockResolvedValue({
+          openedThreads: [],
+          resolvedThreadIds: [],
+        }),
+      },
+      characterStateExtractor: {
+        extractStates: vi.fn().mockResolvedValue([]),
+      },
+      sceneRecordExtractor: {
+        extractScene: vi.fn().mockResolvedValue(null),
+      },
+      chapterIntegrityChecker: {
+        inspectChapter: vi.fn().mockResolvedValue(
+          buildIntegrityReport({
+            mainlineProblems: ['Mainline goal regressed.'],
+            payoffProblems: ['Setup payoff timing slipped.'],
+          })
+        ),
+      },
+    });
+
+    const bookId = service.createBook({
+      idea: 'The moon taxes miracles.',
+      modelId: 'openai:gpt-4o-mini',
+      targetChapters: 1,
+      wordsPerChapter: 2500,
+    });
+
+    await service.startBook(bookId);
+    await service.writeNextChapter(bookId);
+
+    expect(saveContentSpy).not.toHaveBeenCalled();
+    expect(service.getBookDetail(bookId)?.chapters[0]).toEqual(
+      expect.objectContaining({
+        title: 'Chapter 1',
+        content: null,
+        summary: null,
+      })
+    );
+    expect(progress.getByBookId(bookId)).toEqual(
+      expect.objectContaining({
+        phase: 'planning_recheck',
+        currentChapter: 1,
+        activeTaskType: 'book:plan:rebuild-chapters',
+      })
+    );
   });
 
   it('skips short-chapter rewrite when using a mock model id', async () => {
