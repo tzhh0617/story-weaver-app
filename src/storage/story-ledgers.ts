@@ -3,6 +3,13 @@ import type { Database as SqliteDatabase } from 'better-sqlite3';
 import { createDrizzleDb } from '../db/client.js';
 import { storyLedgers } from '../db/schema/index.js';
 
+export type StoryRhythmPosition =
+  | 'setup'
+  | 'escalation'
+  | 'payoff'
+  | 'twist'
+  | 'cost';
+
 export type StoryLedger = {
   bookId: string;
   chapterIndex: number;
@@ -12,7 +19,7 @@ export type StoryLedger = {
   characterTruths: unknown;
   relationshipDeltas: unknown;
   worldFacts: unknown;
-  rhythmPosition: string;
+  rhythmPosition: StoryRhythmPosition;
   riskFlags: unknown;
 };
 
@@ -84,7 +91,7 @@ export function createStoryLedgerRepository(db: SqliteDatabase) {
             characterTruthsJson: string;
             relationshipDeltasJson: string;
             worldFactsJson: string;
-            rhythmPosition: string;
+            rhythmPosition: StoryRhythmPosition;
             riskFlagsJson: string;
             createdAt: string;
           }
@@ -103,7 +110,7 @@ export function createStoryLedgerRepository(db: SqliteDatabase) {
         characterTruths: JSON.parse(row.characterTruthsJson) as unknown,
         relationshipDeltas: JSON.parse(row.relationshipDeltasJson) as unknown,
         worldFacts: JSON.parse(row.worldFactsJson) as unknown,
-        rhythmPosition: row.rhythmPosition,
+        rhythmPosition: row.rhythmPosition as StoryRhythmPosition,
         riskFlags: JSON.parse(row.riskFlagsJson) as unknown,
         createdAt: row.createdAt,
       };

@@ -39,6 +39,292 @@ describe('createDatabase', () => {
     expect(repositories.storyCheckpoints).toBeDefined();
   });
 
+  it('saves and loads book contracts through the repository factory', () => {
+    const db = createDatabase(':memory:');
+    const repositories = createRepositories(db);
+
+    repositories.books.create({
+      id: 'book-contract-repo',
+      title: 'Contract Repo',
+      idea: 'A city taxes memories.',
+      targetChapters: 10,
+      wordsPerChapter: 2200,
+    });
+
+    repositories.bookContracts.save({
+      bookId: 'book-contract-repo',
+      titlePromise: 'A vow survives the city ledger.',
+      corePremise: 'A clerk hunts a stolen promise.',
+      mainlinePromise: 'Every chapter tightens the cost of memory.',
+      protagonistCoreDesire: 'Restore her family name.',
+      protagonistNoDriftRules: ['Never abandon the erased promise.'],
+      keyCharacterBoundaries: [
+        {
+          characterId: 'hero',
+          publicPersona: 'Disciplined records clerk',
+          hiddenDrive: 'Undo the shame on her house',
+          lineWillNotCross: 'Sell out her brother',
+          lineMayEventuallyCross: 'Erase her own memory',
+        },
+      ],
+      mandatoryPayoffs: ['The original vow must resurface.'],
+      antiDriftRules: ['No easy absolution.'],
+      activeTemplate: 'progression',
+    });
+
+    expect(repositories.bookContracts.getByBook('book-contract-repo')).toEqual(
+      expect.objectContaining({
+        bookId: 'book-contract-repo',
+        titlePromise: 'A vow survives the city ledger.',
+        corePremise: 'A clerk hunts a stolen promise.',
+        mainlinePromise: 'Every chapter tightens the cost of memory.',
+        protagonistCoreDesire: 'Restore her family name.',
+        protagonistNoDriftRules: ['Never abandon the erased promise.'],
+        keyCharacterBoundaries: [
+          {
+            characterId: 'hero',
+            publicPersona: 'Disciplined records clerk',
+            hiddenDrive: 'Undo the shame on her house',
+            lineWillNotCross: 'Sell out her brother',
+            lineMayEventuallyCross: 'Erase her own memory',
+          },
+        ],
+        mandatoryPayoffs: ['The original vow must resurface.'],
+        antiDriftRules: ['No easy absolution.'],
+        activeTemplate: 'progression',
+      })
+    );
+  });
+
+  it('saves ledgers and returns the latest chapter ledger for a book', () => {
+    const db = createDatabase(':memory:');
+    const repositories = createRepositories(db);
+
+    repositories.books.create({
+      id: 'book-ledger-repo',
+      title: 'Ledger Repo',
+      idea: 'A city taxes memories.',
+      targetChapters: 10,
+      wordsPerChapter: 2200,
+    });
+
+    repositories.storyLedgers.save({
+      bookId: 'book-ledger-repo',
+      chapterIndex: 1,
+      mainlineProgress: 'The investigation opens.',
+      activeSubplots: [{ threadId: 'debt', state: 'active', chapterDebt: 1 }],
+      openPromises: [
+        {
+          id: 'promise-1',
+          promise: 'Who erased the vow?',
+          introducedAt: 1,
+          dueBy: 5,
+          severity: 'critical',
+        },
+      ],
+      characterTruths: [
+        {
+          characterId: 'hero',
+          currentDesire: 'Protect the family name',
+          currentFear: 'Becoming the next erased witness',
+          currentMask: 'Professional calm',
+          stabilityRisk: 'medium',
+        },
+      ],
+      relationshipDeltas: [
+        {
+          edgeId: 'hero-brother',
+          currentState: 'strained alliance',
+          trustLevel: 4,
+          tensionLevel: 7,
+        },
+      ],
+      worldFacts: [{ fact: 'Memories can be bartered', status: 'stable' }],
+      rhythmPosition: 'setup',
+      riskFlags: ['drift-risk-low'],
+    });
+
+    repositories.storyLedgers.save({
+      bookId: 'book-ledger-repo',
+      chapterIndex: 3,
+      mainlineProgress: 'The false witness is exposed.',
+      activeSubplots: [{ threadId: 'debt', state: 'due_for_payoff', chapterDebt: 3 }],
+      openPromises: [
+        {
+          id: 'promise-1',
+          promise: 'Who erased the vow?',
+          introducedAt: 1,
+          dueBy: 5,
+          severity: 'critical',
+        },
+      ],
+      characterTruths: [
+        {
+          characterId: 'hero',
+          currentDesire: 'Expose the broker',
+          currentFear: 'Losing the last witness',
+          currentMask: 'Cold certainty',
+          stabilityRisk: 'high',
+        },
+      ],
+      relationshipDeltas: [
+        {
+          edgeId: 'hero-brother',
+          currentState: 'brittle trust',
+          trustLevel: 3,
+          tensionLevel: 8,
+        },
+      ],
+      worldFacts: [{ fact: 'The archive can rewrite records', status: 'fragile' }],
+      rhythmPosition: 'twist',
+      riskFlags: ['payoff-overdue'],
+    });
+
+    expect(repositories.storyLedgers.getLatestByBook('book-ledger-repo')).toEqual(
+      expect.objectContaining({
+        bookId: 'book-ledger-repo',
+        chapterIndex: 3,
+        mainlineProgress: 'The false witness is exposed.',
+        activeSubplots: [{ threadId: 'debt', state: 'due_for_payoff', chapterDebt: 3 }],
+        openPromises: [
+          {
+            id: 'promise-1',
+            promise: 'Who erased the vow?',
+            introducedAt: 1,
+            dueBy: 5,
+            severity: 'critical',
+          },
+        ],
+        characterTruths: [
+          {
+            characterId: 'hero',
+            currentDesire: 'Expose the broker',
+            currentFear: 'Losing the last witness',
+            currentMask: 'Cold certainty',
+            stabilityRisk: 'high',
+          },
+        ],
+        relationshipDeltas: [
+          {
+            edgeId: 'hero-brother',
+            currentState: 'brittle trust',
+            trustLevel: 3,
+            tensionLevel: 8,
+          },
+        ],
+        worldFacts: [{ fact: 'The archive can rewrite records', status: 'fragile' }],
+        rhythmPosition: 'twist',
+        riskFlags: ['payoff-overdue'],
+      })
+    );
+  });
+
+  it('appends story events and preserves batch order when listing by book', () => {
+    const db = createDatabase(':memory:');
+    const repositories = createRepositories(db);
+
+    repositories.books.create({
+      id: 'book-events-repo',
+      title: 'Events Repo',
+      idea: 'A city taxes memories.',
+      targetChapters: 10,
+      wordsPerChapter: 2200,
+    });
+
+    repositories.storyEvents.appendMany([
+      {
+        id: 'z-event',
+        bookId: 'book-events-repo',
+        chapterIndex: 4,
+        eventType: 'relationship_turn',
+        summary: 'She finally admits the ledger knows her name.',
+        affectedIds: ['hero', 'broker'],
+        irreversible: false,
+      },
+      {
+        id: 'a-event',
+        bookId: 'book-events-repo',
+        chapterIndex: 4,
+        eventType: 'cost_paid',
+        summary: 'Her brother loses a year of memory.',
+        affectedIds: ['brother'],
+        irreversible: true,
+      },
+      {
+        id: 'm-event',
+        bookId: 'book-events-repo',
+        chapterIndex: 5,
+        eventType: 'promise_paid',
+        summary: 'The first erased vow is restored.',
+        affectedIds: ['hero', 'promise-1'],
+        irreversible: true,
+      },
+    ]);
+
+    const events = repositories.storyEvents.listByBook('book-events-repo');
+
+    expect(events.map((event) => event.id)).toEqual(['z-event', 'a-event', 'm-event']);
+    expect(events.map((event) => event.eventType)).toEqual([
+      'relationship_turn',
+      'cost_paid',
+      'promise_paid',
+    ]);
+  });
+
+  it('saves checkpoints and returns the latest checkpoint for a book', () => {
+    const db = createDatabase(':memory:');
+    const repositories = createRepositories(db);
+
+    repositories.books.create({
+      id: 'book-checkpoint-repo',
+      title: 'Checkpoint Repo',
+      idea: 'A city taxes memories.',
+      targetChapters: 10,
+      wordsPerChapter: 2200,
+    });
+
+    repositories.storyCheckpoints.save({
+      bookId: 'book-checkpoint-repo',
+      chapterIndex: 4,
+      checkpointType: 'light',
+      contractDigest: 'contract-v1',
+      planDigest: 'plan-v1',
+      ledgerDigest: {
+        bookId: 'book-checkpoint-repo',
+        chapterIndex: 4,
+        mainlineProgress: 'The archive points to the broker.',
+      },
+    });
+
+    repositories.storyCheckpoints.save({
+      bookId: 'book-checkpoint-repo',
+      chapterIndex: 8,
+      checkpointType: 'heavy',
+      contractDigest: 'contract-v2',
+      planDigest: 'plan-v3',
+      ledgerDigest: {
+        bookId: 'book-checkpoint-repo',
+        chapterIndex: 8,
+        mainlineProgress: 'The false archive burns.',
+      },
+    });
+
+    expect(repositories.storyCheckpoints.getLatestByBook('book-checkpoint-repo')).toEqual(
+      expect.objectContaining({
+        bookId: 'book-checkpoint-repo',
+        chapterIndex: 8,
+        checkpointType: 'heavy',
+        contractDigest: 'contract-v2',
+        planDigest: 'plan-v3',
+        ledgerDigest: {
+          bookId: 'book-checkpoint-repo',
+          chapterIndex: 8,
+          mainlineProgress: 'The false archive burns.',
+        },
+      })
+    );
+  });
+
   it('upgrades an existing 0000 database with follow-up writing progress columns', () => {
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'story-weaver-migrate-'));
     const dbPath = path.join(tempDir, 'upgrade.sqlite');

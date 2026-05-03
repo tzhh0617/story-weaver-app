@@ -3,6 +3,19 @@ import type { Database as SqliteDatabase } from 'better-sqlite3';
 import { createDrizzleDb } from '../db/client.js';
 import { bookContracts } from '../db/schema/index.js';
 
+export type StoryTemplateId =
+  | 'progression'
+  | 'romance_growth'
+  | 'mystery_serial';
+
+export type BookContractCharacterBoundary = {
+  characterId: string;
+  publicPersona: string;
+  hiddenDrive: string;
+  lineWillNotCross: string;
+  lineMayEventuallyCross: string;
+};
+
 export type BookContract = {
   bookId: string;
   titlePromise: string;
@@ -10,10 +23,10 @@ export type BookContract = {
   mainlinePromise: string;
   protagonistCoreDesire: string;
   protagonistNoDriftRules: string[];
-  keyCharacterBoundaries: string[];
+  keyCharacterBoundaries: BookContractCharacterBoundary[];
   mandatoryPayoffs: string[];
   antiDriftRules: string[];
-  activeTemplate: string;
+  activeTemplate: StoryTemplateId;
 };
 
 export function createBookContractRepository(db: SqliteDatabase) {
@@ -86,7 +99,7 @@ export function createBookContractRepository(db: SqliteDatabase) {
             keyCharacterBoundariesJson: string;
             mandatoryPayoffsJson: string;
             antiDriftRulesJson: string;
-            activeTemplate: string;
+            activeTemplate: StoryTemplateId;
             createdAt: string;
             updatedAt: string;
           }
@@ -103,10 +116,12 @@ export function createBookContractRepository(db: SqliteDatabase) {
         mainlinePromise: row.mainlinePromise,
         protagonistCoreDesire: row.protagonistCoreDesire,
         protagonistNoDriftRules: JSON.parse(row.protagonistNoDriftRulesJson) as string[],
-        keyCharacterBoundaries: JSON.parse(row.keyCharacterBoundariesJson) as string[],
+        keyCharacterBoundaries: JSON.parse(
+          row.keyCharacterBoundariesJson
+        ) as BookContractCharacterBoundary[],
         mandatoryPayoffs: JSON.parse(row.mandatoryPayoffsJson) as string[],
         antiDriftRules: JSON.parse(row.antiDriftRulesJson) as string[],
-        activeTemplate: row.activeTemplate,
+        activeTemplate: row.activeTemplate as StoryTemplateId,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
       };

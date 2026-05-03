@@ -3,10 +3,12 @@ import type { Database as SqliteDatabase } from 'better-sqlite3';
 import { createDrizzleDb } from '../db/client.js';
 import { storyCheckpoints } from '../db/schema/index.js';
 
+export type StoryCheckpointType = 'light' | 'heavy';
+
 export type StoryCheckpoint = {
   bookId: string;
   chapterIndex: number;
-  checkpointType: string;
+  checkpointType: StoryCheckpointType;
   contractDigest: string;
   planDigest: string;
   ledgerDigest: unknown;
@@ -65,7 +67,7 @@ export function createStoryCheckpointRepository(db: SqliteDatabase) {
         | {
             bookId: string;
             chapterIndex: number;
-            checkpointType: string;
+            checkpointType: StoryCheckpointType;
             contractDigest: string;
             planDigest: string;
             ledgerDigestJson: string;
@@ -80,7 +82,7 @@ export function createStoryCheckpointRepository(db: SqliteDatabase) {
       return {
         bookId: row.bookId,
         chapterIndex: row.chapterIndex,
-        checkpointType: row.checkpointType,
+        checkpointType: row.checkpointType as StoryCheckpointType,
         contractDigest: row.contractDigest,
         planDigest: row.planDigest,
         ledgerDigest: JSON.parse(row.ledgerDigestJson) as unknown,
