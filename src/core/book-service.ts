@@ -914,7 +914,7 @@ export function createBookService(deps: {
       }>;
       mandatoryPayoffs: string[];
       antiDriftRules: string[];
-      activeTemplate: string;
+      activeTemplate: StoryTemplateId;
       createdAt: string;
       updatedAt: string;
     } | null;
@@ -2163,7 +2163,7 @@ export function createBookService(deps: {
           bookId,
           volumeIndex: nextChapter.volumeIndex,
           chapterIndex: nextChapter.chapterIndex,
-          integrityReport,
+          integrityReport: integrityReport as IntegrityReport,
         });
 
         return {
