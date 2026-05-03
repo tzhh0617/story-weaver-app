@@ -8,7 +8,10 @@ import {
 } from '../src/core/chapter-review.js';
 import { createBookService } from '../src/core/book-service.js';
 import { createNovelEngine } from '../src/core/engine.js';
-import { createScheduler } from '../src/core/scheduler.js';
+import {
+  createScheduler,
+  type SchedulerTaskType,
+} from '../src/core/scheduler.js';
 import { buildAppPaths } from '../src/shared/paths.js';
 import { createDatabase, createRepositories } from '../src/storage/database.js';
 import { createModelConfigRepository } from '../src/storage/model-configs.js';
@@ -159,14 +162,23 @@ export function getRuntimeServices() {
     if (event.phase === 'naming_title') {
       return 'book_title_generation';
     }
+    if (event.phase === 'planning_init') {
+      return 'planning_initialization';
+    }
     if (event.phase === 'building_world') {
       return 'story_world_planning';
     }
     if (event.phase === 'building_outline') {
       return 'story_outline_planning';
     }
+    if (event.phase === 'planning_arc') {
+      return 'arc_planning';
+    }
     if (event.phase === 'planning_chapters') {
       return 'chapter_planning';
+    }
+    if (event.phase === 'planning_recheck') {
+      return 'chapter_replanning';
     }
     if (event.phase === 'auditing_chapter') {
       return 'chapter_auditing';
@@ -237,6 +249,8 @@ export function getRuntimeServices() {
     const schedulerStatus = scheduler.getStatus();
     return {
       ...schedulerStatus,
+      runningBookIds: [...new Set(schedulerStatus.runningBookIds)],
+      queuedBookIds: [...new Set(schedulerStatus.queuedBookIds)],
       pausedBookIds: bookService
         .listBooks()
         .filter((book) => book.status === 'paused')
@@ -267,6 +281,58 @@ export function getRuntimeServices() {
       emitSchedulerStatus();
     },
   });
+
+  function taskKeysForBook(bookId: string) {
+    return {
+      planning: `book:${bookId}:plan`,
+      writing: `book:${bookId}:write`,
+    };
+  }
+
+  function inferPlanningTaskType(bookId: string): SchedulerTaskType {
+    const currentProgress = progress.getByBookId(bookId);
+    const activeTaskType = currentProgress?.activeTaskType;
+
+    if (
+      activeTaskType === 'book:plan:init' ||
+      activeTaskType === 'book:plan:rebuild-arc' ||
+      activeTaskType === 'book:plan:rebuild-chapters'
+    ) {
+      return activeTaskType;
+    }
+
+    if (currentProgress?.phase === 'planning_arc') {
+      return 'book:plan:rebuild-arc';
+    }
+
+    if (
+      currentProgress?.phase === 'planning_chapters' ||
+      currentProgress?.phase === 'planning_recheck'
+    ) {
+      return 'book:plan:rebuild-chapters';
+    }
+
+    return 'book:plan:init';
+  }
+
+  function registerRuntimeTasks(bookId: string) {
+    const taskKeys = taskKeysForBook(bookId);
+
+    scheduler.register({
+      taskKey: taskKeys.planning,
+      bookId,
+      taskType: inferPlanningTaskType(bookId),
+      start: async () => runBook(bookId),
+    });
+    scheduler.register({
+      taskKey: taskKeys.writing,
+      bookId,
+      taskType: 'book:write:chapter',
+      start: async () => {},
+    });
+
+    return taskKeys;
+  }
 
   function createEngineForBook(bookId: string) {
     return createNovelEngine({
@@ -401,13 +467,8 @@ export function getRuntimeServices() {
         eventType: 'book_queued',
         message: '作品已加入后台执行队列',
       });
-      scheduler.register({
-        taskKey: `book:${bookId}:write`,
-        bookId,
-        taskType: 'book:write:chapter',
-        start: async () => runBook(bookId),
-      });
-      await scheduler.start(`book:${bookId}:write`);
+      const taskKeys = registerRuntimeTasks(bookId);
+      await scheduler.start(taskKeys.writing);
     },
     pauseBook: (bookId: string) => {
       bookService.pauseBook(bookId);
@@ -567,12 +628,7 @@ export function getRuntimeServices() {
           eventType: 'book_queued',
           message: '作品已加入后台执行队列',
         });
-        scheduler.register({
-          taskKey: `book:${book.id}:write`,
-          bookId: book.id,
-          taskType: 'book:write:chapter',
-          start: async () => runBook(book.id),
-        });
+        registerRuntimeTasks(book.id);
       }
 
       await scheduler.startAll();

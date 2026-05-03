@@ -594,6 +594,13 @@ describe('createBookService', () => {
           expect(service.getBookDetail(bookId)?.progress?.phase).toBe(
             'planning_chapters'
           );
+          expect(service.getBookDetail(bookId)?.progress).toEqual(
+            expect.objectContaining({
+              currentStage: null,
+              currentArc: null,
+              activeTaskType: null,
+            })
+          );
 
           return {
             worldSetting: 'Early world rules',
@@ -1589,6 +1596,67 @@ describe('createBookService', () => {
         activeTaskType: 'book:plan:rebuild-chapters',
         currentStage: 1,
         currentArc: 1,
+      })
+    );
+  });
+
+  it('exposes typed planning task metadata from persisted progress records', () => {
+    const db = createDatabase(':memory:');
+    const books = createBookRepository(db);
+    const progress = createProgressRepository(db);
+    const service = createBookService({
+      books,
+      chapters: createChapterRepository(db),
+      characters: createCharacterRepository(db),
+      plotThreads: createPlotThreadRepository(db),
+      sceneRecords: createSceneRecordRepository(db),
+      progress,
+      outlineService: {
+        generateFromIdea: vi.fn(),
+      },
+      chapterWriter: {
+        writeChapter: vi.fn(),
+      },
+      summaryGenerator: {
+        summarizeChapter: vi.fn(),
+      },
+      plotThreadExtractor: {
+        extractThreads: vi.fn().mockResolvedValue({
+          openedThreads: [],
+          resolvedThreadIds: [],
+        }),
+      },
+      characterStateExtractor: {
+        extractStates: vi.fn().mockResolvedValue([]),
+      },
+      sceneRecordExtractor: {
+        extractScene: vi.fn().mockResolvedValue(null),
+      },
+    });
+
+    books.create({
+      id: 'book-1',
+      title: 'Book 1',
+      idea: 'A city remembers every promise.',
+      targetChapters: 24,
+      wordsPerChapter: 2500,
+    });
+
+    progress.updatePhase('book-1', 'planning_chapters', {
+      currentChapter: 10,
+      stepLabel: '重建 11-20 章计划',
+      activeTaskType: 'book:plan:rebuild-chapters',
+      currentStage: 1,
+      currentArc: 2,
+    });
+    expect(service.getBookDetail('book-1')?.progress).toEqual(
+      expect.objectContaining({
+        phase: 'planning_chapters',
+        currentChapter: 10,
+        stepLabel: '重建 11-20 章计划',
+        activeTaskType: 'book:plan:rebuild-chapters',
+        currentStage: 1,
+        currentArc: 2,
       })
     );
   });

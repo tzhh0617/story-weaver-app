@@ -341,6 +341,8 @@ describe('narrative book-service integration', () => {
     });
     expect(service.getBookDetail(bookId)?.chapters[0]?.content).toBeTruthy();
     expect(repos.progress.getByBookId(bookId)).toMatchObject({
+      phase: 'writing',
+      currentChapter: 1,
       currentStage: 1,
       currentArc: 1,
       activeTaskType: 'book:plan:init',

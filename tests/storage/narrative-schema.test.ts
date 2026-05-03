@@ -39,6 +39,10 @@ describe('narrative schema', () => {
       .prepare('PRAGMA table_info(story_state_snapshots)')
       .all()
       .map((row) => (row as { name: string }).name);
+    const progressColumns = db
+      .prepare('PRAGMA table_info(writing_progress)')
+      .all()
+      .map((row) => (row as { name: string }).name);
 
     expect(chapterPlanColumns).toEqual(
       expect.arrayContaining(['book_id', 'chapter_index', 'status', 'required_payoffs_json'])
@@ -50,6 +54,14 @@ describe('narrative schema', () => {
         'title_idea_alignment',
         'flatness_risk',
         'remaining_chapter_budget',
+      ])
+    );
+    expect(progressColumns).toEqual(
+      expect.arrayContaining([
+        'phase',
+        'current_stage',
+        'current_arc',
+        'active_task_type',
       ])
     );
   });
