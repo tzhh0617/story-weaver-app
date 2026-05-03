@@ -407,6 +407,23 @@ describe('autopilot integrity helpers', () => {
       })
     );
   });
+
+  it('escalates stacked core drift into replanning guidance', () => {
+    expect(
+      buildIntegrityReport({
+        mainlineProblems: ['Mainline promise has stalled for three chapters.'],
+        payoffProblems: ['Two mandatory promises are now past their payoff window.'],
+        characterProblems: ['Lead motivation is contradicting the established boundary.'],
+        subplotProblems: [],
+        rhythmProblems: [],
+      })
+    ).toEqual(
+      expect.objectContaining({
+        driftLevel: 'heavy',
+        repairAction: 'escalate_replanning',
+      })
+    );
+  });
 });
 
 describe('autopilot checkpoint cadence', () => {

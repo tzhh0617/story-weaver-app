@@ -22,14 +22,22 @@ function scoreFromProblems(problems: string[], weight: number) {
 
 function determineDriftLevel(
   scores: {
-  mainlineAlignmentScore: number;
-  characterStabilityScore: number;
-  subplotControlScore: number;
-  payoffProgressScore: number;
-  rhythmFitScore: number;
+    mainlineAlignmentScore: number;
+    characterStabilityScore: number;
+    subplotControlScore: number;
+    payoffProgressScore: number;
+    rhythmFitScore: number;
   },
   input: Required<IntegrityReportInput>
 ): DriftLevel {
+  if (
+    input.mainlineProblems.length > 0 &&
+    input.payoffProblems.length > 0 &&
+    input.characterProblems.length > 0
+  ) {
+    return 'heavy';
+  }
+
   if (input.mainlineProblems.length > 0 && input.payoffProblems.length > 0) {
     return 'medium';
   }
@@ -58,6 +66,14 @@ function determineDriftLevel(
 }
 
 function determineRepairAction(input: Required<IntegrityReportInput>): StoryRepairAction {
+  if (
+    input.mainlineProblems.length > 0 &&
+    input.payoffProblems.length > 0 &&
+    input.characterProblems.length > 0
+  ) {
+    return 'escalate_replanning';
+  }
+
   if (input.mainlineProblems.length > 0 && input.payoffProblems.length > 0) {
     return 'rebuild_chapter_window';
   }
