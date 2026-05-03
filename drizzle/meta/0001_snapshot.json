@@ -1,168 +1,9 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "ffa3d8e6-fece-489f-bf40-1542b1f9adb7",
-  "prevId": "00000000-0000-0000-0000-000000000000",
+  "id": "0aac8891-a631-4906-af98-7cc609795b42",
+  "prevId": "ffa3d8e6-fece-489f-bf40-1542b1f9adb7",
   "tables": {
-    "arc_plans": {
-      "name": "arc_plans",
-      "columns": {
-        "book_id": {
-          "name": "book_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "arc_index": {
-          "name": "arc_index",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "stage_index": {
-          "name": "stage_index",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "chapter_start": {
-          "name": "chapter_start",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "chapter_end": {
-          "name": "chapter_end",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "chapter_budget": {
-          "name": "chapter_budget",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "primary_threads_json": {
-          "name": "primary_threads_json",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "character_turns_json": {
-          "name": "character_turns_json",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "thread_actions_json": {
-          "name": "thread_actions_json",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "target_outcome": {
-          "name": "target_outcome",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "escalation_mode": {
-          "name": "escalation_mode",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "turning_point": {
-          "name": "turning_point",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "required_payoff": {
-          "name": "required_payoff",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "resulting_instability": {
-          "name": "resulting_instability",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "title_idea_focus": {
-          "name": "title_idea_focus",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "min_chapter_count": {
-          "name": "min_chapter_count",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "max_chapter_count": {
-          "name": "max_chapter_count",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'planned'"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "arc_plans_book_id_books_id_fk": {
-          "name": "arc_plans_book_id_books_id_fk",
-          "tableFrom": "arc_plans",
-          "tableTo": "books",
-          "columnsFrom": [
-            "book_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "arc_plans_book_id_arc_index_pk": {
-          "columns": [
-            "book_id",
-            "arc_index"
-          ],
-          "name": "arc_plans_book_id_arc_index_pk"
-        }
-      },
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
     "book_context": {
       "name": "book_context",
       "columns": {
@@ -357,26 +198,12 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "chapter_plans": {
-      "name": "chapter_plans",
+    "arc_plans": {
+      "name": "arc_plans",
       "columns": {
         "book_id": {
           "name": "book_id",
           "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "batch_index": {
-          "name": "batch_index",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "chapter_index": {
-          "name": "chapter_index",
-          "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
@@ -388,29 +215,43 @@
           "notNull": true,
           "autoincrement": false
         },
-        "goal": {
-          "name": "goal",
+        "stage_index": {
+          "name": "stage_index",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "chapter_start": {
+          "name": "chapter_start",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "chapter_end": {
+          "name": "chapter_end",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "chapter_budget": {
+          "name": "chapter_budget",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "primary_threads_json": {
+          "name": "primary_threads_json",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "conflict": {
-          "name": "conflict",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "pressure_source": {
-          "name": "pressure_source",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "change_type": {
-          "name": "change_type",
+        "character_turns_json": {
+          "name": "character_turns_json",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -423,51 +264,58 @@
           "notNull": true,
           "autoincrement": false
         },
-        "reveal": {
-          "name": "reveal",
+        "target_outcome": {
+          "name": "target_outcome",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "payoff_or_cost": {
-          "name": "payoff_or_cost",
+        "escalation_mode": {
+          "name": "escalation_mode",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "ending_hook": {
-          "name": "ending_hook",
+        "turning_point": {
+          "name": "turning_point",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "title_idea_link": {
-          "name": "title_idea_link",
+        "required_payoff": {
+          "name": "required_payoff",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "batch_goal": {
-          "name": "batch_goal",
+        "resulting_instability": {
+          "name": "resulting_instability",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "required_payoffs_json": {
-          "name": "required_payoffs_json",
+        "title_idea_focus": {
+          "name": "title_idea_focus",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "forbidden_drift_json": {
-          "name": "forbidden_drift_json",
-          "type": "text",
+        "min_chapter_count": {
+          "name": "min_chapter_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "max_chapter_count": {
+          "name": "max_chapter_count",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
@@ -483,9 +331,9 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "chapter_plans_book_id_books_id_fk": {
-          "name": "chapter_plans_book_id_books_id_fk",
-          "tableFrom": "chapter_plans",
+        "arc_plans_book_id_books_id_fk": {
+          "name": "arc_plans_book_id_books_id_fk",
+          "tableFrom": "arc_plans",
           "tableTo": "books",
           "columnsFrom": [
             "book_id"
@@ -498,12 +346,12 @@
         }
       },
       "compositePrimaryKeys": {
-        "chapter_plans_book_id_chapter_index_pk": {
+        "arc_plans_book_id_arc_index_pk": {
           "columns": [
             "book_id",
-            "chapter_index"
+            "arc_index"
           ],
-          "name": "chapter_plans_book_id_chapter_index_pk"
+          "name": "arc_plans_book_id_arc_index_pk"
         }
       },
       "uniqueConstraints": {},
@@ -704,6 +552,158 @@
         }
       },
       "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "chapter_plans": {
+      "name": "chapter_plans",
+      "columns": {
+        "book_id": {
+          "name": "book_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "batch_index": {
+          "name": "batch_index",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "chapter_index": {
+          "name": "chapter_index",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "arc_index": {
+          "name": "arc_index",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "goal": {
+          "name": "goal",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "conflict": {
+          "name": "conflict",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "pressure_source": {
+          "name": "pressure_source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "change_type": {
+          "name": "change_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "thread_actions_json": {
+          "name": "thread_actions_json",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "reveal": {
+          "name": "reveal",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "payoff_or_cost": {
+          "name": "payoff_or_cost",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "ending_hook": {
+          "name": "ending_hook",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "title_idea_link": {
+          "name": "title_idea_link",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "batch_goal": {
+          "name": "batch_goal",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "required_payoffs_json": {
+          "name": "required_payoffs_json",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "forbidden_drift_json": {
+          "name": "forbidden_drift_json",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'planned'"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "chapter_plans_book_id_books_id_fk": {
+          "name": "chapter_plans_book_id_books_id_fk",
+          "tableFrom": "chapter_plans",
+          "tableTo": "books",
+          "columnsFrom": [
+            "book_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "chapter_plans_book_id_chapter_index_pk": {
+          "columns": [
+            "book_id",
+            "chapter_index"
+          ],
+          "name": "chapter_plans_book_id_chapter_index_pk"
+        }
+      },
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
@@ -1441,6 +1441,100 @@
         "characters_book_id_books_id_fk": {
           "name": "characters_book_id_books_id_fk",
           "tableFrom": "characters",
+          "tableTo": "books",
+          "columnsFrom": [
+            "book_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "endgame_plans": {
+      "name": "endgame_plans",
+      "columns": {
+        "book_id": {
+          "name": "book_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "title_idea_contract": {
+          "name": "title_idea_contract",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "protagonist_end_state": {
+          "name": "protagonist_end_state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "final_conflict": {
+          "name": "final_conflict",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "final_opponent": {
+          "name": "final_opponent",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "world_end_state": {
+          "name": "world_end_state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "core_character_outcomes_json": {
+          "name": "core_character_outcomes_json",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "major_payoffs_json": {
+          "name": "major_payoffs_json",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "endgame_plans_book_id_books_id_fk": {
+          "name": "endgame_plans_book_id_books_id_fk",
+          "tableFrom": "endgame_plans",
           "tableTo": "books",
           "columnsFrom": [
             "book_id"
@@ -2537,100 +2631,6 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "endgame_plans": {
-      "name": "endgame_plans",
-      "columns": {
-        "book_id": {
-          "name": "book_id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "title_idea_contract": {
-          "name": "title_idea_contract",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "protagonist_end_state": {
-          "name": "protagonist_end_state",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "final_conflict": {
-          "name": "final_conflict",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "final_opponent": {
-          "name": "final_opponent",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "world_end_state": {
-          "name": "world_end_state",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "core_character_outcomes_json": {
-          "name": "core_character_outcomes_json",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "major_payoffs_json": {
-          "name": "major_payoffs_json",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "endgame_plans_book_id_books_id_fk": {
-          "name": "endgame_plans_book_id_books_id_fk",
-          "tableFrom": "endgame_plans",
-          "tableTo": "books",
-          "columnsFrom": [
-            "book_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
     "model_configs": {
       "name": "model_configs",
       "columns": {
@@ -2739,6 +2739,20 @@
           "notNull": false,
           "autoincrement": false
         },
+        "current_stage": {
+          "name": "current_stage",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "current_arc": {
+          "name": "current_arc",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "phase": {
           "name": "phase",
           "type": "text",
@@ -2748,6 +2762,13 @@
         },
         "step_label": {
           "name": "step_label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "active_task_type": {
+          "name": "active_task_type",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
