@@ -18,6 +18,10 @@ export function createProgressRepository(db: SqliteDatabase) {
         stepLabel?: string | null;
         activeTaskType?: string | null;
         errorMsg?: string | null;
+        driftLevel?: 'none' | 'light' | 'medium' | 'heavy';
+        lastHealthyCheckpointChapter?: number | null;
+        cooldownUntil?: string | null;
+        starvationScore?: number | null;
       }
     ) {
       drizzleDb
@@ -32,6 +36,10 @@ export function createProgressRepository(db: SqliteDatabase) {
           stepLabel: metadata?.stepLabel ?? null,
           activeTaskType: metadata?.activeTaskType ?? null,
           errorMsg: metadata?.errorMsg ?? null,
+          driftLevel: metadata?.driftLevel ?? 'none',
+          lastHealthyCheckpointChapter: metadata?.lastHealthyCheckpointChapter ?? null,
+          cooldownUntil: metadata?.cooldownUntil ?? null,
+          starvationScore: metadata?.starvationScore ?? 0,
         })
         .onConflictDoUpdate({
           target: writingProgress.bookId,
@@ -44,6 +52,11 @@ export function createProgressRepository(db: SqliteDatabase) {
             stepLabel: metadata?.stepLabel ?? null,
             activeTaskType: metadata?.activeTaskType ?? null,
             errorMsg: metadata?.errorMsg ?? null,
+            driftLevel: metadata?.driftLevel ?? 'none',
+            lastHealthyCheckpointChapter:
+              metadata?.lastHealthyCheckpointChapter ?? null,
+            cooldownUntil: metadata?.cooldownUntil ?? null,
+            starvationScore: metadata?.starvationScore ?? 0,
           },
         })
         .run();
@@ -62,6 +75,11 @@ export function createProgressRepository(db: SqliteDatabase) {
           activeTaskType: writingProgress.activeTaskType,
           retryCount: writingProgress.retryCount,
           errorMsg: writingProgress.errorMsg,
+          driftLevel: writingProgress.driftLevel,
+          lastHealthyCheckpointChapter:
+            writingProgress.lastHealthyCheckpointChapter,
+          cooldownUntil: writingProgress.cooldownUntil,
+          starvationScore: writingProgress.starvationScore,
         })
         .from(writingProgress)
         .where(eq(writingProgress.bookId, bookId))
@@ -77,6 +95,10 @@ export function createProgressRepository(db: SqliteDatabase) {
             activeTaskType: string | null;
             retryCount: number;
             errorMsg: string | null;
+            driftLevel: 'none' | 'light' | 'medium' | 'heavy';
+            lastHealthyCheckpointChapter: number | null;
+            cooldownUntil: string | null;
+            starvationScore: number;
           }
         | undefined;
     },
@@ -95,6 +117,10 @@ export function createProgressRepository(db: SqliteDatabase) {
           activeTaskType: null,
           retryCount: 0,
           errorMsg: null,
+          driftLevel: 'none',
+          lastHealthyCheckpointChapter: null,
+          cooldownUntil: null,
+          starvationScore: 0,
         })
         .onConflictDoUpdate({
           target: writingProgress.bookId,
@@ -108,6 +134,10 @@ export function createProgressRepository(db: SqliteDatabase) {
             activeTaskType: null,
             retryCount: 0,
             errorMsg: null,
+            driftLevel: 'none',
+            lastHealthyCheckpointChapter: null,
+            cooldownUntil: null,
+            starvationScore: 0,
           },
         })
         .run();

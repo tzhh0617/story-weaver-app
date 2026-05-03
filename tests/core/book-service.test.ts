@@ -1661,6 +1661,51 @@ describe('createBookService', () => {
     );
   });
 
+  it('persists autopilot run-state metadata in progress records', () => {
+    const db = createDatabase(':memory:');
+    const books = createBookRepository(db);
+    const progress = createProgressRepository(db);
+
+    books.create({
+      id: 'book-1',
+      title: 'Book 1',
+      idea: 'A city remembers every promise.',
+      targetChapters: 24,
+      wordsPerChapter: 2500,
+    });
+
+    progress.updatePhase('book-1', 'writing', {
+      driftLevel: 'medium',
+      lastHealthyCheckpointChapter: 12,
+      cooldownUntil: '2026-05-03T09:30:00.000Z',
+      starvationScore: 4,
+    });
+
+    expect(progress.getByBookId('book-1')).toEqual(
+      expect.objectContaining({
+        bookId: 'book-1',
+        phase: 'writing',
+        driftLevel: 'medium',
+        lastHealthyCheckpointChapter: 12,
+        cooldownUntil: '2026-05-03T09:30:00.000Z',
+        starvationScore: 4,
+      })
+    );
+
+    progress.reset('book-1', 'creating');
+
+    expect(progress.getByBookId('book-1')).toEqual(
+      expect.objectContaining({
+        bookId: 'book-1',
+        phase: 'creating',
+        driftLevel: 'none',
+        lastHealthyCheckpointChapter: null,
+        cooldownUntil: null,
+        starvationScore: 0,
+      })
+    );
+  });
+
   it('emits planning_init as a progress event when planning metadata is initialized', async () => {
     const db = createDatabase(':memory:');
     const events: BookGenerationEvent[] = [];
