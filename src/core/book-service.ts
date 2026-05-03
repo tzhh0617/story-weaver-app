@@ -42,6 +42,7 @@ import type {
   NarrativeStateDelta,
   RelationshipStateInput,
   IntegrityReport,
+  StoryTemplateId,
   ViralStoryProtocol,
 } from './narrative/types.js';
 import {
@@ -206,15 +207,14 @@ function buildOutlineFromChapterCard(card: ChapterCard) {
     .join('\n');
 }
 
-function buildTemplatePromptContextLines(activeTemplate: string | null | undefined) {
+function buildTemplatePromptContextLines(
+  activeTemplate: StoryTemplateId | null | undefined
+) {
   if (!activeTemplate) {
     return [];
   }
 
-  const preset = storyTemplatePresets[activeTemplate as keyof typeof storyTemplatePresets];
-  if (!preset) {
-    return [`Template: ${activeTemplate}`];
-  }
+  const preset = storyTemplatePresets[activeTemplate];
 
   const lines = [`Template: ${preset.id}`];
   for (const warning of preset.rubric.driftWarnings.slice(0, 2)) {

@@ -143,27 +143,33 @@ export function buildChapterDraftPrompt(input: {
   ].join('\n');
 }
 
-export function buildNarrativeDraftPrompt(input: {
-  idea: string;
-  wordsPerChapter: number;
-  commandContext: string;
-  routePlanText?: string | null;
-  viralStoryProtocol?: import('./narrative/types.js').ViralStoryProtocol | null;
-  chapterIndex?: number | null;
-  extraContextLines?: string[] | null;
-}) {
-  const basePrompt = buildNarrativeDraftPromptBase(input);
-  const extraContextLines =
-    input.extraContextLines?.map((line) => line.trim()).filter(Boolean) ?? [];
+type BaseNarrativeDraftPromptInput = Parameters<typeof buildNarrativeDraftPromptBase>[0];
 
+export type NarrativeDraftPromptInput = BaseNarrativeDraftPromptInput & {
+  // Template-aware prompt context is supported only through this wrapper layer.
+  extraContextLines?: readonly string[] | null;
+};
+
+function prependNarrativePromptContext(
+  prompt: string,
+  extraContextLines: readonly string[]
+) {
   if (!extraContextLines.length) {
-    return basePrompt;
+    return prompt;
   }
 
   return [
     'Autopilot template context:',
     ...extraContextLines,
     '',
-    basePrompt,
+    prompt,
   ].join('\n');
+}
+
+export function buildNarrativeDraftPrompt(input: NarrativeDraftPromptInput) {
+  const basePrompt = buildNarrativeDraftPromptBase(input);
+  const extraContextLines =
+    input.extraContextLines?.map((line) => line.trim()).filter(Boolean) ?? [];
+
+  return prependNarrativePromptContext(basePrompt, extraContextLines);
 }

@@ -3336,6 +3336,193 @@ describe('createBookService', () => {
     });
   });
 
+  it('injects template-aware prompt context only for the narrative draft branch', async () => {
+    const db = createDatabase(':memory:');
+    const fallbackDb = createDatabase(':memory:');
+    const writeChapter = vi
+      .fn()
+      .mockResolvedValueOnce({
+        content: '第一章正文',
+        usage: { inputTokens: 10, outputTokens: 20 },
+      })
+      .mockResolvedValueOnce({
+        content: '第二章正文',
+        usage: { inputTokens: 10, outputTokens: 20 },
+      })
+      .mockResolvedValueOnce({
+        content: '第三章正文',
+        usage: { inputTokens: 10, outputTokens: 20 },
+      });
+    const chapterCards = createChapterCardRepository(db);
+
+    const service = createBookService({
+      books: createBookRepository(db),
+      chapters: createChapterRepository(db),
+      chapterCards,
+      characters: createCharacterRepository(db),
+      plotThreads: createPlotThreadRepository(db),
+      sceneRecords: createSceneRecordRepository(db),
+      progress: createProgressRepository(db),
+      bookContracts: {
+        getByBook: vi.fn((bookId: string) => ({
+          bookId,
+          titlePromise: '每次升级都伴随代价。',
+          corePremise: '林牧在宗门夹缝中争夺晋升资格。',
+          mainlinePromise: '每次突破都会逼出更强对手。',
+          protagonistCoreDesire: '活下来并向上爬。',
+          protagonistNoDriftRules: ['不能脱离主线竞争太久。'],
+          keyCharacterBoundaries: [],
+          mandatoryPayoffs: ['展示一次可见得失。'],
+          antiDriftRules: ['训练不能替代实战竞争。'],
+          activeTemplate: 'progression',
+          createdAt: '2026-05-03T00:00:00.000Z',
+          updatedAt: '2026-05-03T00:00:00.000Z',
+        })),
+      },
+      outlineService: {
+        generateFromIdea: vi.fn().mockImplementation((input) =>
+          Promise.resolve({
+            worldSetting: '命簿会用记忆交换真相。',
+            masterOutline: '林牧追查被抹去的家族记录。',
+            volumeOutlines: ['第一卷'],
+            chapterOutlines: [
+              {
+                volumeIndex: 1,
+                chapterIndex: 1,
+                title: '旧页初鸣',
+                outline: '',
+              },
+              {
+                volumeIndex: 1,
+                chapterIndex: 2,
+                title: '夜雨追逃',
+                outline: '林牧被迫撤离旧档阁。',
+              },
+            ],
+            chapterCards: [
+              {
+                bookId: input.bookId,
+                volumeIndex: 1,
+                chapterIndex: 1,
+                title: '旧页初鸣',
+                plotFunction: '林牧发现旧页会回应他的血。',
+                povCharacterId: 'lin-mu',
+                externalConflict: '宗门执事逼他交出旧页。',
+                internalConflict: '他想独自保密，却必须求助。',
+                relationshipChange: '他欠下同伴一次人情。',
+                worldRuleUsedOrTested: 'record-cost',
+                informationReveal: '命簿改写会吞掉记忆。',
+                readerReward: 'truth',
+                endingHook: '旧页浮现林家姓名。',
+                mustChange: '林牧从逃避变成主动追查。',
+                forbiddenMoves: ['不能提前揭示幕后主使。'],
+              },
+            ],
+          })
+        ),
+      },
+      chapterWriter: { writeChapter },
+      summaryGenerator: {
+        summarizeChapter: vi
+          .fn()
+          .mockResolvedValueOnce('林牧开始追查命簿。')
+          .mockResolvedValueOnce('林牧暂时甩开追兵。'),
+      },
+      plotThreadExtractor: {
+        extractThreads: vi.fn().mockResolvedValue({
+          openedThreads: [],
+          resolvedThreadIds: [],
+        }),
+      },
+      characterStateExtractor: {
+        extractStates: vi.fn().mockResolvedValue([]),
+      },
+      sceneRecordExtractor: {
+        extractScene: vi.fn().mockResolvedValue(null),
+      },
+    });
+    const fallbackService = createBookService({
+      books: createBookRepository(fallbackDb),
+      chapters: createChapterRepository(fallbackDb),
+      characters: createCharacterRepository(fallbackDb),
+      plotThreads: createPlotThreadRepository(fallbackDb),
+      sceneRecords: createSceneRecordRepository(fallbackDb),
+      progress: createProgressRepository(fallbackDb),
+      bookContracts: {
+        getByBook: vi.fn((bookId: string) => ({
+          bookId,
+          titlePromise: '每次升级都伴随代价。',
+          corePremise: '林牧在宗门夹缝中争夺晋升资格。',
+          mainlinePromise: '每次突破都会逼出更强对手。',
+          protagonistCoreDesire: '活下来并向上爬。',
+          protagonistNoDriftRules: ['不能脱离主线竞争太久。'],
+          keyCharacterBoundaries: [],
+          mandatoryPayoffs: ['展示一次可见得失。'],
+          antiDriftRules: ['训练不能替代实战竞争。'],
+          activeTemplate: 'progression',
+          createdAt: '2026-05-03T00:00:00.000Z',
+          updatedAt: '2026-05-03T00:00:00.000Z',
+        })),
+      },
+      outlineService: {
+        generateFromIdea: vi.fn().mockResolvedValue({
+          worldSetting: '命簿会用记忆交换真相。',
+          masterOutline: '林牧追查被抹去的家族记录。',
+          volumeOutlines: ['第一卷'],
+          chapterOutlines: [
+            {
+              volumeIndex: 1,
+              chapterIndex: 1,
+              title: '夜雨追逃',
+              outline: '林牧被迫撤离旧档阁。',
+            },
+          ],
+        }),
+      },
+      chapterWriter: { writeChapter },
+      summaryGenerator: {
+        summarizeChapter: vi.fn().mockResolvedValue('林牧暂时甩开追兵。'),
+      },
+      plotThreadExtractor: {
+        extractThreads: vi.fn().mockResolvedValue({
+          openedThreads: [],
+          resolvedThreadIds: [],
+        }),
+      },
+      characterStateExtractor: {
+        extractStates: vi.fn().mockResolvedValue([]),
+      },
+      sceneRecordExtractor: {
+        extractScene: vi.fn().mockResolvedValue(null),
+      },
+    });
+
+    const bookId = service.createBook({
+      idea: '命簿',
+      targetChapters: 2,
+      wordsPerChapter: 1200,
+    });
+    const fallbackBookId = fallbackService.createBook({
+      idea: '命簿',
+      targetChapters: 1,
+      wordsPerChapter: 1200,
+    });
+
+    await service.startBook(bookId);
+    await fallbackService.startBook(fallbackBookId);
+    await service.writeNextChapter(bookId);
+    await fallbackService.writeNextChapter(fallbackBookId);
+
+    expect(writeChapter).toHaveBeenCalledTimes(2);
+    expect(writeChapter.mock.calls[0]?.[0].prompt).toContain(
+      'Template: progression'
+    );
+    expect(writeChapter.mock.calls[0]?.[0].prompt).toContain('Anti-drift:');
+    expect(writeChapter.mock.calls[1]?.[0].prompt).not.toContain(
+      'Template: progression'
+    );
+  });
+
   it('restarts a book by clearing generated state and rewriting chapters from outline', async () => {
     const db = createDatabase(':memory:');
     const writeChapter = vi
