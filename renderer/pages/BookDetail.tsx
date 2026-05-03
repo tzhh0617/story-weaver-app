@@ -237,6 +237,23 @@ function getEmptyOutlineMessage(phase: string) {
   return '暂无大纲信息';
 }
 
+function formatRuntimeDate(value?: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return new Intl.DateTimeFormat('zh-CN', {
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+  }).format(date);
+}
+
 function DetailSection({
   title,
   children,
@@ -360,6 +377,93 @@ function StoryRouteSection({ plan }: { plan: StoryRoutePlanView }) {
             {`提示：${plan.warnings[0]}`}
           </p>
         ) : null}
+      </div>
+    </DetailSection>
+  );
+}
+
+function RuntimeControlSection({
+  runState,
+  latestCheckpoint,
+  latestLedger,
+}: {
+  runState?: {
+    phase?: string | null;
+    currentChapter?: number | null;
+    driftLevel?: string | null;
+    starvationScore?: number | null;
+    latestFailureReason?: string | null;
+  } | null;
+  latestCheckpoint?: {
+    checkpointType?: string | null;
+    chapterIndex?: number | null;
+    createdAt?: string | null;
+  } | null;
+  latestLedger?: {
+    chapterIndex?: number | null;
+    createdAt?: string | null;
+  } | null;
+}) {
+  if (!runState && !latestCheckpoint && !latestLedger) {
+    return null;
+  }
+
+  const runStateSummary = runState
+    ? `${runState.phase ?? 'idle'}${
+        typeof runState.currentChapter === 'number'
+          ? ` · 第 ${runState.currentChapter} 章`
+          : ''
+      }`
+    : '暂无运行状态';
+  const runStateMeta = [
+    runState?.driftLevel ? `漂移 ${runState.driftLevel}` : null,
+    typeof runState?.starvationScore === 'number'
+      ? `饥饿分 ${runState.starvationScore}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  const checkpointSummary = latestCheckpoint
+    ? [
+        latestCheckpoint.checkpointType,
+        typeof latestCheckpoint.chapterIndex === 'number'
+          ? `第 ${latestCheckpoint.chapterIndex} 章`
+          : null,
+        formatRuntimeDate(latestCheckpoint.createdAt),
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    : '暂无检查点';
+  const ledgerSummary = latestLedger
+    ? [
+        typeof latestLedger.chapterIndex === 'number'
+          ? `第 ${latestLedger.chapterIndex} 章`
+          : null,
+        formatRuntimeDate(latestLedger.createdAt),
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    : '暂无账本';
+
+  return (
+    <DetailSection title="运行控制">
+      <div className="grid gap-3">
+        <div>
+          <p className="text-xs font-semibold text-foreground">运行状态</p>
+          <p>{runStateSummary}</p>
+          {runStateMeta ? <p>{runStateMeta}</p> : null}
+          {runState?.latestFailureReason ? (
+            <p>{`最近失败：${runState.latestFailureReason}`}</p>
+          ) : null}
+        </div>
+        <div>
+          <p className="text-xs font-semibold text-foreground">最近检查点</p>
+          <p>{checkpointSummary}</p>
+        </div>
+        <div>
+          <p className="text-xs font-semibold text-foreground">最新账本</p>
+          <p>{ledgerSummary}</p>
+        </div>
       </div>
     </DetailSection>
   );
@@ -736,6 +840,22 @@ export default function BookDetail({
       themeAnswerDirection: string;
       centralDramaticQuestion: string;
       viralStoryProtocol?: ViralStoryProtocolView | null;
+    } | null;
+    latestLedger?: {
+      chapterIndex: number;
+      createdAt: string;
+    } | null;
+    latestCheckpoint?: {
+      chapterIndex: number;
+      checkpointType?: string;
+      createdAt: string;
+    } | null;
+    runState?: {
+      phase: string;
+      currentChapter: number | null;
+      driftLevel?: string | null;
+      starvationScore?: number | null;
+      latestFailureReason?: string | null;
     } | null;
     chapterTensionBudgets?: ChapterTensionBudgetView[];
     narrativeCheckpoints?: NarrativeCheckpointView[];
@@ -1159,6 +1279,11 @@ export default function BookDetail({
                           budget={selectedTensionBudget}
                         />
                       ) : null}
+                      <RuntimeControlSection
+                        runState={narrative?.runState}
+                        latestCheckpoint={narrative?.latestCheckpoint}
+                        latestLedger={narrative?.latestLedger}
+                      />
                       {viralStoryProtocol ? (
                         <ViralProtocolSection protocol={viralStoryProtocol} />
                       ) : null}

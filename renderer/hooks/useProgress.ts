@@ -8,6 +8,7 @@ import { useIpc } from './useIpc';
 const emptyStatus: SchedulerStatus = {
   runningBookIds: [],
   queuedBookIds: [],
+  queuedTasks: [],
   pausedBookIds: [],
   concurrencyLimit: null,
 };

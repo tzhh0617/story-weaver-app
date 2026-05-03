@@ -17,6 +17,7 @@ describe('renderer entry styling', () => {
             return {
               runningBookIds: [],
               queuedBookIds: [],
+              queuedTasks: [],
               pausedBookIds: [],
               concurrencyLimit: null,
             };

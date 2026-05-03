@@ -43,6 +43,7 @@ import type { BookDetailData } from './types/book-detail';
 const defaultScheduler: SchedulerStatus = {
   runningBookIds: [],
   queuedBookIds: [],
+  queuedTasks: [],
   pausedBookIds: [],
   concurrencyLimit: null,
 };

@@ -22,6 +22,14 @@ function assertRendererIpcTypes() {
   void ipc.invoke(ipcChannels.schedulerProgress, {
     runningBookIds: [],
     queuedBookIds: [],
+    queuedTasks: [
+      {
+        taskKey: 'book:book-1:plan',
+        bookId: 'book-1',
+        taskType: 'book:plan:title-idea',
+        score: 3,
+      },
+    ],
     pausedBookIds: [],
     concurrencyLimit: null,
   });

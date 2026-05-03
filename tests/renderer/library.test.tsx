@@ -163,6 +163,53 @@ describe('Library', () => {
     expect(within(workspaceCard).queryByText('1/50')).toBeNull();
   });
 
+  it('surfaces the next queued scheduler task with score-aware detail', () => {
+    render(
+      <Library
+        books={[
+          {
+            id: 'book-1',
+            title: '北境遗城',
+            idea: '旧王朝复苏。',
+            status: 'writing',
+            targetChapters: 500,
+            wordsPerChapter: 2500,
+            updatedAt: '2026-04-28T12:00:00.000Z',
+            createdAt: '2026-04-28T10:00:00.000Z',
+          },
+        ]}
+        scheduler={{
+          runningBookIds: ['book-1'],
+          queuedBookIds: ['book-2', 'book-3'],
+          queuedTasks: [
+            {
+              taskKey: 'book:book-2:plan',
+              bookId: 'book-2',
+              taskType: 'book:plan:title-idea',
+              score: 2,
+            },
+            {
+              taskKey: 'book:book-3:write',
+              bookId: 'book-3',
+              taskType: 'book:write:chapter',
+              score: 8,
+            },
+          ],
+          pausedBookIds: [],
+          concurrencyLimit: 1,
+        }}
+        onSelectBook={vi.fn()}
+        onStartAll={vi.fn()}
+        onPauseAll={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('队列头部')).toBeInTheDocument();
+    expect(
+      screen.getByText('book:plan:title-idea · book-2 · 分数 2')
+    ).toBeInTheDocument();
+  });
+
   it('shows an empty-state message when there are no books yet', () => {
     const onCreateBook = vi.fn();
 

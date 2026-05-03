@@ -290,6 +290,12 @@ export type BookDetail = {
 export type SchedulerStatus = {
   runningBookIds: string[];
   queuedBookIds: string[];
+  queuedTasks?: Array<{
+    taskKey: string;
+    bookId: string;
+    taskType: PlanningTaskType | string;
+    score: number;
+  }>;
   pausedBookIds: string[];
   concurrencyLimit: number | null;
 };

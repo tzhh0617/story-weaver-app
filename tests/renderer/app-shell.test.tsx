@@ -1158,6 +1158,111 @@ describe('App shell', () => {
     expect(screen.getByText('0')).toBeInTheDocument();
   });
 
+  it('shows runtime control details on the book detail page and accepts richer scheduler payloads', async () => {
+    const books = [
+      {
+        id: 'book-1',
+        title: '北境遗城',
+        idea: '旧王朝复苏。',
+        status: 'writing',
+        targetChapters: 500,
+        wordsPerChapter: 2500,
+        createdAt: '2026-05-01T00:00:00.000Z',
+        updatedAt: '2026-05-02T00:00:00.000Z',
+        progress: 10,
+        completedChapters: 5,
+        totalChapters: 50,
+      },
+    ];
+
+    installIpcMock(async (channel, payload) => {
+      switch (channel) {
+        case 'book:list':
+          return copy(books);
+        case 'model:list':
+          return [];
+        case 'scheduler:status':
+          return {
+            runningBookIds: ['book-1'],
+            queuedBookIds: ['book-2'],
+            queuedTasks: [
+              {
+                taskKey: 'book:book-2:write',
+                bookId: 'book-2',
+                taskType: 'book:write:chapter',
+                score: 4,
+              },
+            ],
+            pausedBookIds: [],
+            concurrencyLimit: 1,
+          };
+        case 'book:detail': {
+          const { bookId } = payload as { bookId: string };
+          return {
+            book: books.find((entry) => entry.id === bookId) ?? books[0],
+            context: null,
+            latestScene: null,
+            characterStates: [],
+            plotThreads: [],
+            chapters: [],
+            progress: {
+              phase: 'writing',
+              currentChapter: 12,
+            },
+            narrative: {
+              storyBible: null,
+              bookContract: {
+                title: '北境遗城',
+              },
+              latestLedger: {
+                updatedAt: '2026-05-03T08:30:00.000Z',
+                chapterIndex: 12,
+              },
+              latestCheckpoint: {
+                bookId,
+                chapterIndex: 11,
+                checkpointType: 'continuity',
+                createdAt: '2026-05-03T07:45:00.000Z',
+              },
+              runState: {
+                phase: 'drafting',
+                currentChapter: 12,
+                driftLevel: 'stable',
+                starvationScore: 1,
+                lastHealthyCheckpointChapter: 11,
+                latestFailureReason: null,
+                cooldownUntil: null,
+              },
+              chapterTensionBudgets: [],
+              narrativeCheckpoints: [],
+            },
+          };
+        }
+        default:
+          return null;
+      }
+    });
+
+    renderApp();
+
+    expect(
+      await screen.findByRole('button', { name: '北境遗城' })
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '北境遗城' }));
+    expect(
+      await screen.findByTestId('book-detail-workbench')
+    ).toBeInTheDocument();
+    expect(screen.getByText('运行控制')).toBeInTheDocument();
+    expect(screen.getByText('drafting · 第 12 章')).toBeInTheDocument();
+    expect(screen.getByText('最近检查点')).toBeInTheDocument();
+    expect(
+      screen.getByText('continuity · 第 11 章 · 2026/5/3')
+    ).toBeInTheDocument();
+    expect(screen.getByText('最新账本')).toBeInTheDocument();
+    expect(screen.getAllByText(/第 12 章/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/2026\/5\/3/).length).toBeGreaterThan(0);
+  });
+
   it('refreshes the selected book detail when progress pings for the same running book', async () => {
     const books = [
       {

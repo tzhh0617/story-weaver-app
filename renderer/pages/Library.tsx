@@ -44,6 +44,7 @@ export default function Library({
 }) {
   const [searchQuery, setSearchQuery] = useState('');
   const completedCount = books.filter((book) => book.status === 'completed').length;
+  const nextQueuedTask = scheduler.queuedTasks?.[0] ?? null;
   const hasRunnableBooks = books.some((book) => book.status !== 'completed');
   const hasPausableBooks = books.some(
     (book) => book.status !== 'completed' && book.status !== 'paused'
@@ -126,6 +127,14 @@ export default function Library({
             </div>
           ))}
         </dl>
+        {nextQueuedTask ? (
+          <div className="rounded-md border border-border/70 bg-background/55 px-3 py-2 text-sm text-muted-foreground">
+            <span className="font-semibold text-foreground">队列头部</span>
+            <span className="ml-2">
+              {`${nextQueuedTask.taskType} · ${nextQueuedTask.bookId} · 分数 ${nextQueuedTask.score}`}
+            </span>
+          </div>
+        ) : null}
 
         <div className="grid gap-5 border-t border-border/70 pt-5 xl:grid-cols-2 2xl:grid-cols-3">
           {visibleBooks.length ? (
