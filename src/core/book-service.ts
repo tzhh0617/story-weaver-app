@@ -225,6 +225,47 @@ function saveChapterOutlines(
   }
 }
 
+function findNextWritableChapter(input: {
+  chapters: Array<{
+    volumeIndex: number;
+    chapterIndex: number;
+    title: string | null;
+    outline: string | null;
+    content: string | null;
+  }>;
+  chapterCards: Array<{
+    volumeIndex: number;
+    chapterIndex: number;
+  }>;
+  chapterPlans: Array<{
+    chapterIndex: number;
+    status: string;
+  }>;
+}) {
+  const nextPlannedChapter = input.chapterPlans.find(
+    (plan) => plan.status !== 'completed'
+  );
+  const plannedChapterRow = nextPlannedChapter
+    ? input.chapters.find(
+        (chapter) =>
+          !chapter.content &&
+          chapter.chapterIndex === nextPlannedChapter.chapterIndex
+      )
+    : null;
+  const fallbackChapter = input.chapters.find(
+    (chapter) =>
+      !chapter.content &&
+      (Boolean(chapter.outline?.trim()) ||
+        input.chapterCards.some(
+          (card) =>
+            card.volumeIndex === chapter.volumeIndex &&
+            card.chapterIndex === chapter.chapterIndex
+        ))
+  );
+
+  return plannedChapterRow ?? fallbackChapter ?? null;
+}
+
 function hasPlanningBundle(
   outlineBundle: OutlineBundle
 ): outlineBundle is OutlineBundle & {
@@ -1545,27 +1586,11 @@ export function createBookService(deps: {
       const chapters = deps.chapters.listByBook(bookId);
       const chapterCards = deps.chapterCards?.listByBook?.(bookId) ?? [];
       const chapterPlans = deps.chapterPlans?.listByBook(bookId) ?? [];
-      const nextPlannedChapter = chapterPlans.find(
-        (plan) => plan.status !== 'completed'
-      );
-      const plannedChapterRow = nextPlannedChapter
-        ? chapters.find(
-            (chapter) =>
-              !chapter.content &&
-              chapter.chapterIndex === nextPlannedChapter.chapterIndex
-          )
-        : null;
-      const fallbackChapter = chapters.find(
-        (chapter) =>
-          !chapter.content &&
-          (Boolean(chapter.outline?.trim()) ||
-            chapterCards.some(
-              (card) =>
-                card.volumeIndex === chapter.volumeIndex &&
-                card.chapterIndex === chapter.chapterIndex
-            ))
-      );
-      const nextChapter = plannedChapterRow ?? fallbackChapter;
+      const nextChapter = findNextWritableChapter({
+        chapters,
+        chapterCards,
+        chapterPlans,
+      });
 
       if (!nextChapter) {
         throw new Error('No outlined chapter available to write');
@@ -2147,6 +2172,25 @@ export function createBookService(deps: {
           };
         }
 
+        const chapters = deps.chapters.listByBook(bookId);
+        const chapterCards = deps.chapterCards?.listByBook?.(bookId) ?? [];
+        const chapterPlans = deps.chapterPlans?.listByBook(bookId) ?? [];
+        const hasUnwrittenChapters = chapters.some((chapter) => !chapter.content);
+
+        if (!hasUnwrittenChapters) {
+          break;
+        }
+
+        if (
+          !findNextWritableChapter({
+            chapters,
+            chapterCards,
+            chapterPlans,
+          })
+        ) {
+          throw new Error('No outlined chapter available to write');
+        }
+
         const nextChapterResult = await this.writeNextChapter(bookId).catch((error) => {
           if (
             error instanceof Error &&
@@ -2192,14 +2236,16 @@ export function createBookService(deps: {
         };
       }
 
-      deps.books.updateStatus(bookId, 'completed');
-      const finalProgress = getProgressState(bookId);
-      if (
-        finalProgress?.phase !== 'planning_recheck' ||
-        !hasPersistedPlanning(bookId)
-      ) {
-        deps.progress.updatePhase(bookId, 'completed');
+      const hasUnwrittenChapters = deps.chapters
+        .listByBook(bookId)
+        .some((chapter) => !chapter.content);
+
+      if (hasUnwrittenChapters) {
+        throw new Error('No outlined chapter available to write');
       }
+
+      deps.books.updateStatus(bookId, 'completed');
+      deps.progress.updatePhase(bookId, 'completed');
       deps.onBookUpdated?.(bookId);
 
       return {

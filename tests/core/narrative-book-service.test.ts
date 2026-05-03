@@ -481,6 +481,180 @@ describe('narrative book-service integration', () => {
     });
   });
 
+  it('does not report bulk writing as completed when unwritten chapters remain but none are writable', async () => {
+    const db = createDatabase(':memory:');
+    const repos = createRepositories(db);
+    const service = createBookService({
+      ...repos,
+      outlineService: {
+        generateFromIdea: vi.fn().mockImplementation((input) =>
+          Promise.resolve({
+            worldSetting: 'Loop world',
+            masterOutline: 'Loop outline',
+            volumeOutlines: ['Stage 1'],
+            chapterOutlines: [
+              {
+                volumeIndex: 1,
+                chapterIndex: 1,
+                title: '命簿开页',
+                outline: '第一章可以正常写。',
+              },
+              {
+                volumeIndex: 1,
+                chapterIndex: 2,
+                title: '命簿断页',
+                outline: '第二章原本还未写。',
+              },
+            ],
+            chapterPlans: [
+              {
+                batchIndex: 1,
+                chapterIndex: 1,
+                arcIndex: 1,
+                goal: '写出第一章。',
+                conflict: '旧案逼近。',
+                pressureSource: '林牧害怕继续追查。',
+                changeType: 'commitment',
+                threadActions: [],
+                reveal: '林家名字出现。',
+                payoffOrCost: '失去一段记忆。',
+                endingHook: '追查无法停止。',
+                titleIdeaLink: '每次改命都要先失去一样东西。',
+                batchGoal: '旧案起势',
+                requiredPayoffs: ['旧案入场'],
+                forbiddenDrift: ['轻松脱身'],
+                status: 'planned',
+              },
+              {
+                batchIndex: 1,
+                chapterIndex: 2,
+                arcIndex: 1,
+                goal: '写出第二章。',
+                conflict: '旧案继续升级。',
+                pressureSource: '林牧无法停手。',
+                changeType: 'escalation',
+                threadActions: [],
+                reveal: '追查线索指向宗门。',
+                payoffOrCost: '继续失去安全边界。',
+                endingHook: '更大的代价逼近。',
+                titleIdeaLink: '每次改命都要先失去一样东西。',
+                batchGoal: '旧案升级',
+                requiredPayoffs: ['线索升级'],
+                forbiddenDrift: ['无成本推进'],
+                status: 'planned',
+              },
+            ],
+            narrativeBible: bible(),
+            volumePlans: volumePlans(),
+            chapterCards: [
+              ...chapterCards(input.bookId),
+              {
+                ...chapterCards(input.bookId)[0],
+                chapterIndex: 2,
+                title: '命簿断页',
+                plotFunction: '第二章原本还未写。',
+              },
+            ],
+            chapterTensionBudgets: [
+              ...tensionBudgets(input.bookId),
+              {
+                ...tensionBudgets(input.bookId)[0],
+                chapterIndex: 2,
+              },
+            ],
+            chapterThreadActions: [],
+            chapterCharacterPressures: [],
+            chapterRelationshipActions: [],
+          })
+        ),
+      },
+      chapterWriter: {
+        writeChapter: vi.fn().mockResolvedValue({
+          content: '第一章顺利写完，但第二章没有可写提纲。',
+        }),
+      },
+      chapterAuditor: {
+        auditChapter: vi.fn().mockResolvedValue({
+          passed: true,
+          score: 88,
+          decision: 'accept',
+          issues: [],
+          scoring: {
+            characterLogic: 18,
+            mainlineProgress: 13,
+            relationshipChange: 13,
+            conflictDepth: 14,
+            worldRuleCost: 9,
+            threadManagement: 8,
+            pacingReward: 9,
+            themeAlignment: 4,
+            flatness: {
+              conflictEscalation: 65,
+              choicePressure: 75,
+              consequenceVisibility: 65,
+              irreversibleChange: 75,
+              hookStrength: 65,
+            },
+          },
+          stateUpdates: {
+            characterArcUpdates: [],
+            relationshipUpdates: [],
+            threadUpdates: [],
+            worldKnowledgeUpdates: [],
+            themeUpdate: '自由需要承担代价。',
+          },
+        }),
+      },
+      narrativeStateExtractor: {
+        extractState: vi.fn().mockResolvedValue({
+          characterStates: [],
+          relationshipStates: [],
+          threadUpdates: [],
+          scene: null,
+          themeProgression: '自由需要承担代价。',
+        }),
+      },
+      summaryGenerator: {
+        summarizeChapter: vi.fn().mockResolvedValue('第一章完成。'),
+      },
+      plotThreadExtractor: {
+        extractThreads: vi.fn().mockResolvedValue({
+          openedThreads: [],
+          resolvedThreadIds: [],
+        }),
+      },
+      characterStateExtractor: {
+        extractStates: vi.fn().mockResolvedValue([]),
+      },
+      sceneRecordExtractor: {
+        extractScene: vi.fn().mockResolvedValue(null),
+      },
+      resolveModelId: () => 'mock',
+    });
+
+    const bookId = service.createBook({
+      idea: '命簿旧案追查',
+      targetChapters: 2,
+      wordsPerChapter: 2000,
+    });
+
+    await service.startBook(bookId);
+    const originalWriteNextChapter = service.writeNextChapter.bind(service);
+    const writeSpy = vi
+      .spyOn(service, 'writeNextChapter')
+      .mockImplementationOnce((id) => originalWriteNextChapter(id))
+      .mockRejectedValueOnce(new Error('No outlined chapter available to write'));
+
+    await expect(service.writeRemainingChapters(bookId)).rejects.toThrow(
+      'No outlined chapter available to write'
+    );
+    expect(writeSpy).toHaveBeenCalledTimes(2);
+    expect(service.getBookDetail(bookId)?.book.status).not.toBe('completed');
+    expect(
+      service.getBookDetail(bookId)?.chapters.some((chapter) => !chapter.content)
+    ).toBe(true);
+  });
+
   it('persists non-resolving narrative thread state updates after an approved chapter', async () => {
     const db = createDatabase(':memory:');
     const repos = createRepositories(db);
@@ -687,7 +861,7 @@ describe('narrative book-service integration', () => {
     });
   });
 
-  it('runs and stores a checkpoint after completing chapter 10', async () => {
+  it('runs and stores a checkpoint at chapter 10 and completes with truthful terminal progress', async () => {
     const db = createDatabase(':memory:');
     const repos = createRepositories(db);
     const cards = Array.from({ length: 10 }, (_, index) => {
@@ -820,7 +994,7 @@ describe('narrative book-service integration', () => {
 
     const bookId = service.createBook({
       idea: '命簿',
-      targetChapters: 10,
+      targetChapters: 12,
       wordsPerChapter: 2000,
     });
 
@@ -859,9 +1033,9 @@ describe('narrative book-service integration', () => {
       ],
     });
     expect(repos.progress.getByBookId(bookId)).toMatchObject({
-      phase: 'planning_recheck',
-      currentChapter: 10,
-      activeTaskType: 'book:plan:rebuild-chapters',
+      phase: 'completed',
+      activeTaskType: null,
     });
+    expect(service.getBookDetail(bookId)?.book.status).toBe('completed');
   });
 });
