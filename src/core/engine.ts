@@ -1,6 +1,6 @@
 import type { BookStatus } from '../shared/contracts.js';
 
-type EngineResultStatus = 'completed' | 'paused' | 'deleted';
+type EngineResultStatus = 'completed' | 'paused' | 'deleted' | 'replanning';
 
 export function createNovelEngine(deps: {
   bookId: string;
@@ -16,7 +16,7 @@ export function createNovelEngine(deps: {
     };
   };
 }) {
-  let status: BookStatus | 'deleted' = 'creating';
+  let status: BookStatus | 'deleted' | 'replanning' = 'creating';
 
   return {
     async start() {
@@ -41,6 +41,12 @@ export function createNovelEngine(deps: {
       if (result.status === 'paused') {
         status = 'paused';
         deps.repositories.progress.updatePhase(deps.bookId, status);
+        return;
+      }
+
+      if (result.status === 'replanning') {
+        status = 'replanning';
+        deps.repositories.progress.updatePhase(deps.bookId, 'planning_recheck');
         return;
       }
 

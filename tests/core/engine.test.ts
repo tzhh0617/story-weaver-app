@@ -83,4 +83,30 @@ describe('createNovelEngine', () => {
     expect(updatePhase).toHaveBeenCalledWith('book-1', 'paused');
     expect(engine.getStatus()).toBe('paused');
   });
+
+  it('keeps the engine in replanning when continuous writing escalates back to planning', async () => {
+    const updatePhase = vi.fn();
+    const initializePlanning = vi.fn().mockResolvedValue(undefined);
+    const continueWriting = vi.fn().mockResolvedValue({
+      completedChapters: 0,
+      status: 'replanning',
+    });
+
+    const engine = createNovelEngine({
+      bookId: 'book-1',
+      initializePlanning,
+      continueWriting,
+      repositories: {
+        progress: {
+          updatePhase,
+        },
+      },
+    });
+
+    await engine.start();
+
+    expect(updatePhase).toHaveBeenCalledWith('book-1', 'planning_recheck');
+    expect(updatePhase).not.toHaveBeenCalledWith('book-1', 'completed');
+    expect(engine.getStatus()).toBe('replanning');
+  });
 });

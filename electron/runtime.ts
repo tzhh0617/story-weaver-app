@@ -8,6 +8,7 @@ import {
   shouldRewriteShortChapter,
 } from '../src/core/chapter-review.js';
 import { createBookService } from '../src/core/book-service.js';
+import { buildIntegrityReport } from '../src/core/narrative/integrity.js';
 import {
   createScheduler,
   type SchedulerTaskType,
@@ -43,7 +44,7 @@ type RuntimeServices = {
   writeNextChapter: (bookId: string) => Promise<unknown>;
   writeRemainingChapters: (bookId: string) => Promise<{
     completedChapters: number;
-    status: 'completed' | 'paused' | 'deleted';
+    status: 'completed' | 'paused' | 'deleted' | 'replanning';
   }>;
   resumeBook: (bookId: string) => Promise<void>;
   restartBook: (bookId: string) => Promise<void>;
@@ -260,6 +261,109 @@ export function getRuntimeServices() {
     }
 
     return 'book_progress';
+  }
+
+  function buildRuntimeChapterIntegrityChecker() {
+    return {
+      inspectChapter: async (input: {
+        bookId: string;
+        volumeIndex: number;
+        chapterIndex: number;
+        chapterTitle: string;
+        chapterOutline: string;
+        content: string;
+        summary: string;
+        auditScore: number | null;
+        draftAttempts: number;
+      }) => {
+        const latestAudit = repositories.chapterAudits
+          .listByChapter(input.bookId, input.volumeIndex, input.chapterIndex)
+          .at(-1);
+        const latestCheckpoint = repositories.narrativeCheckpoints
+          .listByBook(input.bookId)
+          .filter((checkpoint) => checkpoint.chapterIndex < input.chapterIndex)
+          .at(-1);
+        const checkpointReport =
+          latestCheckpoint?.report &&
+          typeof latestCheckpoint.report === 'object' &&
+          latestCheckpoint.report !== null
+            ? (latestCheckpoint.report as {
+                replanningNotes?: string | null;
+              })
+            : null;
+
+        const mainlineProblems =
+          latestAudit?.issues
+            .filter(
+              (issue) =>
+                issue.type === 'mainline_stall' ||
+                issue.type === 'forbidden_move' ||
+                issue.type === 'theme_drift'
+            )
+            .map((issue) => issue.evidence) ?? [];
+        const characterProblems =
+          latestAudit?.issues
+            .filter(
+              (issue) =>
+                issue.type === 'character_logic' ||
+                issue.type === 'relationship_static'
+            )
+            .map((issue) => issue.evidence) ?? [];
+        const subplotProblems =
+          latestAudit?.issues
+            .filter((issue) => issue.type === 'thread_leak')
+            .map((issue) => issue.evidence) ?? [];
+        const payoffProblems =
+          latestAudit?.issues
+            .filter(
+              (issue) =>
+                issue.type === 'missing_payoff' ||
+                issue.type === 'payoff_without_cost' ||
+                issue.type === 'weak_reader_question'
+            )
+            .map((issue) => issue.evidence) ?? [];
+        const rhythmProblems =
+          latestAudit?.issues
+            .filter(
+              (issue) =>
+                issue.type === 'pacing_problem' ||
+                issue.type === 'chapter_too_empty' ||
+                issue.type === 'flat_chapter' ||
+                issue.type === 'weak_choice_pressure' ||
+                issue.type === 'missing_consequence' ||
+                issue.type === 'soft_hook' ||
+                issue.type === 'repeated_tension_pattern'
+            )
+            .map((issue) => issue.evidence) ?? [];
+
+        if ((input.auditScore ?? latestAudit?.score ?? 100) < 40) {
+          rhythmProblems.push(
+            `Audit score ${input.auditScore ?? latestAudit?.score} fell below runtime integrity floor`
+          );
+        }
+
+        if (
+          input.summary.trim().length < 20 &&
+          (latestAudit?.decision === 'rewrite' || latestAudit?.decision === 'revise')
+        ) {
+          rhythmProblems.push(
+            'Chapter summary is too thin to trust for downstream continuity'
+          );
+        }
+
+        if (checkpointReport?.replanningNotes) {
+          payoffProblems.push(checkpointReport.replanningNotes);
+        }
+
+        return buildIntegrityReport({
+          mainlineProblems,
+          characterProblems,
+          subplotProblems,
+          payoffProblems,
+          rhythmProblems,
+        });
+      },
+    };
   }
 
   function logGenerationEvent(event: BookGenerationEvent) {
@@ -612,6 +716,20 @@ export function getRuntimeServices() {
           message: '后台执行完成',
         });
       }
+      if (result.status === 'replanning') {
+        logExecution({
+          bookId,
+          level: 'info',
+          eventType: 'book_replanning',
+          phase: 'planning_recheck',
+          message: '后台执行进入重规划',
+          debugContext: {
+            completedChapters: result.completedChapters,
+            status: result.status,
+          },
+        });
+        await queueWritingTaskAfterPlanning(bookId);
+      }
       logExecution({
         bookId,
         level: 'debug',
@@ -659,6 +777,7 @@ export function getRuntimeServices() {
     chapterRevision: aiServices.chapterRevision,
     narrativeStateExtractor: aiServices.narrativeStateExtractor,
     narrativeCheckpoint: aiServices.narrativeCheckpoint,
+    chapterIntegrityChecker: buildRuntimeChapterIntegrityChecker(),
     shouldRewriteShortChapter: ({ content, wordsPerChapter }) =>
       shouldRewriteShortChapter({
         enabled: parseBooleanSetting(
@@ -750,6 +869,19 @@ export function getRuntimeServices() {
             eventType: 'book_completed',
             phase: 'completed',
             message: '后台执行完成',
+          });
+        }
+        if (result.status === 'replanning') {
+          logExecution({
+            bookId,
+            level: 'info',
+            eventType: 'book_replanning',
+            phase: 'planning_recheck',
+            message: '手动写作进入重规划',
+            debugContext: {
+              completedChapters: result.completedChapters,
+              status: result.status,
+            },
           });
         }
 
