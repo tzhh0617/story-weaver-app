@@ -300,4 +300,76 @@ describe('createScheduler', () => {
     await Promise.resolve();
     await Promise.resolve();
   });
+
+  it('keeps unlimited mode throughput after unregistering a running task', async () => {
+    const bookAFirst = createDeferred();
+    const bookASecond = createDeferred();
+    const bookB = createDeferred();
+    const bookC = createDeferred();
+    const startBookAFirst = vi.fn().mockImplementation(async () => {
+      await bookAFirst.promise;
+    });
+    const startBookASecond = vi.fn().mockImplementation(async () => {
+      await bookASecond.promise;
+    });
+    const startBookB = vi.fn().mockImplementation(async () => {
+      await bookB.promise;
+    });
+    const startBookC = vi.fn().mockImplementation(async () => {
+      await bookC.promise;
+    });
+
+    const scheduler = createScheduler({ concurrencyLimit: null });
+    scheduler.register({
+      taskKey: 'book-a:first',
+      bookId: 'book-a',
+      taskType: 'book:write:chapter',
+      start: startBookAFirst,
+    });
+    scheduler.register({
+      taskKey: 'book-a:second',
+      bookId: 'book-a',
+      taskType: 'book:write:chapter',
+      start: startBookASecond,
+    });
+    scheduler.register({
+      taskKey: 'book-b:write',
+      bookId: 'book-b',
+      taskType: 'book:write:chapter',
+      start: startBookB,
+    });
+    scheduler.register({
+      taskKey: 'book-c:write',
+      bookId: 'book-c',
+      taskType: 'book:write:chapter',
+      start: startBookC,
+    });
+
+    await scheduler.start('book-a:first');
+    expect(startBookAFirst).toHaveBeenCalledTimes(1);
+
+    scheduler.unregister('book-a:first');
+    await scheduler.start('book-a:second');
+    await scheduler.start('book-b:write');
+    await scheduler.start('book-c:write');
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(startBookASecond).toHaveBeenCalledTimes(0);
+    expect(startBookB).toHaveBeenCalledTimes(1);
+    expect(startBookC).toHaveBeenCalledTimes(1);
+    expect(scheduler.getStatus().runningBookIds.sort()).toEqual(['book-a', 'book-b', 'book-c']);
+
+    bookAFirst.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(startBookASecond).toHaveBeenCalledTimes(1);
+
+    bookASecond.resolve();
+    bookB.resolve();
+    bookC.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+  });
 });

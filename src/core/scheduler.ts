@@ -69,7 +69,7 @@ export function createScheduler({
   }
 
   function pumpQueue() {
-    const limit = currentConcurrencyLimit ?? runners.size;
+    const limit = currentConcurrencyLimit ?? Number.POSITIVE_INFINITY;
 
     while (runningTaskKeys.size < limit && queue.length > 0) {
       sortQueue();
