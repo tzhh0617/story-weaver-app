@@ -662,6 +662,7 @@ export function getRuntimeServices() {
       const runnableBooks = bookService
         .listBooks()
         .filter((book) => book.status !== 'completed');
+      const planningTaskKeys: string[] = [];
 
       logExecution({
         level: 'info',
@@ -676,10 +677,13 @@ export function getRuntimeServices() {
           eventType: 'book_queued',
           message: '作品已加入后台执行队列',
         });
-        registerRuntimeTasks(book.id);
+        const taskKeys = registerRuntimeTasks(book.id);
+        planningTaskKeys.push(taskKeys.planning);
       }
 
-      await scheduler.startAll();
+      await Promise.all(
+        planningTaskKeys.map((taskKey) => scheduler.start(taskKey))
+      );
     },
     pauseAllBooks: async () => {
       scheduler.pauseAll();
