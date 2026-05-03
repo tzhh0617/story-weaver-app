@@ -209,7 +209,6 @@ describe('Library', () => {
       screen.getByText('book:plan:title-idea · book-2 · 分数 2')
     ).toBeInTheDocument();
   });
-
   it('shows an empty-state message when there are no books yet', () => {
     const onCreateBook = vi.fn();
 
